@@ -13,6 +13,7 @@ $items = @(
     "C:\\scripts\\install-cleanup-task.ps1",
     "C:\\scripts\\ensure-powershell-core.ps1",
     "C:\\scripts\\audit-disk-hotspots.ps1",
+    "C:\\scripts\\analyze-garbage-hotspots.ps1",
     "C:\\scripts\\system-optimizer-gui.ps1",
     "C:\\scripts\\build-gui-exe.ps1",
     "C:\\scripts\\install-suite.ps1",
