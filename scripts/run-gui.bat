@@ -1,6 +1,6 @@
 @echo off
-if exist C:\dist\WindowsOptimizer\WindowsOptimizer.exe (
-  start "" C:\dist\WindowsOptimizer\WindowsOptimizer.exe
+if exist C:\SystemOptimizerHub\active\dist\WindowsOptimizer\WindowsOptimizer.exe (
+  start "" C:\SystemOptimizerHub\active\dist\WindowsOptimizer\WindowsOptimizer.exe
 ) else (
-  powershell -NoProfile -ExecutionPolicy Bypass -File C:\scripts\system-optimizer-gui.ps1
+  powershell -NoProfile -ExecutionPolicy Bypass -File C:\SystemOptimizerHub\active\scripts\system-optimizer-gui.ps1
 )

@@ -26,6 +26,18 @@
 - Fix applicato: packaging reso hub-relative (`active/scripts`, `active/config`) con default output `C:/SystemOptimizerHub/active/dist/WindowsOptimizer`.
 - Esito: script distribuiti allineati ai fix runtime dell'EXE.
 
+### Bug 5
+- Sintomo: da launcher/shortcut la GUI non partiva o partiva una versione non aggiornata.
+- Causa: `run-gui.bat` e default di `build-gui-exe.ps1` puntavano ai vecchi path `C:\dist` / `C:\scripts`.
+- Fix applicato: riallineati i default a `C:/SystemOptimizerHub/active/...` e mantenuta copia compatibile su `C:/dist/WindowsOptimizer`.
+- Esito: avvio valido sia da path Active sia da path legacy.
+
+### Bug 6
+- Sintomo: rebuild EXE falliva con `Access denied` su `WindowsOptimizer.exe`.
+- Causa: processo EXE ancora in esecuzione durante la compilazione (file lock).
+- Fix applicato: procedura deterministica pre-build con stop process `WindowsOptimizer` prima della rigenerazione.
+- Esito: build completata e binari aggiornati su entrambe le destinazioni.
+
 ### Verifica finale
 - GUI script lint: nessun errore.
 - EXE rigenerato: `C:/SystemOptimizerHub/active/dist/WindowsOptimizer/WindowsOptimizer.exe`.

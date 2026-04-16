@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
-    [string]$SourceScript = "C:\\scripts\\system-optimizer-gui.ps1",
-    [string]$OutputExe = "C:\\dist\\WindowsOptimizer\\WindowsOptimizer.exe"
+    [string]$SourceScript = "C:\\SystemOptimizerHub\\active\\scripts\\system-optimizer-gui.ps1",
+    [string]$OutputExe = "C:\\SystemOptimizerHub\\active\\dist\\WindowsOptimizer\\WindowsOptimizer.exe"
 )
 
 Set-StrictMode -Version Latest
@@ -17,7 +17,7 @@ if (-not (Test-Path -LiteralPath $parent)) {
 }
 
 if (-not (Get-Command Invoke-PS2EXE -ErrorAction SilentlyContinue)) {
-    $moduleCacheRoot = "C:\\scripts\\modules"
+    $moduleCacheRoot = "C:\\SystemOptimizerHub\\active\\scripts\\modules"
     if (-not (Test-Path -LiteralPath $moduleCacheRoot)) {
         New-Item -Path $moduleCacheRoot -ItemType Directory -Force | Out-Null
     }
