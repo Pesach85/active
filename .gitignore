@@ -1,0 +1,19 @@
+# Build artifacts
+/dist/**/WindowsOptimizer.exe
+*.exe
+
+# Runtime logs and telemetry
+/logs/*.log
+/logs/*.csv
+
+# Session and machine-specific artifacts
+MANIFEST.txt
+*.tmp
+*.bak
+
+# Potentially sensitive KB runtime journal
+/KB/journal.md
+
+# OS noise
+Thumbs.db
+.DS_Store
