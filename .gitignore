@@ -6,6 +6,10 @@
 /logs/*.log
 /logs/*.csv
 
+# Local module cache
+/scripts/modules/
+/dist/**/scripts/modules/
+
 # Session and machine-specific artifacts
 MANIFEST.txt
 *.tmp
