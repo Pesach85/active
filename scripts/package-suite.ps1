@@ -1,29 +1,33 @@
 [CmdletBinding()]
 param(
-    [string]$OutputDir = "C:\\dist\\WindowsOptimizer"
+    [string]$OutputDir = "C:\\SystemOptimizerHub\\active\\dist\\WindowsOptimizer"
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
+$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$hubRoot = Split-Path -Parent $scriptDir
+$configDir = Join-Path $hubRoot "config"
+
 $items = @(
-    "C:\\scripts\\monitor-resources.ps1",
-    "C:\\scripts\\cleanup-storage-safe.ps1",
-    "C:\\scripts\\install-monitor-task.ps1",
-    "C:\\scripts\\install-cleanup-task.ps1",
-    "C:\\scripts\\ensure-powershell-core.ps1",
-    "C:\\scripts\\audit-disk-hotspots.ps1",
-    "C:\\scripts\\analyze-garbage-hotspots.ps1",
-    "C:\\scripts\\system-optimizer-gui.ps1",
-    "C:\\scripts\\build-gui-exe.ps1",
-    "C:\\scripts\\install-suite.ps1",
-    "C:\\scripts\\uninstall-suite.ps1",
-    "C:\\scripts\\run-gui.bat",
-    "C:\\scripts\\run-install-suite.bat",
-    "C:\\scripts\\run-uninstall-suite.bat",
-    "C:\\scripts\\run-core-bootstrap.bat",
-    "C:\\scripts\\run-disk-audit-safe.bat",
-    "C:\\config\\sys-maintenance.json"
+    (Join-Path $scriptDir "monitor-resources.ps1"),
+    (Join-Path $scriptDir "cleanup-storage-safe.ps1"),
+    (Join-Path $scriptDir "install-monitor-task.ps1"),
+    (Join-Path $scriptDir "install-cleanup-task.ps1"),
+    (Join-Path $scriptDir "ensure-powershell-core.ps1"),
+    (Join-Path $scriptDir "audit-disk-hotspots.ps1"),
+    (Join-Path $scriptDir "analyze-garbage-hotspots.ps1"),
+    (Join-Path $scriptDir "system-optimizer-gui.ps1"),
+    (Join-Path $scriptDir "build-gui-exe.ps1"),
+    (Join-Path $scriptDir "install-suite.ps1"),
+    (Join-Path $scriptDir "uninstall-suite.ps1"),
+    (Join-Path $scriptDir "run-gui.bat"),
+    (Join-Path $scriptDir "run-install-suite.bat"),
+    (Join-Path $scriptDir "run-uninstall-suite.bat"),
+    (Join-Path $scriptDir "run-core-bootstrap.bat"),
+    (Join-Path $scriptDir "run-disk-audit-safe.bat"),
+    (Join-Path $configDir "sys-maintenance.json")
 )
 
 if (-not (Test-Path -LiteralPath $OutputDir)) {
@@ -45,7 +49,7 @@ foreach ($item in $items) {
     }
 }
 
-$exeSource = "C:\\dist\\WindowsOptimizer\\WindowsOptimizer.exe"
+$exeSource = Join-Path $hubRoot "dist\\WindowsOptimizer\\WindowsOptimizer.exe"
 if (Test-Path -LiteralPath $exeSource) {
     $exeDestination = Join-Path $OutputDir "WindowsOptimizer.exe"
     $srcResolved = (Resolve-Path -LiteralPath $exeSource).ProviderPath

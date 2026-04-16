@@ -1,8 +1,59 @@
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
-$script:scriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
-$script:hubRoot = Split-Path -Parent $script:scriptRoot
+function Resolve-BaseDirectory {
+    if ($PSScriptRoot) {
+        return $PSScriptRoot
+    }
+
+    if ($MyInvocation.MyCommand.Path) {
+        return (Split-Path -Parent $MyInvocation.MyCommand.Path)
+    }
+
+    $exeBase = [System.AppDomain]::CurrentDomain.BaseDirectory
+    if ($exeBase) {
+        return $exeBase.TrimEnd("\\")
+    }
+
+    return (Get-Location).Path
+}
+
+$baseDir = Resolve-BaseDirectory
+$scriptsUnderBase = Join-Path $baseDir "scripts"
+
+if (Test-Path -LiteralPath $scriptsUnderBase) {
+    $script:hubRoot = $baseDir
+    $script:scriptRoot = $scriptsUnderBase
+} elseif ((Split-Path -Leaf $baseDir).ToLowerInvariant() -eq "scripts") {
+    $script:scriptRoot = $baseDir
+    $script:hubRoot = Split-Path -Parent $baseDir
+} else {
+    $script:scriptRoot = $baseDir
+    $script:hubRoot = Split-Path -Parent $baseDir
+}
+
+$pwshCmd = Get-Command pwsh -ErrorAction SilentlyContinue
+if ($pwshCmd) {
+    $script:psHost = $pwshCmd.Path
+} else {
+    $winPsCmd = Get-Command powershell -ErrorAction SilentlyContinue
+    if ($winPsCmd) {
+        $script:psHost = $winPsCmd.Path
+    } else {
+        $script:psHost = $null
+    }
+}
+
+function Invoke-ChildPowerShell {
+    param([string[]]$Args)
+
+    if (-not $script:psHost) {
+        throw "No PowerShell runtime available in PATH."
+    }
+
+    & $script:psHost @Args
+}
+
 $script:cleanupScript = Join-Path $script:scriptRoot "cleanup-storage-safe.ps1"
 $script:analyzerScript = Join-Path $script:scriptRoot "analyze-garbage-hotspots.ps1"
 $script:coreScript = Join-Path $script:scriptRoot "ensure-powershell-core.ps1"
@@ -289,14 +340,18 @@ function Run-GarbageAnalysis {
     $cleanupMode = [string]$cmbCleanupMode.SelectedItem
     $top = [int]$numTop.Value
 
-    Append-Status ("Analyzing garbage hotspots Depth={0} Audit={1} Mode={2} Top={3}" -f $depth, $auditLevel, $cleanupMode, $top)
-    $rows = & powershell -NoProfile -ExecutionPolicy Bypass -File $script:analyzerScript -Drives C,D -Top $top -Depth $depth -AuditLevel $auditLevel -CleanupMode $cleanupMode
-    if ($rows) {
-        Populate-Explorer -Rows @($rows)
-        Append-Status ("Explorer updated with {0} ranked paths." -f @($rows).Count)
-    } else {
-        Populate-Explorer -Rows @()
-        Append-Status "Analyzer returned no rows."
+    try {
+        Append-Status ("Analyzing garbage hotspots Depth={0} Audit={1} Mode={2} Top={3}" -f $depth, $auditLevel, $cleanupMode, $top)
+        $rows = Invoke-ChildPowerShell -Args @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $script:analyzerScript, "-Drives", "C", "D", "-Top", "$top", "-Depth", $depth, "-AuditLevel", $auditLevel, "-CleanupMode", $cleanupMode)
+        if ($rows) {
+            Populate-Explorer -Rows @($rows)
+            Append-Status ("Explorer updated with {0} ranked paths." -f @($rows).Count)
+        } else {
+            Populate-Explorer -Rows @()
+            Append-Status "Analyzer returned no rows."
+        }
+    } catch {
+        Append-Status ("Analyzer error: {0}" -f $_.Exception.Message)
     }
 }
 
@@ -326,9 +381,13 @@ function Run-Cleanup {
 
     $action = if ($ExecuteNow) { "execute" } else { "audit" }
     Append-Status ("Running cleanup {0} with Depth={1}, Audit={2}, Mode={3}" -f $action, $depth, $auditLevel, $cleanupMode)
-    $result = & powershell @args
-    Append-Status ($result | Out-String)
-    Refresh-Drives
+    try {
+        $result = Invoke-ChildPowerShell -Args $args
+        Append-Status ($result | Out-String)
+        Refresh-Drives
+    } catch {
+        Append-Status ("Cleanup error: {0}" -f $_.Exception.Message)
+    }
 }
 
 $listExplorer.Add_DoubleClick({
@@ -365,9 +424,13 @@ $btnInstallTasks.Add_Click({
         "-MonitorInstallerPath", $script:monitorInstaller,
         "-CleanupInstallerPath", $script:cleanupInstaller
     )
-    & powershell @args
-    Reload-Tasks
-    Append-Status "Core tasks installation completed."
+    try {
+        Invoke-ChildPowerShell -Args $args | Out-Null
+        Reload-Tasks
+        Append-Status "Core tasks installation completed."
+    } catch {
+        Append-Status ("Core install error: {0}" -f $_.Exception.Message)
+    }
 })
 $btnLoadLogs.Add_Click({
     if (Test-Path -LiteralPath $script:defaultLog) {
