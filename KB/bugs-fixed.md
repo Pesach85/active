@@ -1,5 +1,16 @@
 # Bugs Fixed
 
+## 2026-04-17 - Packaging Health Audit scripts mancanti in dist
+
+### Bug 20
+- **Sintomo**: dalla GUI distribuita compariva `Health audit script not found: C:\SystemOptimizerHub\active\dist\WindowsOptimizer\scripts\system-health-audit.ps1`.
+- **Causa radice**: `scripts/package-suite.ps1` non includeva `system-health-audit.ps1` (e il companion `apply-safe-fixes.ps1`) nella lista artefatti copiati in `dist/WindowsOptimizer/scripts`.
+- **Fix applicato**: aggiornato il packaging aggiungendo entrambi gli script health all'array `$items` e rigenerato il pacchetto in `C:\SystemOptimizerHub\active\dist\WindowsOptimizer`.
+- **Check anti-regressione**:
+	- pre-fix: `HealthAuditExists=False`, `ApplyFixesExists=False`, `TotalPs1=13`;
+	- post-fix: `HealthAuditExists=True`, `ApplyFixesExists=True`, `TotalPs1=15`.
+- **Esito**: flusso Health Audit/Apply ripristinato in ambiente distribuito senza modifiche invasive alla GUI.
+
 ## 2026-04-16 - EXE Runtime Stabilization
 
 ### Bug 1
