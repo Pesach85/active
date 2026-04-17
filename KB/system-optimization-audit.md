@@ -466,3 +466,45 @@ Set-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multi
 3. **Il single-channel RAM è il bottleneck hardware più facile da risolvere**: un modulo DDR4-2400 SODIMM da 16 GB costa 25-40€ e dà un boost del 40% sulla bandwidth.
 4. **Intel RST vs AHCI** è la decisione più impattante sul lungo termine per le prestazioni NVMe, ma richiede preparazione.
 5. **L'HDD a 5400 RPM** su D: sarà sempre lento per accesso random — la sostituzione con un SSD 2.5" SATA è l'unico miglioramento reale per D:.
+
+---
+
+## 11. Verifica Deterministica Post-Reboot (2026-04-17)
+
+### Best next decision
+Confermare chiusa la fase di ottimizzazione software safe e passare alla fase hardware/capacita: liberazione spazio su D:, upgrade RAM dual-channel e piano sostituzione NVMe in predictive failure.
+
+### Metriche pre/post (misurate)
+
+| Metrica | Pre | Post reboot | Delta |
+|---------|-----|-------------|-------|
+| Spazio libero C: | 7.1 GB (3.2%) | **23.55 GB (10.61%)** | **+16.45 GB** |
+| Spazio libero D: | 3.3 GB (0.35%) | 3.29 GB (0.35%) | ~0 |
+| Pagefile C: | 20480/20480 MB | **8192/8192 MB** | **-12 GB occupati** |
+| Ibernazione | Attiva | **Disattivata** | hiberfil rimosso |
+| Servizi non essenziali | Auto/Running | **Manual + Stopped (13/13)** | overhead boot ridotto |
+| SystemResponsiveness | 20 | **10** | foreground piu reattivo |
+| NTFS memoryusage | 0 | **2** | cache metadata aumentata |
+| NTFS mftzone | 0 | **2 (400 MB)** | frammentazione MFT ridotta |
+| Visual effects | 3 (Windows decide) | **2 (best performance)** | carico UI ridotto |
+| CrystalDiskInfo | Assente | **Installato (9.8.0)** | monitor SMART attivo |
+| Finding audit totali | 10 | **6** | **-40%** |
+| Finding critici | 4 | **2** | **-50%** |
+
+### Finding residui (post-reboot)
+- `DISK-SPACE-D`
+- `RAM-CHANNEL-001`
+- `DISK-SPACE-C`
+- `DRIVER-RST-001`
+- `DRIVER-RST-002`
+- `STARTUP-001`
+
+### Check anti-regressione
+- Nessun servizio e stato terminato forzatamente dopo reboot: i 13 servizi target risultano `StartMode=Manual` e `State=Stopped`.
+- Modifiche pagefile/NTFS applicate come previsto e persistenti dopo reboot.
+- Nessuna modifica aggressiva applicata (no switch AHCI, no rimozione recovery partition, no stop processi utente aperti).
+
+### Evidenze generate
+- `logs/health-audit-postreboot.json`
+- `logs/post-reboot-verification.json`
+- `scripts/post-reboot-verify.ps1`
