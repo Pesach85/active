@@ -10,7 +10,8 @@ param(
     [ValidateSet("Safe", "Radical")]
     [string]$CleanupMode = "Safe",
     [string[]]$Drives = @("C", "D"),
-    [string]$LogFile = "C:\\logs\\storage-cleanup.log"
+    [string]$LogFile = "C:\\logs\\storage-cleanup.log",
+    [string]$OutputJson = ""
 )
 
 Set-StrictMode -Version Latest
@@ -217,7 +218,7 @@ if ($Execute) {
 $post = Get-DriveSnapshot -DriveLetters $Drives
 $post | ForEach-Object { Write-Log -Level "INFO" -Message ("Post {0}: Free={1}GB Used={2}GB" -f $_.Name, $_.FreeGB, $_.UsedGB) }
 
-[PSCustomObject]@{
+$result = [PSCustomObject]@{
     Mode = $mode
     CleanupMode = $CleanupMode
     AuditDepth = $AuditDepth
@@ -229,3 +230,18 @@ $post | ForEach-Object { Write-Log -Level "INFO" -Message ("Post {0}: Free={1}GB
     Pre = $pre
     Post = $post
 }
+
+if ($OutputJson) {
+    try {
+        $outputDir = Split-Path -Parent $OutputJson
+        if ($outputDir -and (-not (Test-Path -LiteralPath $outputDir))) {
+            New-Item -ItemType Directory -Path $outputDir -Force | Out-Null
+        }
+
+        $result | ConvertTo-Json -Depth 8 | Out-File -LiteralPath $OutputJson -Encoding utf8 -Force
+    } catch {
+        Write-Log -Level "WARN" -Message ("Cannot write OutputJson={0} Reason={1}" -f $OutputJson, $_.Exception.Message)
+    }
+}
+
+$result

@@ -83,6 +83,12 @@ Per ogni cartella candidata:
 - Default consigliato: `AutoAnalyzeOnStartup=true`, `Depth=Quick`, `Top=15`.
 - Fallback: se config assente/non valida, usare default sicuri nel codice (Quick/15/auto-on).
 
+### 8) Async Cleanup Worker (UI-safe)
+- Pattern: cleanup/audit sempre in worker process + polling timer UI, mai sincrono sul thread grafico.
+- Obiettivo: evitare unresponsive durante operazioni I/O intensive.
+- Hand-off risultati: file JSON (`-OutputJson`) letto solo a completamento processo.
+- Guardrail: single-flight, cancel controllato, soft-timeout osservabile, nessuna terminazione automatica aggressiva.
+
 ## Packaging e distribuzione
 - Dist principale: dist/WindowsOptimizer.
 - GUI eseguibile: dist/WindowsOptimizer/WindowsOptimizer.exe.

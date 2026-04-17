@@ -90,3 +90,14 @@
 	- `Gui.DefaultAnalyzeTop`
 	e lettura robusta in GUI con fallback sicuri (`true`, `Quick`, `15`).
 - **Esito**: startup budget-aware, comportamento deterministico e modulabile senza cambiare codice.
+
+### Bug 11
+- **Sintomo**: durante `Audit Cleanup` la GUI diventava unresponsive.
+- **Causa radice**: cleanup/audit eseguito in modo sincrono nel thread UI tramite invocazione diretta PowerShell.
+- **Fix applicato**:
+	- cleanup reso asincrono con processo background + polling timer,
+	- progress/elapsed + soft-timeout warning (no stop automatico aggressivo),
+	- cancel manuale unificato (`Cancel Operation`) anche per cleanup,
+	- output deterministico su JSON (`-OutputJson`) per hand-off robusto worker->UI.
+- **Esito**: UI resta responsiva durante audit/execute; nessun freeze del frontend.
+- **Build verificata**: `C:/SystemOptimizerHub/active/dist/WindowsOptimizer/WindowsOptimizer.exe`, size 65024, timestamp 2026-04-17 10:34:59.
