@@ -5,6 +5,13 @@
 # Runtime logs and telemetry
 /logs/*.log
 /logs/*.csv
+/logs/health-audit-live.json
+
+# dist runtime artifacts (overwritten each run, not source artifacts)
+/dist/**/logs/*.json
+/dist/**/logs/*.log
+/dist/**/logs/*.csv
+/dist/**/logs/diagnostics/
 
 # Local module cache
 /scripts/modules/
