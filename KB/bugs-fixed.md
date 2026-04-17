@@ -28,6 +28,14 @@
 	- messaggio status arricchito con tail stderr quando `ExitCode != 0`.
 - **Esito**: ridotte race-condition su output JSON e diagnosi immediata quando un worker fallisce.
 
+### Improvement 2
+- **Obiettivo**: velocizzare diagnosi operativa post-failure e ridurre accumulo log.
+- **Implementazione**:
+	- aggiunto pulsante `Open Diagnostics` in dashboard,
+	- snapshot diagnostico (`logs/diagnostics/diagnostics-<timestamp>.txt`) con status recente + tail log worker,
+	- retention automatica log testuali configurabile (`Gui.DiagnosticRetentionDays`).
+- **Esito**: troubleshooting one-click e footprint log più controllato nel tempo.
+
 ### Bug 2
 - Sintomo: errori multipli durante azioni dashboard (analyze/cleanup/install) in ambienti con runtime non risolto.
 - Causa: invocazioni dirette `& powershell ...` senza resolver centralizzato e senza gestione errori uniforme.

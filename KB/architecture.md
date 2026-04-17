@@ -114,6 +114,11 @@ Per ogni cartella candidata:
   - su exit code != 0 riportare tail stderr in UI,
   - cleanup pre-run dei file output/err precedenti.
 
+### 13) One-click Diagnostic Bundle + Log Retention
+- Pattern: pulsante UI dedicato che genera snapshot testuale con stato corrente + tail log worker e apre cartella diagnostica.
+- Obiettivo: ridurre MTTR nelle analisi incident senza ricerca manuale file.
+- Regola: retention automatica dei log testuali (`.log`, `.txt`) con finestra configurabile (`Gui.DiagnosticRetentionDays`) all'avvio GUI.
+
 ## Packaging e distribuzione
 - Dist principale: dist/WindowsOptimizer.
 - GUI eseguibile: dist/WindowsOptimizer/WindowsOptimizer.exe.

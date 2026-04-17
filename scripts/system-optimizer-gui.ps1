@@ -99,6 +99,8 @@ $script:computeAnalyzeDurationSec = 8
 $script:computeAnalyzeTop = 8
 $script:quickCleanupRetentionDays = 2
 $script:quickCleanupMaxFilesPerTarget = 2000
+$script:diagnosticRetentionDays = 7
+$script:diagnosticsDir = Join-Path $script:hubRoot "logs\diagnostics"
 
 $form = New-Object System.Windows.Forms.Form
 $form.Text = "Windows Optimizer Console"
@@ -150,6 +152,11 @@ $btnAnalyze = New-Object System.Windows.Forms.Button
 $btnAnalyze.Text = "Analyze Garbage"
 $btnAnalyze.Width = 130
 $btnAnalyze.Location = New-Object System.Drawing.Point(182, 14)
+
+$btnDiagnostics = New-Object System.Windows.Forms.Button
+$btnDiagnostics.Text = "Open Diagnostics"
+$btnDiagnostics.Width = 130
+$btnDiagnostics.Location = New-Object System.Drawing.Point(182, 46)
 
 $btnCancelAnalyze = New-Object System.Windows.Forms.Button
 $btnCancelAnalyze.Text = "Cancel Operation"
@@ -249,6 +256,7 @@ $panelDash.Height = 112
 $panelDash.Controls.AddRange(@(
     $btnRefresh,
     $btnAnalyze,
+    $btnDiagnostics,
     $btnCancelAnalyze,
     $btnAudit,
     $btnExecute,
@@ -406,7 +414,96 @@ function Load-GuiPreferences {
             if ($v -gt 10000) { $v = 10000 }
             $script:quickCleanupMaxFilesPerTarget = $v
         }
+
+        if ($null -ne $gui.DiagnosticRetentionDays) {
+            $v = [int]$gui.DiagnosticRetentionDays
+            if ($v -lt 1) { $v = 1 }
+            if ($v -gt 30) { $v = 30 }
+            $script:diagnosticRetentionDays = $v
+        }
     }
+}
+
+function Get-DiagnosticLogFiles {
+    return @(
+        $script:analysisStdOut,
+        $script:analysisStdErr,
+        $script:cleanupStdOut,
+        $script:cleanupStdErr,
+        $script:computeStdOut,
+        $script:computeStdErr,
+        $script:quickCleanupStdOut,
+        $script:quickCleanupStdErr,
+        $script:defaultLog
+    )
+}
+
+function Cleanup-DiagnosticLogs {
+    param([int]$RetentionDays)
+
+    $cutoff = (Get-Date).AddDays(-$RetentionDays)
+    $logsRoot = Join-Path $script:hubRoot "logs"
+
+    if (-not (Test-Path -LiteralPath $logsRoot)) {
+        return
+    }
+
+    # Keep JSON state files; rotate only textual logs and diagnostic snapshots.
+    $targets = Get-ChildItem -LiteralPath $logsRoot -File -Recurse -ErrorAction SilentlyContinue |
+        Where-Object {
+            $_.LastWriteTime -lt $cutoff -and
+            ($_.Extension -in @(".log", ".txt"))
+        }
+
+    foreach ($f in $targets) {
+        try {
+            Remove-Item -LiteralPath $f.FullName -Force -ErrorAction Stop
+        } catch {
+            # Non-blocking retention cleanup.
+        }
+    }
+}
+
+function Open-DiagnosticsBundle {
+    if (-not (Test-Path -LiteralPath $script:diagnosticsDir)) {
+        New-Item -ItemType Directory -Path $script:diagnosticsDir -Force | Out-Null
+    }
+
+    $stamp = (Get-Date).ToString("yyyyMMdd-HHmmss")
+    $snapshotPath = Join-Path $script:diagnosticsDir ("diagnostics-{0}.txt" -f $stamp)
+
+    $lines = New-Object System.Collections.Generic.List[string]
+    $lines.Add(("Timestamp: {0}" -f (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")))
+    $lines.Add(("State: {0}" -f $lblAnalysisState.Text))
+    $lines.Add(("PSHost: {0}" -f $script:psHost))
+    $lines.Add("")
+    $lines.Add("=== Recent Status (last 80 lines) ===")
+    $statusLines = @($txtStatus.Lines)
+    $start = [math]::Max(0, $statusLines.Count - 80)
+    for ($i = $start; $i -lt $statusLines.Count; $i++) {
+        $lines.Add($statusLines[$i])
+    }
+    $lines.Add("")
+    $lines.Add("=== Worker Logs Tail ===")
+
+    foreach ($path in (Get-DiagnosticLogFiles)) {
+        $lines.Add(("--- {0} ---" -f $path))
+        if (Test-Path -LiteralPath $path) {
+            $tail = Get-Content -LiteralPath $path -Tail 20 -ErrorAction SilentlyContinue
+            if ($tail) {
+                foreach ($row in $tail) { $lines.Add([string]$row) }
+            } else {
+                $lines.Add("(empty)")
+            }
+        } else {
+            $lines.Add("(missing)")
+        }
+        $lines.Add("")
+    }
+
+    $lines | Out-File -LiteralPath $snapshotPath -Encoding utf8 -Force
+    Append-Status ("Diagnostics snapshot saved: {0}" -f $snapshotPath)
+    Start-Process explorer.exe -ArgumentList $script:diagnosticsDir
 }
 
 function Wait-ForOutputFile {
@@ -1199,6 +1296,7 @@ $listExplorer.Add_DoubleClick({
 
 $btnRefresh.Add_Click({ Refresh-Drives })
 $btnAnalyze.Add_Click({ Run-GarbageAnalysis })
+$btnDiagnostics.Add_Click({ Open-DiagnosticsBundle })
 $btnCancelAnalyze.Add_Click({
     if ($script:analysisProcess -and (-not $script:analysisProcess.HasExited)) {
         $confirm = [System.Windows.Forms.MessageBox]::Show("Cancel running analysis?", "Confirm", "YesNo", "Question")
@@ -1279,6 +1377,7 @@ $btnOpenConfig.Add_Click({
 })
 
 Load-GuiPreferences
+Cleanup-DiagnosticLogs -RetentionDays $script:diagnosticRetentionDays
 if ($cmbDepth.Items.Contains($script:startupAnalyzeDepth)) {
     $cmbDepth.SelectedItem = $script:startupAnalyzeDepth
 }

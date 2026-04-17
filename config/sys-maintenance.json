@@ -31,6 +31,7 @@
                 "ComputeAnalyzeDurationSec":  8,
                 "ComputeAnalyzeTop":  8,
                 "QuickCleanupRetentionDays":  2,
-                "QuickCleanupMaxFilesPerTarget":  2000
+                "QuickCleanupMaxFilesPerTarget":  2000,
+                "DiagnosticRetentionDays":  7
             }
 }
