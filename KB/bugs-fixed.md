@@ -165,7 +165,7 @@
 ---
 
 ## Improvement 3 — Complete UX Redesign (Dark Theme + Toasts + Animations)
-**Date:** 2025-01-XX
+**Date:** 2026-04-17
 **File:** scripts/system-optimizer-gui.ps1
 
 ### Changes
@@ -184,3 +184,19 @@
 
 ### Outcome
 EXE v1.8.0 compiled and smoke-tested (stays alive >5s).
+
+### Bug 17 — Toast crash `op_Subtraction` dopo redesign
+- **Sintomo**: al completamento operazione compariva popup errore: `Chiamata al metodo non riuscita. [System.Object[]] non contiene un metodo denominato 'op_Subtraction'`.
+- **Impatto**: UX interrotta da errore runtime durante notifica toast (scan/cleanup/compute/quick clean), con rischio di regressione percezione stabilita.
+- **Causa radice**: in `Show-Toast` alcune proprieta usate nelle sottrazioni (posizionamento/border drawing) potevano essere valutate come array in certi contesti runtime/multi-monitor/event binding, quindi l'operatore `-` su `Object[]` falliva.
+- **Fix applicato (incrementale, low-risk)**:
+	1. risoluzione area schermo con fallback robusto: `Screen.FromControl($form).WorkingArea` -> `PrimaryScreen.WorkingArea`.
+	2. estrazione scalare esplicita prima delle operazioni aritmetiche: cast a `int` con first-element guard (`@(... ) | Select-Object -First 1`).
+	3. calcolo coordinate clamp-safe con `Math::Max(0, ...)`.
+	4. drawing bordo toast con `ClientSize` validata (`w/h > 1`) e cast scalar.
+	5. `try/catch` locale in `Show-Toast` con degradazione controllata su `Append-Status` (nessun popup errore bloccante).
+- **Check anti-regressione**:
+	- parser PowerShell script: `SYNTAX OK`.
+	- rebuild EXE: `dist/WindowsOptimizer/WindowsOptimizer.exe` versione `1.8.1` generata con successo.
+	- smoke test: processo GUI vivo oltre 6s (`ALIVE PID=6464`) senza crash all'avvio.
+- **Esito**: eliminato errore `op_Subtraction`, toasts resi resilienti anche in configurazioni monitor/runtime non standard.

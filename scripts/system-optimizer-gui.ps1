@@ -1027,59 +1027,82 @@ function Show-Toast {
         [string]$Body,
         [string]$Level = "Info"   # Info | Success | Warning | Error
     )
-    $accentCol = switch ($Level) {
-        "Success" { $clrGreen }
-        "Warning" { $clrAmber }
-        "Error"   { $clrRed }
-        default   { $clrAccent }
+    try {
+        $accentCol = switch ($Level) {
+            "Success" { $clrGreen }
+            "Warning" { $clrAmber }
+            "Error"   { $clrRed }
+            default    { $clrAccent }
+        }
+
+        $toast = New-Object System.Windows.Forms.Form
+        $toast.FormBorderStyle = "None"
+        $toast.Size            = New-Object System.Drawing.Size(360, 90)
+        $toast.StartPosition   = "Manual"
+        $toast.BackColor       = $clrSurface
+        $toast.Opacity         = 0.95
+        $toast.TopMost         = $true
+
+        $workingArea = $null
+        try {
+            if ($form -and -not $form.IsDisposed) {
+                $workingArea = [System.Windows.Forms.Screen]::FromControl($form).WorkingArea
+            }
+        } catch {}
+        if (-not $workingArea) {
+            $workingArea = [System.Windows.Forms.Screen]::PrimaryScreen.WorkingArea
+        }
+
+        $right  = [int](@($workingArea.Right)  | Select-Object -First 1)
+        $bottom = [int](@($workingArea.Bottom) | Select-Object -First 1)
+        $x = [Math]::Max(0, $right - $toast.Width - 16)
+        $y = [Math]::Max(0, $bottom - $toast.Height - 16)
+        $toast.Location = New-Object System.Drawing.Point($x, $y)
+
+        $strip = New-Object System.Windows.Forms.Panel
+        $strip.Location  = New-Object System.Drawing.Point(0, 0)
+        $strip.Size      = New-Object System.Drawing.Size(5, 90)
+        $strip.BackColor = $accentCol
+        $toast.Controls.Add($strip)
+
+        $lblT = New-Object System.Windows.Forms.Label
+        $lblT.Text      = $Title
+        $lblT.Font      = $fntH2
+        $lblT.ForeColor = $clrText
+        $lblT.AutoSize  = $true
+        $lblT.Location  = New-Object System.Drawing.Point(16, 12)
+        $lblT.BackColor = [System.Drawing.Color]::Transparent
+        $toast.Controls.Add($lblT)
+
+        $lblB = New-Object System.Windows.Forms.Label
+        $lblB.Text      = $Body
+        $lblB.Font      = $fntSmall
+        $lblB.ForeColor = $clrMuted
+        $lblB.Size      = New-Object System.Drawing.Size(336, 50)
+        $lblB.Location  = New-Object System.Drawing.Point(16, 34)
+        $lblB.BackColor = [System.Drawing.Color]::Transparent
+        $toast.Controls.Add($lblB)
+
+        $toast.Add_Paint({
+            param($s, $e)
+            $w = [int](@($s.ClientSize.Width)  | Select-Object -First 1)
+            $h = [int](@($s.ClientSize.Height) | Select-Object -First 1)
+            if ($w -gt 1 -and $h -gt 1) {
+                $e.Graphics.DrawRectangle(
+                    (New-Object System.Drawing.Pen($clrBorderC, 1)),
+                    0, 0, $w - 1, $h - 1)
+            }
+        })
+
+        $ttimer = New-Object System.Windows.Forms.Timer
+        $ttimer.Interval = 4500
+        $tRef = $toast
+        $ttimer.Add_Tick({ $tRef.Close(); $ttimer.Stop(); $ttimer.Dispose() })
+        $ttimer.Start()
+        $toast.Show($form)
+    } catch {
+        Append-Status ("Toast warning: {0}" -f $_.Exception.Message)
     }
-    $toast = New-Object System.Windows.Forms.Form
-    $toast.FormBorderStyle = "None"
-    $toast.Size            = New-Object System.Drawing.Size(360, 90)
-    $toast.StartPosition   = "Manual"
-    $toast.BackColor       = $clrSurface
-    $toast.Opacity         = 0.95
-    $toast.TopMost         = $true
-    $screen = [System.Windows.Forms.Screen]::PrimaryScreen.WorkingArea
-    $toast.Location = New-Object System.Drawing.Point($screen.Right - 378, $screen.Bottom - 110)
-
-    $strip = New-Object System.Windows.Forms.Panel
-    $strip.Location  = New-Object System.Drawing.Point(0, 0)
-    $strip.Size      = New-Object System.Drawing.Size(5, 90)
-    $strip.BackColor = $accentCol
-    $toast.Controls.Add($strip)
-
-    $lblT = New-Object System.Windows.Forms.Label
-    $lblT.Text      = $Title
-    $lblT.Font      = $fntH2
-    $lblT.ForeColor = $clrText
-    $lblT.AutoSize  = $true
-    $lblT.Location  = New-Object System.Drawing.Point(16, 12)
-    $lblT.BackColor = [System.Drawing.Color]::Transparent
-    $toast.Controls.Add($lblT)
-
-    $lblB = New-Object System.Windows.Forms.Label
-    $lblB.Text      = $Body
-    $lblB.Font      = $fntSmall
-    $lblB.ForeColor = $clrMuted
-    $lblB.Size      = New-Object System.Drawing.Size(336, 50)
-    $lblB.Location  = New-Object System.Drawing.Point(16, 34)
-    $lblB.BackColor = [System.Drawing.Color]::Transparent
-    $toast.Controls.Add($lblB)
-
-    $toast.Add_Paint({
-        param($s, $e)
-        $e.Graphics.DrawRectangle(
-            (New-Object System.Drawing.Pen($clrBorderC, 1)),
-            0, 0, $s.Width - 1, $s.Height - 1)
-    })
-
-    $ttimer = New-Object System.Windows.Forms.Timer
-    $ttimer.Interval = 4500
-    $tRef = $toast
-    $ttimer.Add_Tick({ $tRef.Close(); $ttimer.Stop(); $ttimer.Dispose() })
-    $ttimer.Start()
-    $toast.Show($form)
 }
 
 function Update-CleanupProgress {
