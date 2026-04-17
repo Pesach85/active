@@ -20,6 +20,18 @@ Per ogni attivita, registra SEMPRE una entry nel journal con:
 4. Decisioni
 5. Esito
 
+## Regola repository (cleanup pre-push)
+- Prima di ogni push, esegui sempre cleanup dei runtime artifact non sorgente.
+- Gate automatico consigliato: hook `pre-push` con script `scripts/repo-cleanup-before-push.ps1`.
+- Il gate ripristina file runtime tracciati in `dist/**/logs/*` e rimuove runtime json non sorgente in `logs/`.
+- Se restano artifact runtime sporchi, il push deve essere bloccato fino a cleanup completato.
+
+### Setup una tantum (locale repo)
+pwsh -NoProfile -ExecutionPolicy Bypass -Command "git config core.hooksPath .githooks"
+
+### Esecuzione manuale (fallback)
+pwsh -NoProfile -ExecutionPolicy Bypass -File C:\SystemOptimizerHub\active\scripts\repo-cleanup-before-push.ps1 -Apply
+
 ## Registrazione rapida (consigliata)
 Usa lo script:
 
