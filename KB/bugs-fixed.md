@@ -60,3 +60,13 @@
 - **Rimosso**: `C:\scripts` (fonti originali pre-hub, superate da `C:\SystemOptimizerHub\active\scripts`)
 - **Rimosso**: `C:\dist` (pacchetto output pre-hub, superato da `C:\SystemOptimizerHub\active\dist`)
 - **Rimosso**: `C:\SystemOptimizerHub\session-20260416-164154` (snapshot sessione originale, consolidato in `active`)
+
+## 2026-04-17 - UI freeze prolungato in startup/dashboard
+
+### Bug 8
+- **Sintomo**: finestra apparentemente "stuck" per lungo tempo all'avvio e durante analisi garbage.
+- **Causa radice**: `Run-GarbageAnalysis` eseguita in modo sincrono nel thread UI; la scansione dischi bloccava il message loop di WinForms.
+- **Fix applicato**: analisi resa asincrona con processo background (`Start-Process` su `pwsh`) + polling tramite `System.Windows.Forms.Timer` (`Poll-GarbageAnalysis`).
+- **Hardening anti-regressione**: lock di UI actions (`Analyze/Audit/Execute`) mentre l'analisi e in corso; prevenzione doppio avvio con check su processo attivo.
+- **Esito**: finestra resta responsiva; apertura immediata, risultati caricati a completamento senza blocco interfaccia.
+- **Build verificata**: `C:/SystemOptimizerHub/active/dist/WindowsOptimizer/WindowsOptimizer.exe`, size 51712, timestamp 2026-04-17 10:19:41.

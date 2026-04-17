@@ -61,6 +61,9 @@ $script:monitorInstaller = Join-Path $script:scriptRoot "install-monitor-task.ps
 $script:cleanupInstaller = Join-Path $script:scriptRoot "install-cleanup-task.ps1"
 $script:configPath = Join-Path $script:hubRoot "config\\sys-maintenance.json"
 $script:defaultLog = Join-Path $script:hubRoot "logs\\storage-cleanup.log"
+$script:analysisProcess = $null
+$script:analysisCsv = Join-Path $script:hubRoot "logs\\garbage-hotspots-live.csv"
+$script:analysisStartedAt = $null
 
 $form = New-Object System.Windows.Forms.Form
 $form.Text = "Windows Optimizer Console"
@@ -329,9 +332,58 @@ function Populate-Explorer {
     }
 }
 
+function Poll-GarbageAnalysis {
+    if (-not $script:analysisProcess) {
+        return
+    }
+
+    if (-not $script:analysisProcess.HasExited) {
+        return
+    }
+
+    $analysisTimer.Stop()
+    $durationSec = 0
+    if ($script:analysisStartedAt) {
+        $durationSec = [math]::Round(((Get-Date) - $script:analysisStartedAt).TotalSeconds, 1)
+    }
+
+    if ($script:analysisProcess.ExitCode -ne 0) {
+        Append-Status ("Analyzer process ended with exit code {0}." -f $script:analysisProcess.ExitCode)
+        $btnAnalyze.Enabled = $true
+        $btnAudit.Enabled = $true
+        $btnExecute.Enabled = $true
+        $script:analysisProcess = $null
+        return
+    }
+
+    if (Test-Path -LiteralPath $script:analysisCsv) {
+        $rows = Import-Csv -LiteralPath $script:analysisCsv -ErrorAction SilentlyContinue
+        if ($rows) {
+            Populate-Explorer -Rows @($rows)
+            Append-Status ("Explorer updated with {0} ranked paths in {1}s." -f @($rows).Count, $durationSec)
+        } else {
+            Populate-Explorer -Rows @()
+            Append-Status ("Analyzer completed in {0}s but returned no rows." -f $durationSec)
+        }
+    } else {
+        Populate-Explorer -Rows @()
+        Append-Status ("Analyzer completed in {0}s but output CSV was not found." -f $durationSec)
+    }
+
+    $btnAnalyze.Enabled = $true
+    $btnAudit.Enabled = $true
+    $btnExecute.Enabled = $true
+    $script:analysisProcess = $null
+}
+
 function Run-GarbageAnalysis {
     if (-not (Test-Path -LiteralPath $script:analyzerScript)) {
         Append-Status "Analyzer script not found: $script:analyzerScript"
+        return
+    }
+
+    if ($script:analysisProcess -and (-not $script:analysisProcess.HasExited)) {
+        Append-Status "Analyzer already running. Wait for completion."
         return
     }
 
@@ -342,16 +394,35 @@ function Run-GarbageAnalysis {
 
     try {
         Append-Status ("Analyzing garbage hotspots Depth={0} Audit={1} Mode={2} Top={3}" -f $depth, $auditLevel, $cleanupMode, $top)
-        $rows = Invoke-ChildPowerShell -Args @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $script:analyzerScript, "-Drives", "C", "D", "-Top", "$top", "-Depth", $depth, "-AuditLevel", $auditLevel, "-CleanupMode", $cleanupMode)
-        if ($rows) {
-            Populate-Explorer -Rows @($rows)
-            Append-Status ("Explorer updated with {0} ranked paths." -f @($rows).Count)
-        } else {
-            Populate-Explorer -Rows @()
-            Append-Status "Analyzer returned no rows."
+        if (Test-Path -LiteralPath $script:analysisCsv) {
+            Remove-Item -LiteralPath $script:analysisCsv -Force -ErrorAction SilentlyContinue
         }
+
+        $args = @(
+            "-NoProfile",
+            "-ExecutionPolicy", "Bypass",
+            "-File", $script:analyzerScript,
+            "-Drives", "C", "D",
+            "-Top", "$top",
+            "-Depth", $depth,
+            "-AuditLevel", $auditLevel,
+            "-CleanupMode", $cleanupMode,
+            "-OutputCsv", $script:analysisCsv
+        )
+
+        $script:analysisStartedAt = Get-Date
+        $script:analysisProcess = Start-Process -FilePath $script:psHost -ArgumentList $args -WindowStyle Hidden -PassThru
+        $btnAnalyze.Enabled = $false
+        $btnAudit.Enabled = $false
+        $btnExecute.Enabled = $false
+        $analysisTimer.Start()
+        Append-Status "Analyzer started in background. UI remains responsive."
     } catch {
         Append-Status ("Analyzer error: {0}" -f $_.Exception.Message)
+        $btnAnalyze.Enabled = $true
+        $btnAudit.Enabled = $true
+        $btnExecute.Enabled = $true
+        $script:analysisProcess = $null
     }
 }
 
@@ -444,6 +515,10 @@ $btnOpenConfig.Add_Click({
         Start-Process notepad.exe -ArgumentList $script:configPath
     }
 })
+
+$analysisTimer = New-Object System.Windows.Forms.Timer
+$analysisTimer.Interval = 1000
+$analysisTimer.Add_Tick({ Poll-GarbageAnalysis })
 
 $form.Add_Shown({
     Refresh-Drives
