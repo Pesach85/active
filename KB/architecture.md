@@ -89,6 +89,11 @@ Per ogni cartella candidata:
 - Hand-off risultati: file JSON (`-OutputJson`) letto solo a completamento processo.
 - Guardrail: single-flight, cancel controllato, soft-timeout osservabile, nessuna terminazione automatica aggressiva.
 
+### 9) PowerShell Formatting Safety (anti-parser)
+- Pattern: evitare continuazioni riga con `\` in espressioni PowerShell complesse (specialmente con `-f`).
+- Obiettivo: prevenire errori parser a cascata in blocchi `try/catch`.
+- Regola: costruire stringhe complesse in variabile intermedia e poi invocare output (`Append-Status $msg`).
+
 ## Packaging e distribuzione
 - Dist principale: dist/WindowsOptimizer.
 - GUI eseguibile: dist/WindowsOptimizer/WindowsOptimizer.exe.

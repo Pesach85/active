@@ -1,4 +1,4 @@
-﻿Windows Optimizer Suite
+Windows Optimizer Suite
 
 Install:
   powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\install-suite.ps1

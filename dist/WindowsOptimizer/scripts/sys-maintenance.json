@@ -1,0 +1,32 @@
+﻿{
+    "LoopIntervalSeconds":  20,
+    "StorageCheckEveryCycles":  12,
+    "LogDirectory":  "C:\\\\SystemOptimizerHub\\\\active\\logs",
+    "LogFileName":  "resource-monitor.log",
+    "DrivesToMonitor":  [
+                            "C",
+                            "D"
+                        ],
+    "MinFreePercentWarning":  15,
+    "CpuHighPercentThreshold":  70,
+    "MemoryHighMbThreshold":  2048,
+    "ExcludedProcesses":  [
+                              "Idle",
+                              "System",
+                              "Registry",
+                              "Memory Compression",
+                              "MsMpEng"
+                          ],
+    "TargetPriorityOnThrottle":  "BelowNormal",
+    "AutoTerminate":  false,
+    "MaxConsecutiveViolations":  6,
+    "Zombie":  {
+                   "Enabled":  true,
+                   "ConsecutiveUnresponsiveChecks":  4
+               },
+    "Gui":  {
+                "AutoAnalyzeOnStartup":  true,
+                "DefaultAnalyzeDepth":  "Quick",
+                "DefaultAnalyzeTop":  15
+            }
+}

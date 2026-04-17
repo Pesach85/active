@@ -101,3 +101,9 @@
 	- output deterministico su JSON (`-OutputJson`) per hand-off robusto worker->UI.
 - **Esito**: UI resta responsiva durante audit/execute; nessun freeze del frontend.
 - **Build verificata**: `C:/SystemOptimizerHub/active/dist/WindowsOptimizer/WindowsOptimizer.exe`, size 65024, timestamp 2026-04-17 10:34:59.
+
+### Bug 12
+- **Sintomo**: popup con errori parser multipli su `Poll-CleanupOperation` (token imprevisto, blocchi Try/Catch non chiusi).
+- **Causa radice**: uso di continuazione riga non valida (`\`) in espressione PowerShell con operatore `-f` durante composizione messaggio status.
+- **Fix applicato**: ristrutturata la formattazione in variabile intermedia (`$cleanupSummary`) + `Append-Status $cleanupSummary`, eliminando la continuazione non supportata.
+- **Esito**: parsing clean, nessun errore di compilazione/esecuzione all'avvio GUI.

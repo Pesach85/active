@@ -630,15 +630,14 @@ function Poll-CleanupOperation {
     if (Test-Path -LiteralPath $script:cleanupJson) {
         try {
             $cleanupResult = Get-Content -LiteralPath $script:cleanupJson -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
-            Append-Status (
-                "Cleanup completed in {0}s: Mode={1} CandidateFiles={2} CandidateGB={3} DeletedFiles={4} DeletedGB={5}" -f \
+            $cleanupSummary = "Cleanup completed in {0}s: Mode={1} CandidateFiles={2} CandidateGB={3} DeletedFiles={4} DeletedGB={5}" -f 
                 $durationSec,
                 [string]$cleanupResult.Mode,
                 [int]$cleanupResult.CandidateFiles,
                 [decimal]$cleanupResult.CandidateGB,
                 [int]$cleanupResult.DeletedFiles,
                 [decimal]$cleanupResult.DeletedGB
-            )
+            Append-Status $cleanupSummary
         } catch {
             Append-Status ("Cleanup completed in {0}s but result parse failed: {1}" -f $durationSec, $_.Exception.Message)
         }

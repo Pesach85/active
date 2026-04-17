@@ -61,6 +61,20 @@ $script:monitorInstaller = Join-Path $script:scriptRoot "install-monitor-task.ps
 $script:cleanupInstaller = Join-Path $script:scriptRoot "install-cleanup-task.ps1"
 $script:configPath = Join-Path $script:hubRoot "config\\sys-maintenance.json"
 $script:defaultLog = Join-Path $script:hubRoot "logs\\storage-cleanup.log"
+$script:analysisProcess = $null
+$script:analysisCsv = Join-Path $script:hubRoot "logs\\garbage-hotspots-live.csv"
+$script:analysisStartedAt = $null
+$script:analysisTimeoutSec = 0
+$script:analysisSoftTimeoutWarned = $false
+$script:cleanupProcess = $null
+$script:cleanupJson = Join-Path $script:hubRoot "logs\\cleanup-live.json"
+$script:cleanupStartedAt = $null
+$script:cleanupTimeoutSec = 0
+$script:cleanupSoftTimeoutWarned = $false
+$script:cleanupRunAnalyzeAfter = $false
+$script:autoAnalyzeOnStartup = $true
+$script:startupAnalyzeDepth = "Quick"
+$script:startupAnalyzeTop = 15
 
 $form = New-Object System.Windows.Forms.Form
 $form.Text = "Windows Optimizer Console"
@@ -112,6 +126,12 @@ $btnAnalyze = New-Object System.Windows.Forms.Button
 $btnAnalyze.Text = "Analyze Garbage"
 $btnAnalyze.Width = 130
 $btnAnalyze.Location = New-Object System.Drawing.Point(182, 14)
+
+$btnCancelAnalyze = New-Object System.Windows.Forms.Button
+$btnCancelAnalyze.Text = "Cancel Operation"
+$btnCancelAnalyze.Width = 120
+$btnCancelAnalyze.Location = New-Object System.Drawing.Point(16, 46)
+$btnCancelAnalyze.Enabled = $false
 
 $btnAudit = New-Object System.Windows.Forms.Button
 $btnAudit.Text = "Audit Cleanup"
@@ -174,14 +194,28 @@ $numTop.Location = New-Object System.Drawing.Point(1095, 14)
 $lblExplorerHint = New-Object System.Windows.Forms.Label
 $lblExplorerHint.Text = "Double-click a row to open folder. Colors: High=Red, Medium=Amber, Low=Green"
 $lblExplorerHint.AutoSize = $true
-$lblExplorerHint.Location = New-Object System.Drawing.Point(16, 50)
+$lblExplorerHint.Location = New-Object System.Drawing.Point(146, 50)
+
+$progressAnalysis = New-Object System.Windows.Forms.ProgressBar
+$progressAnalysis.Minimum = 0
+$progressAnalysis.Maximum = 100
+$progressAnalysis.Value = 0
+$progressAnalysis.Width = 320
+$progressAnalysis.Height = 16
+$progressAnalysis.Location = New-Object System.Drawing.Point(820, 50)
+
+$lblAnalysisState = New-Object System.Windows.Forms.Label
+$lblAnalysisState.Text = "Analyzer idle"
+$lblAnalysisState.AutoSize = $true
+$lblAnalysisState.Location = New-Object System.Drawing.Point(820, 68)
 
 $panelDash = New-Object System.Windows.Forms.Panel
 $panelDash.Dock = "Top"
-$panelDash.Height = 78
+$panelDash.Height = 94
 $panelDash.Controls.AddRange(@(
     $btnRefresh,
     $btnAnalyze,
+    $btnCancelAnalyze,
     $btnAudit,
     $btnExecute,
     $lblDepth,
@@ -192,13 +226,15 @@ $panelDash.Controls.AddRange(@(
     $cmbCleanupMode,
     $lblTop,
     $numTop,
-    $lblExplorerHint
+    $lblExplorerHint,
+    $progressAnalysis,
+    $lblAnalysisState
 ))
 
 $splitDash = New-Object System.Windows.Forms.SplitContainer
 $splitDash.Dock = "Fill"
 $splitDash.Orientation = "Horizontal"
-$splitDash.SplitterDistance = 170
+$splitDash.SplitterDistance = 190
 $splitDash.Panel1.Controls.Add($txtStatus)
 $splitDash.Panel2.Controls.Add($listExplorer)
 
@@ -274,6 +310,41 @@ function Append-Status {
     $txtStatus.AppendText("$stamp - $Message`r`n")
 }
 
+function Load-GuiPreferences {
+    if (-not (Test-Path -LiteralPath $script:configPath)) {
+        return
+    }
+
+    try {
+        $cfg = Get-Content -LiteralPath $script:configPath -Raw -ErrorAction Stop | ConvertFrom-Json
+    } catch {
+        Append-Status ("Config read warning: {0}" -f $_.Exception.Message)
+        return
+    }
+
+    if (-not $cfg) {
+        return
+    }
+
+    if ($cfg.PSObject.Properties.Name -contains "Gui") {
+        $gui = $cfg.Gui
+        if ($null -ne $gui.AutoAnalyzeOnStartup) {
+            $script:autoAnalyzeOnStartup = [bool]$gui.AutoAnalyzeOnStartup
+        }
+
+        if ($gui.DefaultAnalyzeDepth -and @("Quick", "Standard", "Deep") -contains [string]$gui.DefaultAnalyzeDepth) {
+            $script:startupAnalyzeDepth = [string]$gui.DefaultAnalyzeDepth
+        }
+
+        if ($null -ne $gui.DefaultAnalyzeTop) {
+            $requestedTop = [int]$gui.DefaultAnalyzeTop
+            if ($requestedTop -lt 5) { $requestedTop = 5 }
+            if ($requestedTop -gt 100) { $requestedTop = 100 }
+            $script:startupAnalyzeTop = $requestedTop
+        }
+    }
+}
+
 function Refresh-Drives {
     $drives = Get-PSDrive -PSProvider FileSystem | Where-Object { $_.Name -in @("C", "D") }
     $summary = $drives | ForEach-Object {
@@ -329,9 +400,276 @@ function Populate-Explorer {
     }
 }
 
+function Get-AnalysisTimeoutSec {
+    param([string]$Depth)
+
+    switch ($Depth) {
+        "Quick" { return 90 }
+        "Deep" { return 420 }
+        default { return 210 }
+    }
+}
+
+function Get-CleanupTimeoutSec {
+    param(
+        [string]$Depth,
+        [bool]$ExecuteNow
+    )
+
+    $base = switch ($Depth) {
+        "Quick" { 120 }
+        "Deep" { 720 }
+        default { 360 }
+    }
+
+    if ($ExecuteNow) {
+        $base += 180
+    }
+
+    return $base
+}
+
+function Set-AnalysisUiState {
+    param(
+        [bool]$IsBusy,
+        [string]$StateText
+    )
+
+    $btnAnalyze.Enabled = -not $IsBusy
+    $btnAudit.Enabled = -not $IsBusy
+    $btnExecute.Enabled = -not $IsBusy
+    $cmbDepth.Enabled = -not $IsBusy
+    $cmbAuditLevel.Enabled = -not $IsBusy
+    $cmbCleanupMode.Enabled = -not $IsBusy
+    $numTop.Enabled = -not $IsBusy
+    $btnCancelAnalyze.Enabled = $IsBusy
+
+    if ($IsBusy) {
+        $progressAnalysis.Style = "Continuous"
+    } else {
+        $progressAnalysis.Style = "Continuous"
+        $progressAnalysis.Value = 0
+    }
+
+    if ($StateText) {
+        $lblAnalysisState.Text = $StateText
+    }
+}
+
+function Update-CleanupProgress {
+    if (-not $script:cleanupStartedAt) {
+        return
+    }
+
+    $elapsedSec = [math]::Round(((Get-Date) - $script:cleanupStartedAt).TotalSeconds, 0)
+    $timeoutSec = [math]::Max(1, $script:cleanupTimeoutSec)
+    $pct = [math]::Min(95, [int](($elapsedSec / $timeoutSec) * 100))
+
+    if ($pct -lt $progressAnalysis.Minimum) {
+        $pct = $progressAnalysis.Minimum
+    }
+    if ($pct -gt $progressAnalysis.Maximum) {
+        $pct = $progressAnalysis.Maximum
+    }
+
+    $progressAnalysis.Value = $pct
+    $lblAnalysisState.Text = ("Cleanup running: {0}s elapsed (target {1}s)" -f $elapsedSec, $timeoutSec)
+
+    if (($elapsedSec -gt $timeoutSec) -and (-not $script:cleanupSoftTimeoutWarned)) {
+        $script:cleanupSoftTimeoutWarned = $true
+        Append-Status ("Cleanup exceeded expected time ({0}s). No forced stop applied; you can cancel manually." -f $timeoutSec)
+        $lblAnalysisState.Text = ("Cleanup slower than expected ({0}s > {1}s)." -f $elapsedSec, $timeoutSec)
+    }
+}
+
+function Update-AnalysisProgress {
+    if (-not $script:analysisStartedAt) {
+        return
+    }
+
+    $elapsedSec = [math]::Round(((Get-Date) - $script:analysisStartedAt).TotalSeconds, 0)
+    $timeoutSec = [math]::Max(1, $script:analysisTimeoutSec)
+    $pct = [math]::Min(95, [int](($elapsedSec / $timeoutSec) * 100))
+
+    if ($pct -lt $progressAnalysis.Minimum) {
+        $pct = $progressAnalysis.Minimum
+    }
+    if ($pct -gt $progressAnalysis.Maximum) {
+        $pct = $progressAnalysis.Maximum
+    }
+
+    $progressAnalysis.Value = $pct
+    $lblAnalysisState.Text = ("Analyzer running: {0}s elapsed (target {1}s)" -f $elapsedSec, $timeoutSec)
+
+    if (($elapsedSec -gt $timeoutSec) -and (-not $script:analysisSoftTimeoutWarned)) {
+        $script:analysisSoftTimeoutWarned = $true
+        Append-Status ("Analyzer exceeded expected time ({0}s). No forced stop applied; you can cancel manually." -f $timeoutSec)
+        $lblAnalysisState.Text = ("Analyzer slower than expected ({0}s > {1}s)." -f $elapsedSec, $timeoutSec)
+    }
+}
+
+function Stop-GarbageAnalysis {
+    param([string]$Reason)
+
+    if ($script:analysisProcess -and (-not $script:analysisProcess.HasExited)) {
+        try {
+            Stop-Process -Id $script:analysisProcess.Id -Force -ErrorAction Stop
+            Append-Status ("Analyzer stopped. Reason: {0}" -f $Reason)
+        } catch {
+            Append-Status ("Unable to stop analyzer cleanly: {0}" -f $_.Exception.Message)
+        }
+    }
+
+    $analysisTimer.Stop()
+    $script:analysisProcess = $null
+    $script:analysisStartedAt = $null
+    $script:analysisTimeoutSec = 0
+    $script:analysisSoftTimeoutWarned = $false
+    Set-AnalysisUiState -IsBusy:$false -StateText "Analyzer idle"
+}
+
+function Stop-CleanupOperation {
+    param([string]$Reason)
+
+    if ($script:cleanupProcess -and (-not $script:cleanupProcess.HasExited)) {
+        try {
+            Stop-Process -Id $script:cleanupProcess.Id -Force -ErrorAction Stop
+            Append-Status ("Cleanup stopped. Reason: {0}" -f $Reason)
+        } catch {
+            Append-Status ("Unable to stop cleanup cleanly: {0}" -f $_.Exception.Message)
+        }
+    }
+
+    $cleanupTimer.Stop()
+    $script:cleanupProcess = $null
+    $script:cleanupStartedAt = $null
+    $script:cleanupTimeoutSec = 0
+    $script:cleanupSoftTimeoutWarned = $false
+    $script:cleanupRunAnalyzeAfter = $false
+    Set-AnalysisUiState -IsBusy:$false -StateText "Cleanup idle"
+}
+
+function Poll-GarbageAnalysis {
+    if (-not $script:analysisProcess) {
+        return
+    }
+
+    if (-not $script:analysisProcess.HasExited) {
+        Update-AnalysisProgress
+        return
+    }
+
+    $analysisTimer.Stop()
+    $durationSec = 0
+    if ($script:analysisStartedAt) {
+        $durationSec = [math]::Round(((Get-Date) - $script:analysisStartedAt).TotalSeconds, 1)
+    }
+
+    if ($script:analysisProcess.ExitCode -ne 0) {
+        Append-Status ("Analyzer process ended with exit code {0}." -f $script:analysisProcess.ExitCode)
+        $script:analysisProcess = $null
+        $script:analysisStartedAt = $null
+        $script:analysisTimeoutSec = 0
+        $script:analysisSoftTimeoutWarned = $false
+        Set-AnalysisUiState -IsBusy:$false -StateText "Analyzer idle"
+        return
+    }
+
+    if (Test-Path -LiteralPath $script:analysisCsv) {
+        $rows = Import-Csv -LiteralPath $script:analysisCsv -ErrorAction SilentlyContinue
+        if ($rows) {
+            Populate-Explorer -Rows @($rows)
+            Append-Status ("Explorer updated with {0} ranked paths in {1}s." -f @($rows).Count, $durationSec)
+            $progressAnalysis.Value = 100
+            $lblAnalysisState.Text = ("Analyzer completed in {0}s." -f $durationSec)
+        } else {
+            Populate-Explorer -Rows @()
+            Append-Status ("Analyzer completed in {0}s but returned no rows." -f $durationSec)
+            $lblAnalysisState.Text = ("Analyzer completed in {0}s with no rows." -f $durationSec)
+        }
+    } else {
+        Populate-Explorer -Rows @()
+        Append-Status ("Analyzer completed in {0}s but output CSV was not found." -f $durationSec)
+        $lblAnalysisState.Text = ("Analyzer completed in {0}s but output CSV missing." -f $durationSec)
+    }
+
+    $script:analysisProcess = $null
+    $script:analysisStartedAt = $null
+    $script:analysisTimeoutSec = 0
+    $script:analysisSoftTimeoutWarned = $false
+    Set-AnalysisUiState -IsBusy:$false -StateText $lblAnalysisState.Text
+}
+
+function Poll-CleanupOperation {
+    if (-not $script:cleanupProcess) {
+        return
+    }
+
+    if (-not $script:cleanupProcess.HasExited) {
+        Update-CleanupProgress
+        return
+    }
+
+    $cleanupTimer.Stop()
+    $durationSec = 0
+    if ($script:cleanupStartedAt) {
+        $durationSec = [math]::Round(((Get-Date) - $script:cleanupStartedAt).TotalSeconds, 1)
+    }
+
+    if ($script:cleanupProcess.ExitCode -ne 0) {
+        Append-Status ("Cleanup process ended with exit code {0}." -f $script:cleanupProcess.ExitCode)
+        $script:cleanupProcess = $null
+        $script:cleanupStartedAt = $null
+        $script:cleanupTimeoutSec = 0
+        $script:cleanupSoftTimeoutWarned = $false
+        $script:cleanupRunAnalyzeAfter = $false
+        Set-AnalysisUiState -IsBusy:$false -StateText "Cleanup idle"
+        return
+    }
+
+    if (Test-Path -LiteralPath $script:cleanupJson) {
+        try {
+            $cleanupResult = Get-Content -LiteralPath $script:cleanupJson -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
+            $cleanupSummary = "Cleanup completed in {0}s: Mode={1} CandidateFiles={2} CandidateGB={3} DeletedFiles={4} DeletedGB={5}" -f 
+                $durationSec,
+                [string]$cleanupResult.Mode,
+                [int]$cleanupResult.CandidateFiles,
+                [decimal]$cleanupResult.CandidateGB,
+                [int]$cleanupResult.DeletedFiles,
+                [decimal]$cleanupResult.DeletedGB
+            Append-Status $cleanupSummary
+        } catch {
+            Append-Status ("Cleanup completed in {0}s but result parse failed: {1}" -f $durationSec, $_.Exception.Message)
+        }
+    } else {
+        Append-Status ("Cleanup completed in {0}s but output JSON was not found." -f $durationSec)
+    }
+
+    Refresh-Drives
+    $progressAnalysis.Value = 100
+    $lblAnalysisState.Text = ("Cleanup completed in {0}s." -f $durationSec)
+
+    $rerunAnalyze = $script:cleanupRunAnalyzeAfter
+    $script:cleanupProcess = $null
+    $script:cleanupStartedAt = $null
+    $script:cleanupTimeoutSec = 0
+    $script:cleanupSoftTimeoutWarned = $false
+    $script:cleanupRunAnalyzeAfter = $false
+    Set-AnalysisUiState -IsBusy:$false -StateText $lblAnalysisState.Text
+
+    if ($rerunAnalyze) {
+        Run-GarbageAnalysis
+    }
+}
+
 function Run-GarbageAnalysis {
     if (-not (Test-Path -LiteralPath $script:analyzerScript)) {
         Append-Status "Analyzer script not found: $script:analyzerScript"
+        return
+    }
+
+    if ($script:analysisProcess -and (-not $script:analysisProcess.HasExited)) {
+        Append-Status "Analyzer already running. Wait for completion."
         return
     }
 
@@ -342,24 +680,58 @@ function Run-GarbageAnalysis {
 
     try {
         Append-Status ("Analyzing garbage hotspots Depth={0} Audit={1} Mode={2} Top={3}" -f $depth, $auditLevel, $cleanupMode, $top)
-        $rows = Invoke-ChildPowerShell -Args @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $script:analyzerScript, "-Drives", "C", "D", "-Top", "$top", "-Depth", $depth, "-AuditLevel", $auditLevel, "-CleanupMode", $cleanupMode)
-        if ($rows) {
-            Populate-Explorer -Rows @($rows)
-            Append-Status ("Explorer updated with {0} ranked paths." -f @($rows).Count)
-        } else {
-            Populate-Explorer -Rows @()
-            Append-Status "Analyzer returned no rows."
+        if (Test-Path -LiteralPath $script:analysisCsv) {
+            Remove-Item -LiteralPath $script:analysisCsv -Force -ErrorAction SilentlyContinue
         }
+
+        $args = @(
+            "-NoProfile",
+            "-ExecutionPolicy", "Bypass",
+            "-File", $script:analyzerScript,
+            "-Drives", "C", "D",
+            "-Top", "$top",
+            "-Depth", $depth,
+            "-AuditLevel", $auditLevel,
+            "-CleanupMode", $cleanupMode,
+            "-OutputCsv", $script:analysisCsv
+        )
+
+        $script:analysisStartedAt = Get-Date
+        $script:analysisTimeoutSec = Get-AnalysisTimeoutSec -Depth $depth
+        $script:analysisSoftTimeoutWarned = $false
+        $script:analysisProcess = Start-Process -FilePath $script:psHost -ArgumentList $args -WindowStyle Hidden -PassThru
+        $progressAnalysis.Value = 1
+        Set-AnalysisUiState -IsBusy:$true -StateText ("Analyzer starting (target {0}s)..." -f $script:analysisTimeoutSec)
+        $analysisTimer.Start()
+        Append-Status "Analyzer started in background. UI remains responsive."
     } catch {
         Append-Status ("Analyzer error: {0}" -f $_.Exception.Message)
+        $script:analysisProcess = $null
+        $script:analysisStartedAt = $null
+        $script:analysisTimeoutSec = 0
+        $script:analysisSoftTimeoutWarned = $false
+        Set-AnalysisUiState -IsBusy:$false -StateText "Analyzer idle"
     }
 }
 
 function Run-Cleanup {
-    param([bool]$ExecuteNow)
+    param(
+        [bool]$ExecuteNow,
+        [bool]$RunAnalyzeAfter
+    )
 
     if (-not (Test-Path -LiteralPath $script:cleanupScript)) {
         Append-Status "Cleanup script not found: $script:cleanupScript"
+        return
+    }
+
+    if ($script:analysisProcess -and (-not $script:analysisProcess.HasExited)) {
+        Append-Status "Cannot start cleanup while analyzer is running."
+        return
+    }
+
+    if ($script:cleanupProcess -and (-not $script:cleanupProcess.HasExited)) {
+        Append-Status "Cleanup already running. Wait for completion."
         return
     }
 
@@ -373,7 +745,8 @@ function Run-Cleanup {
         "-File", $script:cleanupScript,
         "-AuditDepth", $depth,
         "-AuditLevel", $auditLevel,
-        "-CleanupMode", $cleanupMode
+        "-CleanupMode", $cleanupMode,
+        "-OutputJson", $script:cleanupJson
     )
     if ($ExecuteNow) {
         $args += "-Execute"
@@ -382,11 +755,27 @@ function Run-Cleanup {
     $action = if ($ExecuteNow) { "execute" } else { "audit" }
     Append-Status ("Running cleanup {0} with Depth={1}, Audit={2}, Mode={3}" -f $action, $depth, $auditLevel, $cleanupMode)
     try {
-        $result = Invoke-ChildPowerShell -Args $args
-        Append-Status ($result | Out-String)
-        Refresh-Drives
+        if (Test-Path -LiteralPath $script:cleanupJson) {
+            Remove-Item -LiteralPath $script:cleanupJson -Force -ErrorAction SilentlyContinue
+        }
+
+        $script:cleanupStartedAt = Get-Date
+        $script:cleanupTimeoutSec = Get-CleanupTimeoutSec -Depth $depth -ExecuteNow:$ExecuteNow
+        $script:cleanupSoftTimeoutWarned = $false
+        $script:cleanupRunAnalyzeAfter = $RunAnalyzeAfter
+        $script:cleanupProcess = Start-Process -FilePath $script:psHost -ArgumentList $args -WindowStyle Hidden -PassThru
+        $progressAnalysis.Value = 1
+        Set-AnalysisUiState -IsBusy:$true -StateText ("Cleanup starting (target {0}s)..." -f $script:cleanupTimeoutSec)
+        $cleanupTimer.Start()
+        Append-Status "Cleanup started in background. UI remains responsive."
     } catch {
         Append-Status ("Cleanup error: {0}" -f $_.Exception.Message)
+        $script:cleanupProcess = $null
+        $script:cleanupStartedAt = $null
+        $script:cleanupTimeoutSec = 0
+        $script:cleanupSoftTimeoutWarned = $false
+        $script:cleanupRunAnalyzeAfter = $false
+        Set-AnalysisUiState -IsBusy:$false -StateText "Cleanup idle"
     }
 }
 
@@ -404,13 +793,28 @@ $listExplorer.Add_DoubleClick({
 
 $btnRefresh.Add_Click({ Refresh-Drives })
 $btnAnalyze.Add_Click({ Run-GarbageAnalysis })
-$btnAudit.Add_Click({ Run-Cleanup -ExecuteNow:$false })
+$btnCancelAnalyze.Add_Click({
+    if ($script:analysisProcess -and (-not $script:analysisProcess.HasExited)) {
+        $confirm = [System.Windows.Forms.MessageBox]::Show("Cancel running analysis?", "Confirm", "YesNo", "Question")
+        if ($confirm -eq "Yes") {
+            Stop-GarbageAnalysis -Reason "Manual cancel requested by user."
+        }
+        return
+    }
+
+    if ($script:cleanupProcess -and (-not $script:cleanupProcess.HasExited)) {
+        $confirm = [System.Windows.Forms.MessageBox]::Show("Cancel running cleanup?", "Confirm", "YesNo", "Question")
+        if ($confirm -eq "Yes") {
+            Stop-CleanupOperation -Reason "Manual cancel requested by user."
+        }
+    }
+})
+$btnAudit.Add_Click({ Run-Cleanup -ExecuteNow:$false -RunAnalyzeAfter:$false })
 $btnExecute.Add_Click({
     $mode = [string]$cmbCleanupMode.SelectedItem
     $confirm = [System.Windows.Forms.MessageBox]::Show(("Execute {0} cleanup now?" -f $mode), "Confirm", "YesNo", "Warning")
     if ($confirm -eq "Yes") {
-        Run-Cleanup -ExecuteNow:$true
-        Run-GarbageAnalysis
+        Run-Cleanup -ExecuteNow:$true -RunAnalyzeAfter:$true
     }
 })
 $btnReloadTasks.Add_Click({ Reload-Tasks })
@@ -445,7 +849,28 @@ $btnOpenConfig.Add_Click({
     }
 })
 
-Refresh-Drives
-Reload-Tasks
-Run-GarbageAnalysis
+Load-GuiPreferences
+if ($cmbDepth.Items.Contains($script:startupAnalyzeDepth)) {
+    $cmbDepth.SelectedItem = $script:startupAnalyzeDepth
+}
+$numTop.Value = [decimal]$script:startupAnalyzeTop
+
+$analysisTimer = New-Object System.Windows.Forms.Timer
+$analysisTimer.Interval = 1000
+$analysisTimer.Add_Tick({ Poll-GarbageAnalysis })
+
+$cleanupTimer = New-Object System.Windows.Forms.Timer
+$cleanupTimer.Interval = 1000
+$cleanupTimer.Add_Tick({ Poll-CleanupOperation })
+
+$form.Add_Shown({
+    Refresh-Drives
+    Reload-Tasks
+    if ($script:autoAnalyzeOnStartup) {
+        Append-Status ("Startup auto-analyze enabled. Depth={0}, Top={1}." -f [string]$cmbDepth.SelectedItem, [int]$numTop.Value)
+        Run-GarbageAnalysis
+    } else {
+        Append-Status "Startup auto-analyze disabled by config. UI ready."
+    }
+})
 [void]$form.ShowDialog()
