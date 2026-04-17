@@ -128,6 +128,23 @@ $script:healthAuditSoftTimeoutWarned = $false
 $script:healthAuditApplyAfter = $false
 $script:healthAuditMaxLevel   = 'Safe'
 
+# ─── Deep Scan state ──────────────────────────────────────────────────────────
+$script:deepScanProcess          = $null
+$script:deepScanJson             = Join-Path $script:hubRoot "logs\deepscan-live.json"
+$script:deepScanApplyJson        = Join-Path $script:hubRoot "logs\deepscan-apply-live.json"
+$script:deepScanStdOut           = Join-Path $script:hubRoot "logs\deepscan-live.out.log"
+$script:deepScanStdErr           = Join-Path $script:hubRoot "logs\deepscan-live.err.log"
+$script:deepScanStartedAt        = $null
+$script:deepScanTimeoutSec       = 90
+$script:deepScanSoftTimeoutWarned = $false
+$script:deepScanFindings         = @()
+$script:deepScanApplyProcess     = $null
+$script:deepScanApplyStartedAt   = $null
+$script:deepScanApplyFindingId   = ""
+$script:deepScanApplyLevel       = "Safe"
+$script:deepScanFilter           = "All"
+$script:deepScanLastSummary      = $null
+
 # ═══════════════════════════════════════════════════════════════════════════════
 #  Theme palette
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -353,6 +370,11 @@ $tabConfig = New-Object System.Windows.Forms.TabPage
 $tabConfig.Text                 = "Config"
 $tabConfig.BackColor            = $clrBg
 $tabConfig.UseVisualStyleBackColor = $false
+
+$tabDeepScan = New-Object System.Windows.Forms.TabPage
+$tabDeepScan.Text                 = "Deep Scan"
+$tabDeepScan.BackColor            = $clrBg
+$tabDeepScan.UseVisualStyleBackColor = $false
 
 # ═══════════════════════════════════════════════════════════════════════════════
 #  Dashboard Tab
@@ -687,8 +709,221 @@ $btnOpenConfig.Location = New-Object System.Drawing.Point(24, 88)
 $pnlConfigBody.Controls.AddRange(@($lblConfigHeading, $lblConfig, $btnOpenConfig))
 $tabConfig.Controls.Add($pnlConfigBody)
 
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Deep Scan Tab
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# ── Header ────────────────────────────────────────────────────────────────────
+$pnlDeepScanHeader = New-Object System.Windows.Forms.Panel
+$pnlDeepScanHeader.Dock      = "Top"
+$pnlDeepScanHeader.Height    = 72
+$pnlDeepScanHeader.BackColor = $clrSurface
+
+$btnDeepScanRun = New-Btn "Run Deep Scan"  $clrCyan   130 34
+$btnDeepScanRun.Location = New-Object System.Drawing.Point(12, 19)
+
+$btnDeepScanCancel = New-Btn "Cancel"  $clrRaised  90 34
+$btnDeepScanCancel.Location  = New-Object System.Drawing.Point(150, 19)
+$btnDeepScanCancel.Enabled   = $false
+$btnDeepScanCancel.ForeColor = $clrMuted
+
+$lblDeepFixLabel = New-Object System.Windows.Forms.Label
+$lblDeepFixLabel.Text      = "MAX FIX"
+$lblDeepFixLabel.Font      = $fntSmall
+$lblDeepFixLabel.ForeColor = $clrMuted
+$lblDeepFixLabel.AutoSize  = $true
+$lblDeepFixLabel.Location  = New-Object System.Drawing.Point(256, 24)
+$lblDeepFixLabel.BackColor = [System.Drawing.Color]::Transparent
+
+$cmbDeepFixLevel = New-Object System.Windows.Forms.ComboBox
+$cmbDeepFixLevel.DropDownStyle = "DropDownList"
+$cmbDeepFixLevel.Items.AddRange(@("Safe", "Moderate", "Aggressive"))
+$cmbDeepFixLevel.SelectedItem = "Safe"
+$cmbDeepFixLevel.Width     = 104
+$cmbDeepFixLevel.Location  = New-Object System.Drawing.Point(312, 19)
+$cmbDeepFixLevel.BackColor = $clrRaised
+$cmbDeepFixLevel.ForeColor = $clrText
+$cmbDeepFixLevel.Font      = $fntUI
+$cmbDeepFixLevel.FlatStyle = "Flat"
+
+$lblDeepFilterLabel = New-Object System.Windows.Forms.Label
+$lblDeepFilterLabel.Text      = "SHOW"
+$lblDeepFilterLabel.Font      = $fntSmall
+$lblDeepFilterLabel.ForeColor = $clrMuted
+$lblDeepFilterLabel.AutoSize  = $true
+$lblDeepFilterLabel.Location  = New-Object System.Drawing.Point(430, 24)
+$lblDeepFilterLabel.BackColor = [System.Drawing.Color]::Transparent
+
+$cmbDeepFilter = New-Object System.Windows.Forms.ComboBox
+$cmbDeepFilter.DropDownStyle = "DropDownList"
+$cmbDeepFilter.Items.AddRange(@("All", "Critical", "Important+", "Critical+Important"))
+$cmbDeepFilter.SelectedItem = "All"
+$cmbDeepFilter.Width     = 130
+$cmbDeepFilter.Location  = New-Object System.Drawing.Point(474, 19)
+$cmbDeepFilter.BackColor = $clrRaised
+$cmbDeepFilter.ForeColor = $clrText
+$cmbDeepFilter.Font      = $fntUI
+$cmbDeepFilter.FlatStyle = "Flat"
+
+$btnDeepExport = New-Btn "Export Report"  $clrRaised  118 34
+$btnDeepExport.Location = New-Object System.Drawing.Point(612, 19)
+$btnDeepExport.Enabled  = $false
+$btnDeepExport.ForeColor = $clrMuted
+
+$lblDeepScanDesc = New-Object System.Windows.Forms.Label
+$lblDeepScanDesc.Text      = "Full system performance audit — hardware, OS settings, drivers, services.  Select a finding, choose a solution, then click Apply."
+$lblDeepScanDesc.Font      = $fntSmall
+$lblDeepScanDesc.ForeColor = $clrMuted
+$lblDeepScanDesc.AutoSize  = $true
+$lblDeepScanDesc.Location  = New-Object System.Drawing.Point(738, 24)
+$lblDeepScanDesc.BackColor = [System.Drawing.Color]::Transparent
+
+$pnlDeepScanHeaderBorder = New-Object System.Windows.Forms.Panel
+$pnlDeepScanHeaderBorder.Dock      = "Bottom"
+$pnlDeepScanHeaderBorder.Height    = 1
+$pnlDeepScanHeaderBorder.BackColor = $clrBorderC
+
+$pnlDeepScanHeader.Controls.AddRange(@(
+    $btnDeepScanRun, $btnDeepScanCancel,
+    $lblDeepFixLabel, $cmbDeepFixLevel,
+    $lblDeepFilterLabel, $cmbDeepFilter, $btnDeepExport,
+    $lblDeepScanDesc, $pnlDeepScanHeaderBorder
+))
+
+# ── Progress band ─────────────────────────────────────────────────────────────
+$pnlDeepScanProgress = New-Object System.Windows.Forms.Panel
+$pnlDeepScanProgress.Dock      = "Top"
+$pnlDeepScanProgress.Height    = 44
+$pnlDeepScanProgress.BackColor = $clrRaised
+$pnlDeepScanProgress.Visible   = $false
+
+$progressDeepScan = New-Object System.Windows.Forms.ProgressBar
+$progressDeepScan.Style                 = "Marquee"
+$progressDeepScan.MarqueeAnimationSpeed = 28
+$progressDeepScan.Dock                  = "Top"
+$progressDeepScan.Height                = 5
+$progressDeepScan.Minimum               = 0
+$progressDeepScan.Maximum               = 100
+$progressDeepScan.Value                 = 0
+
+$lblDeepScanState = New-Object System.Windows.Forms.Label
+$lblDeepScanState.Text      = "Idle"
+$lblDeepScanState.Font      = $fntH2
+$lblDeepScanState.ForeColor = $clrCyan
+$lblDeepScanState.AutoSize  = $true
+$lblDeepScanState.Location  = New-Object System.Drawing.Point(14, 12)
+$lblDeepScanState.BackColor = [System.Drawing.Color]::Transparent
+
+$pnlDeepScanProgress.Controls.AddRange(@($progressDeepScan, $lblDeepScanState))
+
+# ── Findings ListView ─────────────────────────────────────────────────────────
+$listDeepFindings = New-Object System.Windows.Forms.ListView
+$listDeepFindings.View          = "Details"
+$listDeepFindings.FullRowSelect = $true
+$listDeepFindings.GridLines     = $false
+$listDeepFindings.Dock          = "Fill"
+$listDeepFindings.HideSelection = $false
+$listDeepFindings.BackColor     = $clrSurface
+$listDeepFindings.ForeColor     = $clrText
+$listDeepFindings.Font          = $fntUI
+$listDeepFindings.BorderStyle   = "None"
+$listDeepFindings.Columns.Add("Sev",      70)  | Out-Null
+$listDeepFindings.Columns.Add("Category", 90)  | Out-Null
+$listDeepFindings.Columns.Add("ID",       120) | Out-Null
+$listDeepFindings.Columns.Add("Title",    330) | Out-Null
+$listDeepFindings.Columns.Add("Current",  160) | Out-Null
+$listDeepFindings.Columns.Add("Target",   160) | Out-Null
+
+# ── Right detail pane ─────────────────────────────────────────────────────────
+$txtDeepFindingDetail = New-Object System.Windows.Forms.TextBox
+$txtDeepFindingDetail.Multiline   = $true
+$txtDeepFindingDetail.ScrollBars  = "Vertical"
+$txtDeepFindingDetail.Dock        = "Fill"
+$txtDeepFindingDetail.ReadOnly    = $true
+$txtDeepFindingDetail.BackColor   = $clrBg
+$txtDeepFindingDetail.ForeColor   = $clrText
+$txtDeepFindingDetail.Font        = $fntUI
+$txtDeepFindingDetail.BorderStyle = "None"
+
+# Solutions ListView
+$listDeepSolutions = New-Object System.Windows.Forms.ListView
+$listDeepSolutions.View          = "Details"
+$listDeepSolutions.FullRowSelect = $true
+$listDeepSolutions.GridLines     = $false
+$listDeepSolutions.Dock          = "Fill"
+$listDeepSolutions.HideSelection = $false
+$listDeepSolutions.BackColor     = $clrSurface
+$listDeepSolutions.ForeColor     = $clrText
+$listDeepSolutions.Font          = $fntUI
+$listDeepSolutions.BorderStyle   = "None"
+$listDeepSolutions.Columns.Add("Level",    76)  | Out-Null
+$listDeepSolutions.Columns.Add("Fix",      240) | Out-Null
+$listDeepSolutions.Columns.Add("Risk",     200) | Out-Null
+$listDeepSolutions.Columns.Add("Rollback", 200) | Out-Null
+
+# Apply button panel  (Dock=Bottom, wraps solutions list)
+$pnlDeepApply = New-Object System.Windows.Forms.Panel
+$pnlDeepApply.Dock      = "Bottom"
+$pnlDeepApply.Height    = 50
+$pnlDeepApply.BackColor = $clrSurface
+
+$btnDeepApply = New-Btn "Apply Selected Fix"  $clrGreen  160 34
+$btnDeepApply.Location  = New-Object System.Drawing.Point(12, 8)
+$btnDeepApply.Enabled   = $false
+$btnDeepApply.ForeColor = $clrMuted
+
+$lblDeepApplyState = New-Object System.Windows.Forms.Label
+$lblDeepApplyState.Text      = "Select a finding then a solution"
+$lblDeepApplyState.Font      = $fntSmall
+$lblDeepApplyState.ForeColor = $clrMuted
+$lblDeepApplyState.AutoSize  = $true
+$lblDeepApplyState.Location  = New-Object System.Drawing.Point(182, 16)
+$lblDeepApplyState.BackColor = [System.Drawing.Color]::Transparent
+
+$pnlDeepApply.Controls.AddRange(@($btnDeepApply, $lblDeepApplyState))
+
+# Panel wrapping solutions list + apply strip (Dock=Fill)
+$pnlDeepSolWrapper = New-Object System.Windows.Forms.Panel
+$pnlDeepSolWrapper.Dock      = "Fill"
+$pnlDeepSolWrapper.BackColor = $clrBg
+$pnlDeepSolWrapper.SuspendLayout()
+$pnlDeepSolWrapper.Controls.Add($listDeepSolutions)  # index 0 → Fill  → last
+$pnlDeepSolWrapper.Controls.Add($pnlDeepApply)        # index 1 → Bottom → first
+$pnlDeepSolWrapper.ResumeLayout($false)
+
+# Inner split: finding detail (top) / solutions+apply (bottom)
+$splitDeepDetail = New-Object System.Windows.Forms.SplitContainer
+$splitDeepDetail.Dock             = "Fill"
+$splitDeepDetail.Orientation      = "Horizontal"
+$splitDeepDetail.SplitterDistance = 165
+$splitDeepDetail.SplitterWidth    = 3
+$splitDeepDetail.BackColor        = $clrBorderC
+$splitDeepDetail.Panel1.BackColor = $clrBg
+$splitDeepDetail.Panel2.BackColor = $clrBg
+$splitDeepDetail.Panel1.Controls.Add($txtDeepFindingDetail)
+$splitDeepDetail.Panel2.Controls.Add($pnlDeepSolWrapper)
+
+# Outer split: findings list (left) / detail+solutions (right)
+$splitDeepMain = New-Object System.Windows.Forms.SplitContainer
+$splitDeepMain.Dock             = "Fill"
+$splitDeepMain.Orientation      = "Vertical"
+$splitDeepMain.SplitterDistance = 830
+$splitDeepMain.SplitterWidth    = 4
+$splitDeepMain.BackColor        = $clrBorderC
+$splitDeepMain.Panel1.BackColor = $clrBg
+$splitDeepMain.Panel2.BackColor = $clrBg
+$splitDeepMain.Panel1.Controls.Add($listDeepFindings)
+$splitDeepMain.Panel2.Controls.Add($splitDeepDetail)
+
+# Dock z-order: Fill first (index 0), then Top panels (higher indices)
+$tabDeepScan.SuspendLayout()
+$tabDeepScan.Controls.Add($splitDeepMain)           # index 0 → Fill   → docked last
+$tabDeepScan.Controls.Add($pnlDeepScanProgress)     # index 1 → Top    → docked second
+$tabDeepScan.Controls.Add($pnlDeepScanHeader)       # index 2 → Top    → docked first
+$tabDeepScan.ResumeLayout($false)
+
 # ── Assemble ──────────────────────────────────────────────────────────────────
-$tabs.TabPages.AddRange(@($tabDashboard, $tabTasks, $tabLogs, $tabConfig))
+$tabs.TabPages.AddRange(@($tabDashboard, $tabTasks, $tabLogs, $tabConfig, $tabDeepScan))
 
 # Dock layout processes children from highest index first. Edge-docked controls
 # (Top/Bottom) must have HIGHER indices so they claim space BEFORE Fill.
@@ -1027,6 +1262,8 @@ function Test-AnyOperationRunning {
     if ($script:computeProcess -and (-not $script:computeProcess.HasExited)) { $busy = $true }
     if ($script:quickCleanupProcess -and (-not $script:quickCleanupProcess.HasExited)) { $busy = $true }
     if ($script:healthAuditProcess -and (-not $script:healthAuditProcess.HasExited)) { $busy = $true }
+    if ($script:deepScanProcess -and (-not $script:deepScanProcess.HasExited)) { $busy = $true }
+    if ($script:deepScanApplyProcess -and (-not $script:deepScanApplyProcess.HasExited)) { $busy = $true }
 
     return $busy
 }
@@ -1050,6 +1287,11 @@ function Set-AnalysisUiState {
     $numTop.Enabled = -not $IsBusy
     $btnCancelAnalyze.Enabled   = $IsBusy
     $btnCancelAnalyze.ForeColor = if ($IsBusy) { $clrRed } else { $clrMuted }
+    $btnDeepScanRun.Enabled  = -not $IsBusy
+    $btnDeepExport.Enabled   = ((-not $IsBusy) -and ($script:deepScanFindings.Count -gt 0))
+    $btnDeepExport.ForeColor = if ($btnDeepExport.Enabled) { $clrText } else { $clrMuted }
+    $cmbDeepFixLevel.Enabled = -not $IsBusy
+    $cmbDeepFilter.Enabled   = -not $IsBusy
 
     $pnlProgress.Visible = $IsBusy
     if ($IsBusy) {
@@ -1829,6 +2071,418 @@ function Poll-HealthApply {
     Set-AnalysisUiState -IsBusy:$false -StateText ("Fixes applied in {0}s." -f $durationSec)
 }
 
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Deep Scan functions
+# ═══════════════════════════════════════════════════════════════════════════════
+
+function Get-DeepScanFilteredFindings {
+    $result = New-Object System.Collections.Generic.List[object]
+    for ($i = 0; $i -lt $script:deepScanFindings.Count; $i++) {
+        $f = $script:deepScanFindings[$i]
+        $include = switch ($script:deepScanFilter) {
+            "Critical" { [string]$f.Severity -eq "Critical" }
+            "Important+" { @("Critical", "Important") -contains [string]$f.Severity }
+            "Critical+Important" { @("Critical", "Important") -contains [string]$f.Severity }
+            default { $true }
+        }
+        if ($include) {
+            $result.Add([pscustomobject]@{
+                __SourceIndex     = $i
+                Severity          = [string]$f.Severity
+                Category          = [string]$f.Category
+                Id                = [string]$f.Id
+                Title             = [string]$f.Title
+                CurrentValue      = [string]$f.CurrentValue
+                RecommendedValue  = [string]$f.RecommendedValue
+            })
+        }
+    }
+    return @($result)
+}
+
+function Export-DeepScanReport {
+    if ($script:deepScanFindings.Count -eq 0) {
+        Append-Status "No Deep Scan data to export. Run Deep Scan first."
+        return
+    }
+
+    $exportDir = Join-Path $script:hubRoot "logs\diagnostics"
+    if (-not (Test-Path -LiteralPath $exportDir)) {
+        New-Item -ItemType Directory -Path $exportDir -Force | Out-Null
+    }
+
+    $stamp = (Get-Date).ToString("yyyyMMdd-HHmmss")
+    $path = Join-Path $exportDir ("deepscan-report-{0}.txt" -f $stamp)
+
+    $crit = @($script:deepScanFindings | Where-Object { [string]$_.Severity -eq "Critical" }).Count
+    $imp  = @($script:deepScanFindings | Where-Object { [string]$_.Severity -eq "Important" }).Count
+    $mod  = @($script:deepScanFindings | Where-Object { [string]$_.Severity -eq "Moderate" }).Count
+    $inf  = @($script:deepScanFindings | Where-Object { [string]$_.Severity -eq "Info" }).Count
+
+    $lines = New-Object System.Collections.Generic.List[string]
+    $lines.Add(("Deep Scan Report - {0}" -f (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")))
+    $lines.Add(("Filter: {0}" -f $script:deepScanFilter))
+    $lines.Add(("Summary: Total={0} Critical={1} Important={2} Moderate={3} Info={4}" -f $script:deepScanFindings.Count, $crit, $imp, $mod, $inf))
+    $lines.Add("")
+
+    foreach ($f in $script:deepScanFindings) {
+        $lines.Add(("[{0}] {1} - {2}" -f [string]$f.Severity, [string]$f.Id, [string]$f.Title))
+        $lines.Add(("  Category: {0}" -f [string]$f.Category))
+        $lines.Add(("  Current : {0}" -f [string]$f.CurrentValue))
+        $lines.Add(("  Target  : {0}" -f [string]$f.RecommendedValue))
+        $lines.Add(("  Impact  : {0}" -f [string]$f.Impact))
+        $solIndex = 1
+        foreach ($sol in $f.Solutions) {
+            $lines.Add(("    {0}. [{1}] {2}" -f $solIndex, [string]$sol.Level, [string]$sol.Label))
+            $solIndex++
+        }
+        $lines.Add("")
+    }
+
+    $lines | Out-File -LiteralPath $path -Encoding utf8 -Force
+    Append-Status ("Deep Scan report exported: {0}" -f $path)
+    Start-Process explorer.exe -ArgumentList $exportDir
+}
+
+function Populate-DeepScanFindings {
+    param([object[]]$Findings)
+
+    $listDeepFindings.Items.Clear()
+    $listDeepFindings.BeginUpdate()
+    foreach ($f in $Findings) {
+        $item = New-Object System.Windows.Forms.ListViewItem([string]$f.Severity)
+        [void]$item.SubItems.Add([string]$f.Category)
+        [void]$item.SubItems.Add([string]$f.Id)
+        [void]$item.SubItems.Add([string]$f.Title)
+        [void]$item.SubItems.Add([string]$f.CurrentValue)
+        [void]$item.SubItems.Add([string]$f.RecommendedValue)
+        $item.Tag = [int]$f.__SourceIndex
+        switch ([string]$f.Severity) {
+            "Critical"  { $item.BackColor = $clrRowHigh;  $item.ForeColor = $clrTxtHigh  }
+            "Important" { $item.BackColor = $clrRowAmber; $item.ForeColor = $clrTxtAmber }
+            "Moderate"  { $item.BackColor = [System.Drawing.Color]::FromArgb(14,40,55); $item.ForeColor = $clrCyan }
+            default     { $item.BackColor = $clrSurface;  $item.ForeColor = $clrMuted    }
+        }
+        [void]$listDeepFindings.Items.Add($item)
+    }
+    $listDeepFindings.EndUpdate()
+    if ($listDeepFindings.Items.Count -eq 0) {
+        $txtDeepFindingDetail.Text = "No findings for filter: $script:deepScanFilter"
+        $listDeepSolutions.Items.Clear()
+        $btnDeepApply.Enabled = $false
+        $btnDeepApply.ForeColor = $clrMuted
+        $lblDeepApplyState.Text = "No actionable rows under current filter"
+    }
+}
+
+function Show-DeepFindingDetail {
+    param([int]$Index)
+
+    if ($Index -lt 0 -or $Index -ge $script:deepScanFindings.Count) {
+        $txtDeepFindingDetail.Text = ""
+        $listDeepSolutions.Items.Clear()
+        $btnDeepApply.Enabled   = $false
+        $btnDeepApply.ForeColor = $clrMuted
+        $lblDeepApplyState.Text = "Select a finding"
+        return
+    }
+
+    $f = $script:deepScanFindings[$Index]
+    $lines = @(
+        "[{0}]  {1}  —  {2}" -f $f.Severity, $f.Id, $f.Title,
+        "Category : {0}" -f $f.Category,
+        "Impact   : {0}" -f $f.Impact,
+        "",
+        [string]$f.Description,
+        "",
+        "Current  : {0}" -f $f.CurrentValue,
+        "Target   : {0}" -f $f.RecommendedValue
+    )
+    $txtDeepFindingDetail.Text = $lines -join "`r`n"
+
+    $listDeepSolutions.Items.Clear()
+    $solIndex = 0
+    foreach ($sol in $f.Solutions) {
+        $si = New-Object System.Windows.Forms.ListViewItem([string]$sol.Level)
+        [void]$si.SubItems.Add([string]$sol.Label)
+        [void]$si.SubItems.Add([string]$sol.RiskNote)
+        [void]$si.SubItems.Add($(if ($sol.Rollback) { [string]$sol.Rollback } else { "—" }))
+        $si.Tag = $solIndex
+        switch ([string]$sol.Level) {
+            "Safe"       { $si.ForeColor = $clrGreen }
+            "Moderate"   { $si.ForeColor = $clrAmber }
+            "Aggressive" { $si.ForeColor = $clrRed   }
+        }
+        [void]$listDeepSolutions.Items.Add($si)
+        $solIndex++
+    }
+    $btnDeepApply.Enabled   = $false
+    $btnDeepApply.ForeColor = $clrMuted
+    $lblDeepApplyState.Text = "Select a solution row to apply"
+}
+
+function Update-DeepScanProgress {
+    if (-not $script:deepScanStartedAt) { return }
+    $elapsedSec = [math]::Round(((Get-Date) - $script:deepScanStartedAt).TotalSeconds, 0)
+    $script:spinIdx = ($script:spinIdx + 1) % $script:spinFrames.Count
+    $lblDeepScanState.Text = ("Deep Scan{0}  {1}s / {2}s" -f $script:spinFrames[$script:spinIdx], $elapsedSec, $script:deepScanTimeoutSec)
+    if (($elapsedSec -gt $script:deepScanTimeoutSec) -and (-not $script:deepScanSoftTimeoutWarned)) {
+        $script:deepScanSoftTimeoutWarned = $true
+        Append-Status ("Deep Scan exceeded expected time ({0}s). Cancel manually if needed." -f $script:deepScanTimeoutSec)
+    }
+}
+
+function Stop-DeepScan {
+    param([string]$Reason)
+
+    if ($script:deepScanProcess -and (-not $script:deepScanProcess.HasExited)) {
+        try {
+            Stop-Process -Id $script:deepScanProcess.Id -Force -ErrorAction Stop
+            Append-Status ("Deep Scan stopped. Reason: {0}" -f $Reason)
+        } catch {
+            Append-Status ("Unable to stop Deep Scan cleanly: {0}" -f $_.Exception.Message)
+        }
+    }
+    $deepScanTimer.Stop()
+    $script:deepScanProcess          = $null
+    $script:deepScanStartedAt        = $null
+    $script:deepScanSoftTimeoutWarned = $false
+    $pnlDeepScanProgress.Visible     = $false
+    $progressDeepScan.Style          = "Continuous"
+    $progressDeepScan.Value          = 0
+    Set-AnalysisUiState -IsBusy:$false -StateText "Deep Scan idle"
+}
+
+function Poll-DeepScan {
+    if (-not $script:deepScanProcess) { return }
+    if (-not $script:deepScanProcess.HasExited) {
+        Update-DeepScanProgress
+        return
+    }
+
+    $deepScanTimer.Stop()
+    $durationSec = 0
+    if ($script:deepScanStartedAt) {
+        $durationSec = [math]::Round(((Get-Date) - $script:deepScanStartedAt).TotalSeconds, 1)
+    }
+    $exitCode = Get-ProcessExitCodeSafe -Process $script:deepScanProcess
+
+    if ($exitCode -ne 0) {
+        $errTail = Get-WorkerErrorTail -ErrorPath $script:deepScanStdErr
+        Append-Status ("Deep Scan ended with exit code {0}. {1}" -f $exitCode, $errTail)
+        $script:deepScanProcess = $null
+        $script:deepScanStartedAt = $null
+        $script:deepScanSoftTimeoutWarned = $false
+        $pnlDeepScanProgress.Visible = $false
+        $progressDeepScan.Style = "Continuous"
+        $progressDeepScan.Value = 0
+        $btnDeepScanCancel.Enabled   = $false
+        $btnDeepScanCancel.ForeColor = $clrMuted
+        Set-AnalysisUiState -IsBusy:$false -StateText "Deep Scan idle"
+        return
+    }
+
+    if (Wait-ForOutputFile -Path $script:deepScanJson -TimeoutMs 4000) {
+        try {
+            $auditResult = Get-Content -LiteralPath $script:deepScanJson -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
+            $script:deepScanFindings = @($auditResult.Findings)
+            $script:deepScanLastSummary = $auditResult.Summary
+            $alreadyOK = @($auditResult.AlreadyOptimized).Count
+            $critCount = [int]$auditResult.Summary.Critical
+            $impCount  = [int]$auditResult.Summary.Important
+            Populate-DeepScanFindings -Findings (Get-DeepScanFilteredFindings)
+            $stateMsg = ("Scan complete — {0} findings  ({1} critical  {2} important  {3} already OK)" -f $script:deepScanFindings.Count, $critCount, $impCount, $alreadyOK)
+            $lblDeepScanState.Text = $stateMsg
+            Append-Status ("Deep Scan completed in {0}s. Findings={1} (Critical={2} Important={3}) AlreadyOK={4}" -f $durationSec, $script:deepScanFindings.Count, $critCount, $impCount, $alreadyOK)
+            Show-Toast -Title "Deep Scan Done" -Body ("{0} findings in {1}s" -f $script:deepScanFindings.Count, $durationSec) -Level $(if ($critCount -gt 0) { "Warning" } else { "Success" })
+            # Auto-select first finding
+            if ($script:deepScanFindings.Count -gt 0) {
+                $listDeepFindings.Items[0].Selected = $true
+                $listDeepFindings.Items[0].Focused  = $true
+            }
+        } catch {
+            Append-Status ("Deep Scan completed in {0}s but parse failed: {1}" -f $durationSec, $_.Exception.Message)
+            $lblDeepScanState.Text = "Deep Scan parse error — see Logs tab."
+        }
+    } else {
+        Append-Status ("Deep Scan completed in {0}s but output JSON not found." -f $durationSec)
+        $lblDeepScanState.Text = "Deep Scan output missing."
+    }
+
+    $pnlDeepScanProgress.Visible = $false
+    $progressDeepScan.Style = "Continuous"
+    $progressDeepScan.Value = 0
+    $script:deepScanProcess = $null
+    $script:deepScanStartedAt = $null
+    $script:deepScanSoftTimeoutWarned = $false
+    $btnDeepScanCancel.Enabled   = $false
+    $btnDeepScanCancel.ForeColor = $clrMuted
+    Set-AnalysisUiState -IsBusy:$false -StateText $lblDeepScanState.Text
+}
+
+function Run-DeepScan {
+    if (-not (Test-Path -LiteralPath $script:healthAuditScript)) {
+        Append-Status "Health audit script not found: $script:healthAuditScript"
+        return
+    }
+    if (Test-AnyOperationRunning) {
+        Append-Status "Another operation is already running. Wait for completion."
+        return
+    }
+    try {
+        Remove-IfExists -Path $script:deepScanJson
+        Remove-IfExists -Path $script:deepScanStdOut
+        Remove-IfExists -Path $script:deepScanStdErr
+        $listDeepFindings.Items.Clear()
+        $txtDeepFindingDetail.Text = ""
+        $listDeepSolutions.Items.Clear()
+        $script:deepScanLastSummary = $null
+        $btnDeepApply.Enabled   = $false
+        $btnDeepApply.ForeColor = $clrMuted
+        $lblDeepApplyState.Text = "Running scan..."
+
+        $args = @(
+            "-NoProfile",
+            "-ExecutionPolicy", "Bypass",
+            "-File", $script:healthAuditScript,
+            "-OutputJson", $script:deepScanJson
+        )
+        $script:deepScanStartedAt        = Get-Date
+        $script:deepScanSoftTimeoutWarned = $false
+        $script:deepScanProcess = Start-Process -FilePath $script:psHost -ArgumentList $args `
+            -WindowStyle Hidden `
+            -RedirectStandardOutput $script:deepScanStdOut `
+            -RedirectStandardError  $script:deepScanStdErr `
+            -PassThru
+
+        $progressDeepScan.Style                 = "Marquee"
+        $progressDeepScan.MarqueeAnimationSpeed = 28
+        $progressDeepScan.Value                 = 0
+        $pnlDeepScanProgress.Visible            = $true
+        $lblDeepScanState.Text = ("Deep Scan starting (target {0}s)..." -f $script:deepScanTimeoutSec)
+        $btnDeepScanCancel.Enabled   = $true
+        $btnDeepScanCancel.ForeColor = $clrRed
+        $deepScanTimer.Start()
+        Set-AnalysisUiState -IsBusy:$true -StateText "Deep Scan running..."
+        Append-Status "Deep Scan started in background."
+    } catch {
+        Append-Status ("Deep Scan error: {0}" -f $_.Exception.Message)
+        $script:deepScanProcess = $null
+        $script:deepScanStartedAt = $null
+        $script:deepScanSoftTimeoutWarned = $false
+        $pnlDeepScanProgress.Visible = $false
+        $btnDeepScanCancel.Enabled   = $false
+        $btnDeepScanCancel.ForeColor = $clrMuted
+        Set-AnalysisUiState -IsBusy:$false -StateText "Deep Scan idle"
+    }
+}
+
+function Apply-DeepFix {
+    param([string]$FindingId, [string]$SolutionLevel)
+
+    if (-not (Test-Path -LiteralPath $script:applyFixesScript)) {
+        Append-Status "Apply fixes script not found: $script:applyFixesScript"
+        return
+    }
+    if (-not (Test-Path -LiteralPath $script:deepScanJson)) {
+        Append-Status "Deep Scan JSON not found. Run Deep Scan first."
+        return
+    }
+    if (Test-AnyOperationRunning) {
+        Append-Status "Another operation is already running. Wait for completion."
+        return
+    }
+    try {
+        Remove-IfExists -Path $script:deepScanApplyJson
+        $args = @(
+            "-NoProfile",
+            "-ExecutionPolicy", "Bypass",
+            "-File", $script:applyFixesScript,
+            "-InputJson",    $script:deepScanJson,
+            "-OutputJson",   $script:deepScanApplyJson,
+            "-MaxLevel",     $SolutionLevel,
+            "-FindingIds",   $FindingId
+        )
+        $script:deepScanApplyStartedAt = Get-Date
+        $script:deepScanApplyFindingId = $FindingId
+        $script:deepScanApplyLevel     = $SolutionLevel
+        $script:deepScanApplyProcess = Start-Process -FilePath $script:psHost -ArgumentList $args `
+            -WindowStyle Hidden `
+            -RedirectStandardOutput $script:deepScanStdOut `
+            -RedirectStandardError  $script:deepScanStdErr `
+            -PassThru
+
+        $btnDeepApply.Enabled   = $false
+        $btnDeepApply.ForeColor = $clrMuted
+        $lblDeepApplyState.Text = ("Applying [{0}] {1}..." -f $SolutionLevel, $FindingId)
+        $deepScanApplyTimer.Start()
+        Set-AnalysisUiState -IsBusy:$true -StateText ("Applying {0} fix for {1}..." -f $SolutionLevel, $FindingId)
+        Append-Status ("Applying [{0}] fix for finding: {1}" -f $SolutionLevel, $FindingId)
+    } catch {
+        Append-Status ("Apply fix error: {0}" -f $_.Exception.Message)
+        $script:deepScanApplyProcess = $null
+        $script:deepScanApplyStartedAt = $null
+        $lblDeepApplyState.Text = "Apply failed — see status log."
+        Set-AnalysisUiState -IsBusy:$false -StateText "Deep Scan idle"
+    }
+}
+
+function Poll-DeepScanApply {
+    if (-not $script:deepScanApplyProcess) { return }
+    if (-not $script:deepScanApplyProcess.HasExited) {
+        $elapsed = [math]::Round(((Get-Date) - $script:deepScanApplyStartedAt).TotalSeconds, 0)
+        $script:spinIdx = ($script:spinIdx + 1) % $script:spinFrames.Count
+        $lblDeepApplyState.Text = ("Applying{0}  {1}s" -f $script:spinFrames[$script:spinIdx], $elapsed)
+        return
+    }
+
+    $deepScanApplyTimer.Stop()
+    $durationSec = 0
+    if ($script:deepScanApplyStartedAt) {
+        $durationSec = [math]::Round(((Get-Date) - $script:deepScanApplyStartedAt).TotalSeconds, 1)
+    }
+    $exitCode = Get-ProcessExitCodeSafe -Process $script:deepScanApplyProcess
+    if ($exitCode -ne 0) {
+        $errTail = Get-WorkerErrorTail -ErrorPath $script:deepScanStdErr
+        Append-Status ("Apply fix ended with exit code {0}. {1}" -f $exitCode, $errTail)
+        $lblDeepApplyState.Text = "Apply failed — see Logs tab."
+        $script:deepScanApplyProcess = $null
+        $script:deepScanApplyStartedAt = $null
+        Set-AnalysisUiState -IsBusy:$false -StateText "Deep Scan idle"
+        return
+    }
+
+    if (Wait-ForOutputFile -Path $script:deepScanApplyJson -TimeoutMs 4000) {
+        try {
+            $applyResult = Get-Content -LiteralPath $script:deepScanApplyJson -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
+            $applied = [int]$applyResult.Summary.Applied
+            $failed  = [int]$applyResult.Summary.Failed
+            $msg = ("Fix applied in {0}s: Applied={1} Failed={2}" -f $durationSec, $applied, $failed)
+            Append-Status $msg
+            $lblDeepApplyState.Text = $msg
+            Show-Toast -Title "Fix Applied" -Body ("{0} [{1}]  Applied={2}  Failed={3}" -f $script:deepScanApplyFindingId, $script:deepScanApplyLevel, $applied, $failed) -Level $(if ($failed -gt 0) { "Warning" } else { "Success" })
+            # Mark the finding row visually as applied
+            foreach ($item in $listDeepFindings.Items) {
+                if ($item.SubItems[2].Text -eq $script:deepScanApplyFindingId) {
+                    $item.SubItems[3].Text = "[APPLIED] " + $item.SubItems[3].Text
+                    $item.ForeColor = $clrGreen
+                    break
+                }
+            }
+        } catch {
+            Append-Status ("Apply completed in {0}s but parse failed: {1}" -f $durationSec, $_.Exception.Message)
+            $lblDeepApplyState.Text = "Apply parse error."
+        }
+    } else {
+        Append-Status ("Apply completed in {0}s but output JSON not found." -f $durationSec)
+        $lblDeepApplyState.Text = "Apply output missing."
+    }
+
+    $script:deepScanApplyProcess = $null
+    $script:deepScanApplyStartedAt = $null
+    Set-AnalysisUiState -IsBusy:$false -StateText ("Fix applied in {0}s." -f $durationSec)
+}
+
 function Run-GarbageAnalysis {
     if (-not (Test-Path -LiteralPath $script:analyzerScript)) {
         Append-Status "Analyzer script not found: $script:analyzerScript"
@@ -2152,6 +2806,66 @@ $btnOpenConfig.Add_Click({
     }
 })
 
+# ── Deep Scan event handlers ───────────────────────────────────────────────────
+$btnDeepScanRun.Add_Click({ Run-DeepScan })
+
+$btnDeepScanCancel.Add_Click({
+    if ($script:deepScanProcess -and (-not $script:deepScanProcess.HasExited)) {
+        $confirm = [System.Windows.Forms.MessageBox]::Show("Cancel the running Deep Scan?", "Confirm", "YesNo", "Question")
+        if ($confirm -eq "Yes") {
+            Stop-DeepScan -Reason "Manual cancel requested by user."
+        }
+    }
+})
+
+$listDeepFindings.Add_SelectedIndexChanged({
+    if ($listDeepFindings.SelectedIndices.Count -eq 0) { return }
+    $selected = $listDeepFindings.SelectedItems[0]
+    $idx = [int]$selected.Tag
+    Show-DeepFindingDetail -Index $idx
+})
+
+$cmbDeepFilter.Add_SelectedIndexChanged({
+    $script:deepScanFilter = [string]$cmbDeepFilter.SelectedItem
+    Populate-DeepScanFindings -Findings (Get-DeepScanFilteredFindings)
+    Append-Status ("Deep Scan filter applied: {0}" -f $script:deepScanFilter)
+})
+
+$btnDeepExport.Add_Click({ Export-DeepScanReport })
+
+$listDeepSolutions.Add_SelectedIndexChanged({
+    if ($listDeepSolutions.SelectedIndices.Count -eq 0) {
+        $btnDeepApply.Enabled   = $false
+        $btnDeepApply.ForeColor = $clrMuted
+        return
+    }
+    $canApply = -not (Test-AnyOperationRunning)
+    $btnDeepApply.Enabled   = $canApply
+    $btnDeepApply.ForeColor = if ($canApply) { $clrText } else { $clrMuted }
+    $solItem = $listDeepSolutions.SelectedItems[0]
+    $lblDeepApplyState.Text = ("Ready to apply [{0}] fix — click button to confirm" -f $solItem.Text)
+})
+
+$btnDeepApply.Add_Click({
+    if ($listDeepFindings.SelectedIndices.Count -eq 0 -or $listDeepSolutions.SelectedIndices.Count -eq 0) {
+        Append-Status "Select a finding AND a solution row first."
+        return
+    }
+    $findingIdx = [int]$listDeepFindings.SelectedItems[0].Tag
+    if ($findingIdx -ge $script:deepScanFindings.Count) { return }
+    $finding     = $script:deepScanFindings[$findingIdx]
+    $solItem     = $listDeepSolutions.SelectedItems[0]
+    $solLevel    = $solItem.Text
+    $solLabel    = $solItem.SubItems[1].Text
+    $solRiskNote = $solItem.SubItems[2].Text
+    $solRollback = $solItem.SubItems[3].Text
+
+    $confirmMsg = "Apply fix for: $([string]$finding.Id)`r`nLevel    : $solLevel`r`nFix      : $solLabel`r`nRisk     : $solRiskNote`r`nRollback : $solRollback`r`n`r`nProceed?"
+    $confirm = [System.Windows.Forms.MessageBox]::Show($confirmMsg, "Confirm Fix Application", "YesNo", "Warning")
+    if ($confirm -ne "Yes") { return }
+    Apply-DeepFix -FindingId ([string]$finding.Id) -SolutionLevel $solLevel
+})
+
 Load-GuiPreferences
 Cleanup-DiagnosticLogs -RetentionDays $script:diagnosticRetentionDays
 if ($cmbDepth.Items.Contains($script:startupAnalyzeDepth)) {
@@ -2183,9 +2897,19 @@ $healthApplyTimer = New-Object System.Windows.Forms.Timer
 $healthApplyTimer.Interval = 1000
 $healthApplyTimer.Add_Tick({ Poll-HealthApply })
 
+$deepScanTimer = New-Object System.Windows.Forms.Timer
+$deepScanTimer.Interval = 1000
+$deepScanTimer.Add_Tick({ Poll-DeepScan })
+
+$deepScanApplyTimer = New-Object System.Windows.Forms.Timer
+$deepScanApplyTimer.Interval = 1000
+$deepScanApplyTimer.Add_Tick({ Poll-DeepScanApply })
+
 $form.Add_Shown({
     Set-NoTheme -Ctrl $listExplorer
     Set-NoTheme -Ctrl $listTasks
+    Set-NoTheme -Ctrl $listDeepFindings
+    Set-NoTheme -Ctrl $listDeepSolutions
     $lblStatusRight.Text = ("PSHost: {0}" -f (Split-Path -Leaf $script:psHost))
     Refresh-Drives
     Reload-Tasks
