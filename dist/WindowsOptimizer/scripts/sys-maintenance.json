@@ -27,6 +27,10 @@
     "Gui":  {
                 "AutoAnalyzeOnStartup":  true,
                 "DefaultAnalyzeDepth":  "Quick",
-                "DefaultAnalyzeTop":  15
+                "DefaultAnalyzeTop":  15,
+                "ComputeAnalyzeDurationSec":  8,
+                "ComputeAnalyzeTop":  8,
+                "QuickCleanupRetentionDays":  2,
+                "QuickCleanupMaxFilesPerTarget":  2000
             }
 }

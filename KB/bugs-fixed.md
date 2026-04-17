@@ -8,6 +8,17 @@
 - Fix applicato: introdotto `Resolve-BaseDirectory` con fallback ordinati (`$PSScriptRoot`, `$MyInvocation`, `AppDomain.BaseDirectory`, `Get-Location`).
 - Esito: percorsi `scriptRoot` e `hubRoot` sempre determinati sia in script mode sia in exe mode.
 
+## 2026-04-17 - Improvement Pack: Compute Analyzer + Quick Cleaner
+
+### Improvement 1
+- **Obiettivo**: introdurre un analizzatore intelligente delle risorse computazionali spese (CPU/RAM/IO) e un pulitore rapido a basso rischio.
+- **Implementazione**:
+	- nuovo `scripts/analyze-compute-resources.ps1` con scoring, `DominantPressure` e `Recommendation`.
+	- nuovo `scripts/quick-cleanup-safe.ps1` con target safe, retention breve e output JSON.
+	- integrazione GUI con pulsanti `Analyze Compute` e `Quick Clean`, esecuzione async, cancel unificato e soft-timeout.
+- **Anti-regressione**: single-flight globale tra tutte le operazioni (garbage analysis, cleanup, compute analysis, quick cleanup).
+- **Esito**: nuove capability operative disponibili senza blocchi UI e con packaging dist allineato.
+
 ### Bug 2
 - Sintomo: errori multipli durante azioni dashboard (analyze/cleanup/install) in ambienti con runtime non risolto.
 - Causa: invocazioni dirette `& powershell ...` senza resolver centralizzato e senza gestione errori uniforme.

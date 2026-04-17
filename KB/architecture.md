@@ -6,7 +6,9 @@ Workspace operativo globale su C, D e sistema operativo, con profilo centralizza
 ## Componenti principali
 - scripts/monitor-resources.ps1: monitor sempre attivo processi CPU/RAM + handling priorita.
 - scripts/cleanup-storage-safe.ps1: cleanup con modalita Safe/Radical e criteri AuditDepth/AuditLevel.
+- scripts/quick-cleanup-safe.ps1: pulitore rapido a basso rischio con target sicuri e retention breve.
 - scripts/analyze-garbage-hotspots.ps1: ranking statistico cartelle garbage-prone con classificazione.
+- scripts/analyze-compute-resources.ps1: analizzatore intelligente di spesa computazionale per processo (CPU/RAM/IO) con score e raccomandazioni.
 - scripts/system-optimizer-gui.ps1: dashboard UI con explorer evidenziato e controlli intelligenti.
 - scripts/install-monitor-task.ps1: registrazione task monitor startup.
 - scripts/install-cleanup-task.ps1: registrazione task cleanup giornaliero.
@@ -15,10 +17,10 @@ Workspace operativo globale su C, D e sistema operativo, con profilo centralizza
 
 ## Flussi
 1. Osservazione: analyzer produce ranking con score e recommendation (High/Medium/Low).
-2. Decisione: utente seleziona criteri (Depth, FileLevel/BitLevel, CleanupMode).
+2. Decisione: utente seleziona criteri (Depth, FileLevel/BitLevel, CleanupMode) o avvia analisi compute.
 3. Audit: cleanup in modalita audit senza cancellazione.
-4. Esecuzione: cleanup in modalita execute con policy selezionata.
-5. Validazione: confronto metriche pre/post e log persistente.
+4. Esecuzione: cleanup in modalita execute con policy selezionata o quick cleanup safe.
+5. Validazione: confronto metriche pre/post e log persistente + output JSON deterministico worker->UI.
 
 ## Explorer Intelligence
 Per ogni cartella candidata:
@@ -93,6 +95,16 @@ Per ogni cartella candidata:
 - Pattern: evitare continuazioni riga con `\` in espressioni PowerShell complesse (specialmente con `-f`).
 - Obiettivo: prevenire errori parser a cascata in blocchi `try/catch`.
 - Regola: costruire stringhe complesse in variabile intermedia e poi invocare output (`Append-Status $msg`).
+
+### 10) Intelligent Compute Scoring
+- Pattern: score processo combinando CPU delta campionata, working set e throughput IO in una finestra temporale breve.
+- Obiettivo: identificare in modo stabile i processi che consumano risorse in modo non sostenibile.
+- Regola: esporre sempre `DominantPressure` e `Recommendation` (ThrottlePriority/InvestigateMemory/CheckDiskContention/Observe/Normal).
+
+### 11) Quick Cleaner Safe Envelope
+- Pattern: quick cleanup confinato a target sicuri (temp/cache/log) con retention breve e limiti file per target.
+- Obiettivo: recupero rapido spazio e reattivita senza introdurre rischio di regressione operativa.
+- Regola: supportare audit/execute, output JSON deterministico e stop manuale lato GUI.
 
 ## Packaging e distribuzione
 - Dist principale: dist/WindowsOptimizer.

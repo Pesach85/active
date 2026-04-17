@@ -55,7 +55,9 @@ function Invoke-ChildPowerShell {
 }
 
 $script:cleanupScript = Join-Path $script:scriptRoot "cleanup-storage-safe.ps1"
+$script:quickCleanupScript = Join-Path $script:scriptRoot "quick-cleanup-safe.ps1"
 $script:analyzerScript = Join-Path $script:scriptRoot "analyze-garbage-hotspots.ps1"
+$script:computeAnalyzerScript = Join-Path $script:scriptRoot "analyze-compute-resources.ps1"
 $script:coreScript = Join-Path $script:scriptRoot "ensure-powershell-core.ps1"
 $script:monitorInstaller = Join-Path $script:scriptRoot "install-monitor-task.ps1"
 $script:cleanupInstaller = Join-Path $script:scriptRoot "install-cleanup-task.ps1"
@@ -72,9 +74,23 @@ $script:cleanupStartedAt = $null
 $script:cleanupTimeoutSec = 0
 $script:cleanupSoftTimeoutWarned = $false
 $script:cleanupRunAnalyzeAfter = $false
+$script:computeProcess = $null
+$script:computeJson = Join-Path $script:hubRoot "logs\compute-analysis-live.json"
+$script:computeStartedAt = $null
+$script:computeTimeoutSec = 45
+$script:computeSoftTimeoutWarned = $false
+$script:quickCleanupProcess = $null
+$script:quickCleanupJson = Join-Path $script:hubRoot "logs\quick-cleanup-live.json"
+$script:quickCleanupStartedAt = $null
+$script:quickCleanupTimeoutSec = 120
+$script:quickCleanupSoftTimeoutWarned = $false
 $script:autoAnalyzeOnStartup = $true
 $script:startupAnalyzeDepth = "Quick"
 $script:startupAnalyzeTop = 15
+$script:computeAnalyzeDurationSec = 8
+$script:computeAnalyzeTop = 8
+$script:quickCleanupRetentionDays = 2
+$script:quickCleanupMaxFilesPerTarget = 2000
 
 $form = New-Object System.Windows.Forms.Form
 $form.Text = "Windows Optimizer Console"
@@ -143,6 +159,16 @@ $btnExecute.Text = "Execute Cleanup"
 $btnExecute.Width = 125
 $btnExecute.Location = New-Object System.Drawing.Point(452, 14)
 
+$btnCompute = New-Object System.Windows.Forms.Button
+$btnCompute.Text = "Analyze Compute"
+$btnCompute.Width = 125
+$btnCompute.Location = New-Object System.Drawing.Point(322, 46)
+
+$btnQuickClean = New-Object System.Windows.Forms.Button
+$btnQuickClean.Text = "Quick Clean"
+$btnQuickClean.Width = 125
+$btnQuickClean.Location = New-Object System.Drawing.Point(452, 46)
+
 $lblDepth = New-Object System.Windows.Forms.Label
 $lblDepth.Text = "Depth"
 $lblDepth.AutoSize = $true
@@ -194,7 +220,7 @@ $numTop.Location = New-Object System.Drawing.Point(1095, 14)
 $lblExplorerHint = New-Object System.Windows.Forms.Label
 $lblExplorerHint.Text = "Double-click a row to open folder. Colors: High=Red, Medium=Amber, Low=Green"
 $lblExplorerHint.AutoSize = $true
-$lblExplorerHint.Location = New-Object System.Drawing.Point(146, 50)
+$lblExplorerHint.Location = New-Object System.Drawing.Point(588, 50)
 
 $progressAnalysis = New-Object System.Windows.Forms.ProgressBar
 $progressAnalysis.Minimum = 0
@@ -202,22 +228,24 @@ $progressAnalysis.Maximum = 100
 $progressAnalysis.Value = 0
 $progressAnalysis.Width = 320
 $progressAnalysis.Height = 16
-$progressAnalysis.Location = New-Object System.Drawing.Point(820, 50)
+$progressAnalysis.Location = New-Object System.Drawing.Point(820, 70)
 
 $lblAnalysisState = New-Object System.Windows.Forms.Label
 $lblAnalysisState.Text = "Analyzer idle"
 $lblAnalysisState.AutoSize = $true
-$lblAnalysisState.Location = New-Object System.Drawing.Point(820, 68)
+$lblAnalysisState.Location = New-Object System.Drawing.Point(820, 88)
 
 $panelDash = New-Object System.Windows.Forms.Panel
 $panelDash.Dock = "Top"
-$panelDash.Height = 94
+$panelDash.Height = 112
 $panelDash.Controls.AddRange(@(
     $btnRefresh,
     $btnAnalyze,
     $btnCancelAnalyze,
     $btnAudit,
     $btnExecute,
+    $btnCompute,
+    $btnQuickClean,
     $lblDepth,
     $cmbDepth,
     $lblAuditLevel,
@@ -342,6 +370,34 @@ function Load-GuiPreferences {
             if ($requestedTop -gt 100) { $requestedTop = 100 }
             $script:startupAnalyzeTop = $requestedTop
         }
+
+        if ($null -ne $gui.ComputeAnalyzeDurationSec) {
+            $v = [int]$gui.ComputeAnalyzeDurationSec
+            if ($v -lt 2) { $v = 2 }
+            if ($v -gt 30) { $v = 30 }
+            $script:computeAnalyzeDurationSec = $v
+        }
+
+        if ($null -ne $gui.ComputeAnalyzeTop) {
+            $v = [int]$gui.ComputeAnalyzeTop
+            if ($v -lt 3) { $v = 3 }
+            if ($v -gt 30) { $v = 30 }
+            $script:computeAnalyzeTop = $v
+        }
+
+        if ($null -ne $gui.QuickCleanupRetentionDays) {
+            $v = [int]$gui.QuickCleanupRetentionDays
+            if ($v -lt 1) { $v = 1 }
+            if ($v -gt 14) { $v = 14 }
+            $script:quickCleanupRetentionDays = $v
+        }
+
+        if ($null -ne $gui.QuickCleanupMaxFilesPerTarget) {
+            $v = [int]$gui.QuickCleanupMaxFilesPerTarget
+            if ($v -lt 200) { $v = 200 }
+            if ($v -gt 10000) { $v = 10000 }
+            $script:quickCleanupMaxFilesPerTarget = $v
+        }
     }
 }
 
@@ -429,6 +485,17 @@ function Get-CleanupTimeoutSec {
     return $base
 }
 
+function Test-AnyOperationRunning {
+    $busy = $false
+
+    if ($script:analysisProcess -and (-not $script:analysisProcess.HasExited)) { $busy = $true }
+    if ($script:cleanupProcess -and (-not $script:cleanupProcess.HasExited)) { $busy = $true }
+    if ($script:computeProcess -and (-not $script:computeProcess.HasExited)) { $busy = $true }
+    if ($script:quickCleanupProcess -and (-not $script:quickCleanupProcess.HasExited)) { $busy = $true }
+
+    return $busy
+}
+
 function Set-AnalysisUiState {
     param(
         [bool]$IsBusy,
@@ -438,6 +505,8 @@ function Set-AnalysisUiState {
     $btnAnalyze.Enabled = -not $IsBusy
     $btnAudit.Enabled = -not $IsBusy
     $btnExecute.Enabled = -not $IsBusy
+    $btnCompute.Enabled = -not $IsBusy
+    $btnQuickClean.Enabled = -not $IsBusy
     $cmbDepth.Enabled = -not $IsBusy
     $cmbAuditLevel.Enabled = -not $IsBusy
     $cmbCleanupMode.Enabled = -not $IsBusy
@@ -508,6 +577,50 @@ function Update-AnalysisProgress {
     }
 }
 
+function Update-ComputeProgress {
+    if (-not $script:computeStartedAt) {
+        return
+    }
+
+    $elapsedSec = [math]::Round(((Get-Date) - $script:computeStartedAt).TotalSeconds, 0)
+    $timeoutSec = [math]::Max(1, $script:computeTimeoutSec)
+    $pct = [math]::Min(95, [int](($elapsedSec / $timeoutSec) * 100))
+
+    if ($pct -lt $progressAnalysis.Minimum) { $pct = $progressAnalysis.Minimum }
+    if ($pct -gt $progressAnalysis.Maximum) { $pct = $progressAnalysis.Maximum }
+
+    $progressAnalysis.Value = $pct
+    $lblAnalysisState.Text = ("Compute analysis running: {0}s elapsed (target {1}s)" -f $elapsedSec, $timeoutSec)
+
+    if (($elapsedSec -gt $timeoutSec) -and (-not $script:computeSoftTimeoutWarned)) {
+        $script:computeSoftTimeoutWarned = $true
+        Append-Status ("Compute analysis exceeded expected time ({0}s). No forced stop applied; you can cancel manually." -f $timeoutSec)
+        $lblAnalysisState.Text = ("Compute analysis slower than expected ({0}s > {1}s)." -f $elapsedSec, $timeoutSec)
+    }
+}
+
+function Update-QuickCleanupProgress {
+    if (-not $script:quickCleanupStartedAt) {
+        return
+    }
+
+    $elapsedSec = [math]::Round(((Get-Date) - $script:quickCleanupStartedAt).TotalSeconds, 0)
+    $timeoutSec = [math]::Max(1, $script:quickCleanupTimeoutSec)
+    $pct = [math]::Min(95, [int](($elapsedSec / $timeoutSec) * 100))
+
+    if ($pct -lt $progressAnalysis.Minimum) { $pct = $progressAnalysis.Minimum }
+    if ($pct -gt $progressAnalysis.Maximum) { $pct = $progressAnalysis.Maximum }
+
+    $progressAnalysis.Value = $pct
+    $lblAnalysisState.Text = ("Quick cleanup running: {0}s elapsed (target {1}s)" -f $elapsedSec, $timeoutSec)
+
+    if (($elapsedSec -gt $timeoutSec) -and (-not $script:quickCleanupSoftTimeoutWarned)) {
+        $script:quickCleanupSoftTimeoutWarned = $true
+        Append-Status ("Quick cleanup exceeded expected time ({0}s). No forced stop applied; you can cancel manually." -f $timeoutSec)
+        $lblAnalysisState.Text = ("Quick cleanup slower than expected ({0}s > {1}s)." -f $elapsedSec, $timeoutSec)
+    }
+}
+
 function Stop-GarbageAnalysis {
     param([string]$Reason)
 
@@ -547,6 +660,44 @@ function Stop-CleanupOperation {
     $script:cleanupSoftTimeoutWarned = $false
     $script:cleanupRunAnalyzeAfter = $false
     Set-AnalysisUiState -IsBusy:$false -StateText "Cleanup idle"
+}
+
+function Stop-ComputeAnalysis {
+    param([string]$Reason)
+
+    if ($script:computeProcess -and (-not $script:computeProcess.HasExited)) {
+        try {
+            Stop-Process -Id $script:computeProcess.Id -Force -ErrorAction Stop
+            Append-Status ("Compute analysis stopped. Reason: {0}" -f $Reason)
+        } catch {
+            Append-Status ("Unable to stop compute analysis cleanly: {0}" -f $_.Exception.Message)
+        }
+    }
+
+    $computeTimer.Stop()
+    $script:computeProcess = $null
+    $script:computeStartedAt = $null
+    $script:computeSoftTimeoutWarned = $false
+    Set-AnalysisUiState -IsBusy:$false -StateText "Compute analyzer idle"
+}
+
+function Stop-QuickCleanupOperation {
+    param([string]$Reason)
+
+    if ($script:quickCleanupProcess -and (-not $script:quickCleanupProcess.HasExited)) {
+        try {
+            Stop-Process -Id $script:quickCleanupProcess.Id -Force -ErrorAction Stop
+            Append-Status ("Quick cleanup stopped. Reason: {0}" -f $Reason)
+        } catch {
+            Append-Status ("Unable to stop quick cleanup cleanly: {0}" -f $_.Exception.Message)
+        }
+    }
+
+    $quickCleanupTimer.Stop()
+    $script:quickCleanupProcess = $null
+    $script:quickCleanupStartedAt = $null
+    $script:quickCleanupSoftTimeoutWarned = $false
+    Set-AnalysisUiState -IsBusy:$false -StateText "Quick cleanup idle"
 }
 
 function Poll-GarbageAnalysis {
@@ -662,14 +813,124 @@ function Poll-CleanupOperation {
     }
 }
 
+function Poll-ComputeAnalysis {
+    if (-not $script:computeProcess) {
+        return
+    }
+
+    if (-not $script:computeProcess.HasExited) {
+        Update-ComputeProgress
+        return
+    }
+
+    $computeTimer.Stop()
+    $durationSec = 0
+    if ($script:computeStartedAt) {
+        $durationSec = [math]::Round(((Get-Date) - $script:computeStartedAt).TotalSeconds, 1)
+    }
+
+    if ($script:computeProcess.ExitCode -ne 0) {
+        Append-Status ("Compute analysis process ended with exit code {0}." -f $script:computeProcess.ExitCode)
+        $script:computeProcess = $null
+        $script:computeStartedAt = $null
+        $script:computeSoftTimeoutWarned = $false
+        Set-AnalysisUiState -IsBusy:$false -StateText "Compute analyzer idle"
+        return
+    }
+
+    if (Test-Path -LiteralPath $script:computeJson) {
+        try {
+            $computeResult = Get-Content -LiteralPath $script:computeJson -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
+            $topRows = @($computeResult.TopProcesses)
+            Append-Status ("Compute analysis completed in {0}s. Observed={1} Top={2}" -f $durationSec, [int]$computeResult.TotalProcessesObserved, $topRows.Count)
+
+            foreach ($proc in ($topRows | Select-Object -First 5)) {
+                $computeSummary = "Compute Top PID={0} Name={1} Score={2} CPU={3}% RAM={4}MB IO={5}MB/s Pressure={6} Action={7}" -f 
+                    [int]$proc.PID,
+                    [string]$proc.ProcessName,
+                    [decimal]$proc.Score,
+                    [decimal]$proc.CpuPercent,
+                    [decimal]$proc.WorkingSetMB,
+                    [decimal]$proc.IoMBps,
+                    [string]$proc.DominantPressure,
+                    [string]$proc.Recommendation
+                Append-Status $computeSummary
+            }
+        } catch {
+            Append-Status ("Compute analysis completed in {0}s but result parse failed: {1}" -f $durationSec, $_.Exception.Message)
+        }
+    } else {
+        Append-Status ("Compute analysis completed in {0}s but output JSON was not found." -f $durationSec)
+    }
+
+    $progressAnalysis.Value = 100
+    $lblAnalysisState.Text = ("Compute analysis completed in {0}s." -f $durationSec)
+    $script:computeProcess = $null
+    $script:computeStartedAt = $null
+    $script:computeSoftTimeoutWarned = $false
+    Set-AnalysisUiState -IsBusy:$false -StateText $lblAnalysisState.Text
+}
+
+function Poll-QuickCleanup {
+    if (-not $script:quickCleanupProcess) {
+        return
+    }
+
+    if (-not $script:quickCleanupProcess.HasExited) {
+        Update-QuickCleanupProgress
+        return
+    }
+
+    $quickCleanupTimer.Stop()
+    $durationSec = 0
+    if ($script:quickCleanupStartedAt) {
+        $durationSec = [math]::Round(((Get-Date) - $script:quickCleanupStartedAt).TotalSeconds, 1)
+    }
+
+    if ($script:quickCleanupProcess.ExitCode -ne 0) {
+        Append-Status ("Quick cleanup process ended with exit code {0}." -f $script:quickCleanupProcess.ExitCode)
+        $script:quickCleanupProcess = $null
+        $script:quickCleanupStartedAt = $null
+        $script:quickCleanupSoftTimeoutWarned = $false
+        Set-AnalysisUiState -IsBusy:$false -StateText "Quick cleanup idle"
+        return
+    }
+
+    if (Test-Path -LiteralPath $script:quickCleanupJson) {
+        try {
+            $quickResult = Get-Content -LiteralPath $script:quickCleanupJson -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
+            $quickSummary = "Quick cleanup completed in {0}s: Mode={1} CandidateFiles={2} CandidateGB={3} DeletedFiles={4} DeletedGB={5}" -f 
+                $durationSec,
+                [string]$quickResult.Mode,
+                [int]$quickResult.CandidateFiles,
+                [decimal]$quickResult.CandidateGB,
+                [int]$quickResult.DeletedFiles,
+                [decimal]$quickResult.DeletedGB
+            Append-Status $quickSummary
+        } catch {
+            Append-Status ("Quick cleanup completed in {0}s but result parse failed: {1}" -f $durationSec, $_.Exception.Message)
+        }
+    } else {
+        Append-Status ("Quick cleanup completed in {0}s but output JSON was not found." -f $durationSec)
+    }
+
+    Refresh-Drives
+    $progressAnalysis.Value = 100
+    $lblAnalysisState.Text = ("Quick cleanup completed in {0}s." -f $durationSec)
+    $script:quickCleanupProcess = $null
+    $script:quickCleanupStartedAt = $null
+    $script:quickCleanupSoftTimeoutWarned = $false
+    Set-AnalysisUiState -IsBusy:$false -StateText $lblAnalysisState.Text
+}
+
 function Run-GarbageAnalysis {
     if (-not (Test-Path -LiteralPath $script:analyzerScript)) {
         Append-Status "Analyzer script not found: $script:analyzerScript"
         return
     }
 
-    if ($script:analysisProcess -and (-not $script:analysisProcess.HasExited)) {
-        Append-Status "Analyzer already running. Wait for completion."
+    if (Test-AnyOperationRunning) {
+        Append-Status "Another operation is already running. Wait for completion."
         return
     }
 
@@ -725,13 +986,8 @@ function Run-Cleanup {
         return
     }
 
-    if ($script:analysisProcess -and (-not $script:analysisProcess.HasExited)) {
-        Append-Status "Cannot start cleanup while analyzer is running."
-        return
-    }
-
-    if ($script:cleanupProcess -and (-not $script:cleanupProcess.HasExited)) {
-        Append-Status "Cleanup already running. Wait for completion."
+    if (Test-AnyOperationRunning) {
+        Append-Status "Another operation is already running. Wait for completion."
         return
     }
 
@@ -779,6 +1035,89 @@ function Run-Cleanup {
     }
 }
 
+function Run-ComputeAnalysis {
+    if (-not (Test-Path -LiteralPath $script:computeAnalyzerScript)) {
+        Append-Status "Compute analyzer script not found: $script:computeAnalyzerScript"
+        return
+    }
+
+    if (Test-AnyOperationRunning) {
+        Append-Status "Another operation is already running. Wait for completion."
+        return
+    }
+
+    try {
+        if (Test-Path -LiteralPath $script:computeJson) {
+            Remove-Item -LiteralPath $script:computeJson -Force -ErrorAction SilentlyContinue
+        }
+
+        $args = @(
+            "-NoProfile",
+            "-ExecutionPolicy", "Bypass",
+            "-File", $script:computeAnalyzerScript,
+            "-DurationSec", "{0}" -f $script:computeAnalyzeDurationSec,
+            "-Top", "{0}" -f $script:computeAnalyzeTop,
+            "-OutputJson", $script:computeJson
+        )
+
+        $script:computeStartedAt = Get-Date
+        $script:computeSoftTimeoutWarned = $false
+        $script:computeProcess = Start-Process -FilePath $script:psHost -ArgumentList $args -WindowStyle Hidden -PassThru
+        $progressAnalysis.Value = 1
+        Set-AnalysisUiState -IsBusy:$true -StateText "Compute analysis starting (target 45s)..."
+        $computeTimer.Start()
+        Append-Status "Compute analysis started in background."
+    } catch {
+        Append-Status ("Compute analysis error: {0}" -f $_.Exception.Message)
+        $script:computeProcess = $null
+        $script:computeStartedAt = $null
+        $script:computeSoftTimeoutWarned = $false
+        Set-AnalysisUiState -IsBusy:$false -StateText "Compute analyzer idle"
+    }
+}
+
+function Run-QuickCleanup {
+    if (-not (Test-Path -LiteralPath $script:quickCleanupScript)) {
+        Append-Status "Quick cleanup script not found: $script:quickCleanupScript"
+        return
+    }
+
+    if (Test-AnyOperationRunning) {
+        Append-Status "Another operation is already running. Wait for completion."
+        return
+    }
+
+    try {
+        if (Test-Path -LiteralPath $script:quickCleanupJson) {
+            Remove-Item -LiteralPath $script:quickCleanupJson -Force -ErrorAction SilentlyContinue
+        }
+
+        $args = @(
+            "-NoProfile",
+            "-ExecutionPolicy", "Bypass",
+            "-File", $script:quickCleanupScript,
+            "-Execute",
+            "-RetentionDays", "{0}" -f $script:quickCleanupRetentionDays,
+            "-MaxFilesPerTarget", "{0}" -f $script:quickCleanupMaxFilesPerTarget,
+            "-OutputJson", $script:quickCleanupJson
+        )
+
+        $script:quickCleanupStartedAt = Get-Date
+        $script:quickCleanupSoftTimeoutWarned = $false
+        $script:quickCleanupProcess = Start-Process -FilePath $script:psHost -ArgumentList $args -WindowStyle Hidden -PassThru
+        $progressAnalysis.Value = 1
+        Set-AnalysisUiState -IsBusy:$true -StateText "Quick cleanup starting (target 120s)..."
+        $quickCleanupTimer.Start()
+        Append-Status "Quick cleanup started in background."
+    } catch {
+        Append-Status ("Quick cleanup error: {0}" -f $_.Exception.Message)
+        $script:quickCleanupProcess = $null
+        $script:quickCleanupStartedAt = $null
+        $script:quickCleanupSoftTimeoutWarned = $false
+        Set-AnalysisUiState -IsBusy:$false -StateText "Quick cleanup idle"
+    }
+}
+
 $listExplorer.Add_DoubleClick({
     if ($listExplorer.SelectedItems.Count -eq 0) {
         return
@@ -807,6 +1146,22 @@ $btnCancelAnalyze.Add_Click({
         if ($confirm -eq "Yes") {
             Stop-CleanupOperation -Reason "Manual cancel requested by user."
         }
+        return
+    }
+
+    if ($script:computeProcess -and (-not $script:computeProcess.HasExited)) {
+        $confirm = [System.Windows.Forms.MessageBox]::Show("Cancel running compute analysis?", "Confirm", "YesNo", "Question")
+        if ($confirm -eq "Yes") {
+            Stop-ComputeAnalysis -Reason "Manual cancel requested by user."
+        }
+        return
+    }
+
+    if ($script:quickCleanupProcess -and (-not $script:quickCleanupProcess.HasExited)) {
+        $confirm = [System.Windows.Forms.MessageBox]::Show("Cancel running quick cleanup?", "Confirm", "YesNo", "Question")
+        if ($confirm -eq "Yes") {
+            Stop-QuickCleanupOperation -Reason "Manual cancel requested by user."
+        }
     }
 })
 $btnAudit.Add_Click({ Run-Cleanup -ExecuteNow:$false -RunAnalyzeAfter:$false })
@@ -815,6 +1170,13 @@ $btnExecute.Add_Click({
     $confirm = [System.Windows.Forms.MessageBox]::Show(("Execute {0} cleanup now?" -f $mode), "Confirm", "YesNo", "Warning")
     if ($confirm -eq "Yes") {
         Run-Cleanup -ExecuteNow:$true -RunAnalyzeAfter:$true
+    }
+})
+$btnCompute.Add_Click({ Run-ComputeAnalysis })
+$btnQuickClean.Add_Click({
+    $confirm = [System.Windows.Forms.MessageBox]::Show("Run quick safe cleanup now?", "Confirm", "YesNo", "Question")
+    if ($confirm -eq "Yes") {
+        Run-QuickCleanup
     }
 })
 $btnReloadTasks.Add_Click({ Reload-Tasks })
@@ -862,6 +1224,14 @@ $analysisTimer.Add_Tick({ Poll-GarbageAnalysis })
 $cleanupTimer = New-Object System.Windows.Forms.Timer
 $cleanupTimer.Interval = 1000
 $cleanupTimer.Add_Tick({ Poll-CleanupOperation })
+
+$computeTimer = New-Object System.Windows.Forms.Timer
+$computeTimer.Interval = 1000
+$computeTimer.Add_Tick({ Poll-ComputeAnalysis })
+
+$quickCleanupTimer = New-Object System.Windows.Forms.Timer
+$quickCleanupTimer.Interval = 1000
+$quickCleanupTimer.Add_Tick({ Poll-QuickCleanup })
 
 $form.Add_Shown({
     Refresh-Drives

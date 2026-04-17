@@ -13,11 +13,13 @@ $configDir = Join-Path $hubRoot "config"
 $items = @(
     (Join-Path $scriptDir "monitor-resources.ps1"),
     (Join-Path $scriptDir "cleanup-storage-safe.ps1"),
+    (Join-Path $scriptDir "quick-cleanup-safe.ps1"),
     (Join-Path $scriptDir "install-monitor-task.ps1"),
     (Join-Path $scriptDir "install-cleanup-task.ps1"),
     (Join-Path $scriptDir "ensure-powershell-core.ps1"),
     (Join-Path $scriptDir "audit-disk-hotspots.ps1"),
     (Join-Path $scriptDir "analyze-garbage-hotspots.ps1"),
+    (Join-Path $scriptDir "analyze-compute-resources.ps1"),
     (Join-Path $scriptDir "system-optimizer-gui.ps1"),
     (Join-Path $scriptDir "build-gui-exe.ps1"),
     (Join-Path $scriptDir "install-suite.ps1"),
@@ -70,6 +72,12 @@ Uninstall:
 
 Build GUI EXE:
   powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\build-gui-exe.ps1 -SourceScript .\\scripts\\system-optimizer-gui.ps1 -OutputExe .\\WindowsOptimizer.exe
+
+Analyze Compute Resources:
+    powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\analyze-compute-resources.ps1 -DurationSec 8 -Top 8
+
+Quick Cleanup (safe targets):
+    powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\quick-cleanup-safe.ps1 -Execute -RetentionDays 2 -MaxFilesPerTarget 2000
 "@
 
 Set-Content -LiteralPath (Join-Path $OutputDir "README.txt") -Value $readme -Encoding UTF8
