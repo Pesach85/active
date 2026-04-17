@@ -45,6 +45,38 @@ Per ogni cartella candidata:
 - Logging obbligatorio su logs/storage-cleanup.log.
 - Task always-on vincolati a runtime pwsh Core.
 
+## Stability Patterns riusabili
+
+### 1) UI Busy State Gate (riuso per ogni task lungo)
+- Pattern: funzione unica di stato (`Set-AnalysisUiState`) che abilita/disabilita controlli in modo coerente.
+- Obiettivo: evitare race condition tra Analyze/Audit/Execute e input utente durante operazioni lunghe.
+- Regola: mai togglare pulsanti in punti sparsi; usare solo il gate centralizzato.
+
+### 2) Async Worker + Polling Timer (non-blocking)
+- Pattern: avvio task pesanti in processo background (`Start-Process`) + polling con `System.Windows.Forms.Timer`.
+- Obiettivo: mantenere il message loop WinForms sempre responsivo.
+- Regola: nessuna scansione dischi o cleanup costoso sul thread UI.
+
+### 3) Soft Timeout Observability (no kill aggressivo)
+- Pattern: timeout atteso per profilo (`Quick/Standard/Deep`) con warning informativo se superato.
+- Obiettivo: segnalare anomalie senza introdurre regressioni da terminazioni forzate automatiche.
+- Regola: superato il tempo atteso -> warning + opzione di cancel manuale.
+
+### 4) Controlled Cancellation
+- Pattern: `Stop-GarbageAnalysis` come unico punto di arresto, con reset completo stato (`process`, `timer`, `progress`, `flags`).
+- Obiettivo: garantire rollback UI consistente dopo stop/cancel/error.
+- Regola: mai fermare processi in modo diretto fuori dalla funzione di stop centralizzata.
+
+### 5) Deterministic Result Hand-off
+- Pattern: worker produce output file (`-OutputCsv`), UI importa risultati solo a task terminato.
+- Obiettivo: separare chiaramente compute plane e UI plane.
+- Regola: nessun binding diretto live a stream/pipe di processo pesante.
+
+### 6) Single-flight Protection
+- Pattern: prima di nuovo avvio, check su processo attivo e rifiuto esplicito doppia analisi.
+- Obiettivo: prevenire sovrapposizione scansioni e contention su output/log.
+- Regola: massimo 1 analisi garbage alla volta.
+
 ## Packaging e distribuzione
 - Dist principale: dist/WindowsOptimizer.
 - GUI eseguibile: dist/WindowsOptimizer/WindowsOptimizer.exe.

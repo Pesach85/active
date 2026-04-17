@@ -70,3 +70,13 @@
 - **Hardening anti-regressione**: lock di UI actions (`Analyze/Audit/Execute`) mentre l'analisi e in corso; prevenzione doppio avvio con check su processo attivo.
 - **Esito**: finestra resta responsiva; apertura immediata, risultati caricati a completamento senza blocco interfaccia.
 - **Build verificata**: `C:/SystemOptimizerHub/active/dist/WindowsOptimizer/WindowsOptimizer.exe`, size 51712, timestamp 2026-04-17 10:19:41.
+
+### Bug 9
+- **Sintomo**: UI non bloccata ma percezione di lentezza/stallo durante analisi lunga (assenza di feedback operativo continuo).
+- **Causa radice**: mancavano stato progresso, timeout osservabile e controllo di cancellazione manuale.
+- **Fix applicato**:
+	- progress indicator con tempo trascorso vs target per Depth,
+	- soft-timeout warning (senza kill forzato),
+	- pulsante cancel con stop controllato,
+	- gate centralizzato stato UI (`Set-AnalysisUiState`) e reset unico (`Stop-GarbageAnalysis`).
+- **Esito**: UX deterministica e prevedibile; operatore vede sempre stato analisi e puo interrompere senza regressioni.

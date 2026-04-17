@@ -64,6 +64,8 @@ $script:defaultLog = Join-Path $script:hubRoot "logs\\storage-cleanup.log"
 $script:analysisProcess = $null
 $script:analysisCsv = Join-Path $script:hubRoot "logs\\garbage-hotspots-live.csv"
 $script:analysisStartedAt = $null
+$script:analysisTimeoutSec = 0
+$script:analysisSoftTimeoutWarned = $false
 
 $form = New-Object System.Windows.Forms.Form
 $form.Text = "Windows Optimizer Console"
@@ -115,6 +117,12 @@ $btnAnalyze = New-Object System.Windows.Forms.Button
 $btnAnalyze.Text = "Analyze Garbage"
 $btnAnalyze.Width = 130
 $btnAnalyze.Location = New-Object System.Drawing.Point(182, 14)
+
+$btnCancelAnalyze = New-Object System.Windows.Forms.Button
+$btnCancelAnalyze.Text = "Cancel Analysis"
+$btnCancelAnalyze.Width = 120
+$btnCancelAnalyze.Location = New-Object System.Drawing.Point(16, 46)
+$btnCancelAnalyze.Enabled = $false
 
 $btnAudit = New-Object System.Windows.Forms.Button
 $btnAudit.Text = "Audit Cleanup"
@@ -177,14 +185,28 @@ $numTop.Location = New-Object System.Drawing.Point(1095, 14)
 $lblExplorerHint = New-Object System.Windows.Forms.Label
 $lblExplorerHint.Text = "Double-click a row to open folder. Colors: High=Red, Medium=Amber, Low=Green"
 $lblExplorerHint.AutoSize = $true
-$lblExplorerHint.Location = New-Object System.Drawing.Point(16, 50)
+$lblExplorerHint.Location = New-Object System.Drawing.Point(146, 50)
+
+$progressAnalysis = New-Object System.Windows.Forms.ProgressBar
+$progressAnalysis.Minimum = 0
+$progressAnalysis.Maximum = 100
+$progressAnalysis.Value = 0
+$progressAnalysis.Width = 320
+$progressAnalysis.Height = 16
+$progressAnalysis.Location = New-Object System.Drawing.Point(820, 50)
+
+$lblAnalysisState = New-Object System.Windows.Forms.Label
+$lblAnalysisState.Text = "Analyzer idle"
+$lblAnalysisState.AutoSize = $true
+$lblAnalysisState.Location = New-Object System.Drawing.Point(820, 68)
 
 $panelDash = New-Object System.Windows.Forms.Panel
 $panelDash.Dock = "Top"
-$panelDash.Height = 78
+$panelDash.Height = 94
 $panelDash.Controls.AddRange(@(
     $btnRefresh,
     $btnAnalyze,
+    $btnCancelAnalyze,
     $btnAudit,
     $btnExecute,
     $lblDepth,
@@ -195,13 +217,15 @@ $panelDash.Controls.AddRange(@(
     $cmbCleanupMode,
     $lblTop,
     $numTop,
-    $lblExplorerHint
+    $lblExplorerHint,
+    $progressAnalysis,
+    $lblAnalysisState
 ))
 
 $splitDash = New-Object System.Windows.Forms.SplitContainer
 $splitDash.Dock = "Fill"
 $splitDash.Orientation = "Horizontal"
-$splitDash.SplitterDistance = 170
+$splitDash.SplitterDistance = 190
 $splitDash.Panel1.Controls.Add($txtStatus)
 $splitDash.Panel2.Controls.Add($listExplorer)
 
@@ -332,12 +356,96 @@ function Populate-Explorer {
     }
 }
 
+function Get-AnalysisTimeoutSec {
+    param([string]$Depth)
+
+    switch ($Depth) {
+        "Quick" { return 90 }
+        "Deep" { return 420 }
+        default { return 210 }
+    }
+}
+
+function Set-AnalysisUiState {
+    param(
+        [bool]$IsBusy,
+        [string]$StateText
+    )
+
+    $btnAnalyze.Enabled = -not $IsBusy
+    $btnAudit.Enabled = -not $IsBusy
+    $btnExecute.Enabled = -not $IsBusy
+    $cmbDepth.Enabled = -not $IsBusy
+    $cmbAuditLevel.Enabled = -not $IsBusy
+    $cmbCleanupMode.Enabled = -not $IsBusy
+    $numTop.Enabled = -not $IsBusy
+    $btnCancelAnalyze.Enabled = $IsBusy
+
+    if ($IsBusy) {
+        $progressAnalysis.Style = "Continuous"
+    } else {
+        $progressAnalysis.Style = "Continuous"
+        $progressAnalysis.Value = 0
+    }
+
+    if ($StateText) {
+        $lblAnalysisState.Text = $StateText
+    }
+}
+
+function Update-AnalysisProgress {
+    if (-not $script:analysisStartedAt) {
+        return
+    }
+
+    $elapsedSec = [math]::Round(((Get-Date) - $script:analysisStartedAt).TotalSeconds, 0)
+    $timeoutSec = [math]::Max(1, $script:analysisTimeoutSec)
+    $pct = [math]::Min(95, [int](($elapsedSec / $timeoutSec) * 100))
+
+    if ($pct -lt $progressAnalysis.Minimum) {
+        $pct = $progressAnalysis.Minimum
+    }
+    if ($pct -gt $progressAnalysis.Maximum) {
+        $pct = $progressAnalysis.Maximum
+    }
+
+    $progressAnalysis.Value = $pct
+    $lblAnalysisState.Text = ("Analyzer running: {0}s elapsed (target {1}s)" -f $elapsedSec, $timeoutSec)
+
+    if (($elapsedSec -gt $timeoutSec) -and (-not $script:analysisSoftTimeoutWarned)) {
+        $script:analysisSoftTimeoutWarned = $true
+        Append-Status ("Analyzer exceeded expected time ({0}s). No forced stop applied; you can cancel manually." -f $timeoutSec)
+        $lblAnalysisState.Text = ("Analyzer slower than expected ({0}s > {1}s)." -f $elapsedSec, $timeoutSec)
+    }
+}
+
+function Stop-GarbageAnalysis {
+    param([string]$Reason)
+
+    if ($script:analysisProcess -and (-not $script:analysisProcess.HasExited)) {
+        try {
+            Stop-Process -Id $script:analysisProcess.Id -Force -ErrorAction Stop
+            Append-Status ("Analyzer stopped. Reason: {0}" -f $Reason)
+        } catch {
+            Append-Status ("Unable to stop analyzer cleanly: {0}" -f $_.Exception.Message)
+        }
+    }
+
+    $analysisTimer.Stop()
+    $script:analysisProcess = $null
+    $script:analysisStartedAt = $null
+    $script:analysisTimeoutSec = 0
+    $script:analysisSoftTimeoutWarned = $false
+    Set-AnalysisUiState -IsBusy:$false -StateText "Analyzer idle"
+}
+
 function Poll-GarbageAnalysis {
     if (-not $script:analysisProcess) {
         return
     }
 
     if (-not $script:analysisProcess.HasExited) {
+        Update-AnalysisProgress
         return
     }
 
@@ -349,10 +457,11 @@ function Poll-GarbageAnalysis {
 
     if ($script:analysisProcess.ExitCode -ne 0) {
         Append-Status ("Analyzer process ended with exit code {0}." -f $script:analysisProcess.ExitCode)
-        $btnAnalyze.Enabled = $true
-        $btnAudit.Enabled = $true
-        $btnExecute.Enabled = $true
         $script:analysisProcess = $null
+        $script:analysisStartedAt = $null
+        $script:analysisTimeoutSec = 0
+        $script:analysisSoftTimeoutWarned = $false
+        Set-AnalysisUiState -IsBusy:$false -StateText "Analyzer idle"
         return
     }
 
@@ -361,19 +470,24 @@ function Poll-GarbageAnalysis {
         if ($rows) {
             Populate-Explorer -Rows @($rows)
             Append-Status ("Explorer updated with {0} ranked paths in {1}s." -f @($rows).Count, $durationSec)
+            $progressAnalysis.Value = 100
+            $lblAnalysisState.Text = ("Analyzer completed in {0}s." -f $durationSec)
         } else {
             Populate-Explorer -Rows @()
             Append-Status ("Analyzer completed in {0}s but returned no rows." -f $durationSec)
+            $lblAnalysisState.Text = ("Analyzer completed in {0}s with no rows." -f $durationSec)
         }
     } else {
         Populate-Explorer -Rows @()
         Append-Status ("Analyzer completed in {0}s but output CSV was not found." -f $durationSec)
+        $lblAnalysisState.Text = ("Analyzer completed in {0}s but output CSV missing." -f $durationSec)
     }
 
-    $btnAnalyze.Enabled = $true
-    $btnAudit.Enabled = $true
-    $btnExecute.Enabled = $true
     $script:analysisProcess = $null
+    $script:analysisStartedAt = $null
+    $script:analysisTimeoutSec = 0
+    $script:analysisSoftTimeoutWarned = $false
+    Set-AnalysisUiState -IsBusy:$false -StateText $lblAnalysisState.Text
 }
 
 function Run-GarbageAnalysis {
@@ -411,18 +525,20 @@ function Run-GarbageAnalysis {
         )
 
         $script:analysisStartedAt = Get-Date
+        $script:analysisTimeoutSec = Get-AnalysisTimeoutSec -Depth $depth
+        $script:analysisSoftTimeoutWarned = $false
         $script:analysisProcess = Start-Process -FilePath $script:psHost -ArgumentList $args -WindowStyle Hidden -PassThru
-        $btnAnalyze.Enabled = $false
-        $btnAudit.Enabled = $false
-        $btnExecute.Enabled = $false
+        $progressAnalysis.Value = 1
+        Set-AnalysisUiState -IsBusy:$true -StateText ("Analyzer starting (target {0}s)..." -f $script:analysisTimeoutSec)
         $analysisTimer.Start()
         Append-Status "Analyzer started in background. UI remains responsive."
     } catch {
         Append-Status ("Analyzer error: {0}" -f $_.Exception.Message)
-        $btnAnalyze.Enabled = $true
-        $btnAudit.Enabled = $true
-        $btnExecute.Enabled = $true
         $script:analysisProcess = $null
+        $script:analysisStartedAt = $null
+        $script:analysisTimeoutSec = 0
+        $script:analysisSoftTimeoutWarned = $false
+        Set-AnalysisUiState -IsBusy:$false -StateText "Analyzer idle"
     }
 }
 
@@ -475,6 +591,14 @@ $listExplorer.Add_DoubleClick({
 
 $btnRefresh.Add_Click({ Refresh-Drives })
 $btnAnalyze.Add_Click({ Run-GarbageAnalysis })
+$btnCancelAnalyze.Add_Click({
+    if ($script:analysisProcess -and (-not $script:analysisProcess.HasExited)) {
+        $confirm = [System.Windows.Forms.MessageBox]::Show("Cancel running analysis?", "Confirm", "YesNo", "Question")
+        if ($confirm -eq "Yes") {
+            Stop-GarbageAnalysis -Reason "Manual cancel requested by user."
+        }
+    }
+})
 $btnAudit.Add_Click({ Run-Cleanup -ExecuteNow:$false })
 $btnExecute.Add_Click({
     $mode = [string]$cmbCleanupMode.SelectedItem
