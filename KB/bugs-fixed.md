@@ -38,7 +38,25 @@
 - Fix applicato: procedura deterministica pre-build con stop process `WindowsOptimizer` prima della rigenerazione.
 - Esito: build completata e binari aggiornati su entrambe le destinazioni.
 
-### Verifica finale
+### Verifica finale (2026-04-16)
 - GUI script lint: nessun errore.
 - EXE rigenerato: `C:/SystemOptimizerHub/active/dist/WindowsOptimizer/WindowsOptimizer.exe`.
-- Build metadata: size 49152, timestamp 2026-04-16 17:30:07.
+- Build metadata: size 49152, timestamp 2026-04-16 18:07:20.
+
+---
+
+## 2026-04-17 - EXE avvia ma finestra non compare al doppio click
+
+### Bug 7
+- **Sintomo**: doppio click sull'EXE non produce nessuna finestra visibile, nessun messaggio di errore.
+- **Causa radice**: nella versione precedente, `Run-GarbageAnalysis` veniva invocata **sincrona e prima** di `$form.ShowDialog()`. Quella funzione lancia un processo figlio `pwsh -File analyze-garbage-hotspots.ps1` che scansiona i drive e impiega decine di secondi; la finestra non veniva mai mostrata durante tutta quella durata (ShowDialog non era ancora stato chiamato).
+- **Fix applicato**: rimosso il triplo blocco sincrono di avvio ed agganciato tramite evento `$form.Add_Shown({...})`. La sequenza corretta è ora: ShowDialog apre e renderizza la finestra → evento Shown si innesca → Refresh-Drives e Reload-Tasks (veloci) → Run-GarbageAnalysis (lenta ma la finestra è già visibile).
+- **Codice prima**: `Refresh-Drives; Reload-Tasks; Run-GarbageAnalysis; [void]$form.ShowDialog()`
+- **Codice dopo**: `$form.Add_Shown({ Refresh-Drives; Reload-Tasks; Run-GarbageAnalysis }); [void]$form.ShowDialog()`
+- **Esito**: finestra appare immediatamente al doppio click; analisi garbage parte visibilmente con status "Analyzing..." nel panel.
+- **EXE rigenerato**: size 49152, timestamp 2026-04-17 09:44:34.
+
+### Cleanup legacy folders
+- **Rimosso**: `C:\scripts` (fonti originali pre-hub, superate da `C:\SystemOptimizerHub\active\scripts`)
+- **Rimosso**: `C:\dist` (pacchetto output pre-hub, superato da `C:\SystemOptimizerHub\active\dist`)
+- **Rimosso**: `C:\SystemOptimizerHub\session-20260416-164154` (snapshot sessione originale, consolidato in `active`)

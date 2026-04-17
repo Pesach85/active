@@ -445,7 +445,9 @@ $btnOpenConfig.Add_Click({
     }
 })
 
-Refresh-Drives
-Reload-Tasks
-Run-GarbageAnalysis
+$form.Add_Shown({
+    Refresh-Drives
+    Reload-Tasks
+    Run-GarbageAnalysis
+})
 [void]$form.ShowDialog()
