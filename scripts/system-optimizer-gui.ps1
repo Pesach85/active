@@ -115,6 +115,18 @@ $script:quickCleanupRetentionDays = 2
 $script:quickCleanupMaxFilesPerTarget = 2000
 $script:diagnosticRetentionDays = 7
 $script:diagnosticsDir = Join-Path $script:hubRoot "logs\diagnostics"
+$script:healthAuditScript  = Join-Path $script:scriptRoot "system-health-audit.ps1"
+$script:applyFixesScript   = Join-Path $script:scriptRoot "apply-safe-fixes.ps1"
+$script:healthAuditProcess = $null
+$script:healthAuditJson    = Join-Path $script:hubRoot "logs\health-audit-live.json"
+$script:healthApplyJson    = Join-Path $script:hubRoot "logs\health-apply-live.json"
+$script:healthAuditStdOut  = Join-Path $script:hubRoot "logs\health-audit-live.out.log"
+$script:healthAuditStdErr  = Join-Path $script:hubRoot "logs\health-audit-live.err.log"
+$script:healthAuditStartedAt = $null
+$script:healthAuditTimeoutSec = 90
+$script:healthAuditSoftTimeoutWarned = $false
+$script:healthAuditApplyAfter = $false
+$script:healthAuditMaxLevel   = 'Safe'
 
 # ═══════════════════════════════════════════════════════════════════════════════
 #  Theme palette
@@ -353,21 +365,24 @@ $pnlActions.Height    = 106
 $pnlActions.BackColor = $clrSurface
 
 # Row 1 — operation buttons (y=12)
-$btnAnalyze       = New-Btn "Scan Garbage"    $clrAccent  148 34
-$btnCompute       = New-Btn "Compute"          $clrPurple  118 34
-$btnAudit         = New-Btn "Audit"            $clrCyan    100 34
-$btnExecute       = New-Btn "Execute"          $clrRed     106 34
-$btnQuickClean    = New-Btn "Quick Clean"      $clrGreen   126 34
-$btnDiagnostics   = New-Btn "Diagnostics"      $clrAmber   126 34
-$btnCancelAnalyze = New-Btn "Cancel"           $clrRaised  100 34
+$clrTeal = [System.Drawing.Color]::FromArgb(13, 148, 136)
+$btnAnalyze       = New-Btn "Scan Garbage"    $clrAccent  140 34
+$btnCompute       = New-Btn "Compute"          $clrPurple  110 34
+$btnAudit         = New-Btn "Audit"            $clrCyan     90 34
+$btnExecute       = New-Btn "Execute"          $clrRed      96 34
+$btnQuickClean    = New-Btn "Quick Clean"      $clrGreen   118 34
+$btnHealthAudit   = New-Btn "Health Audit"     $clrTeal    118 34
+$btnDiagnostics   = New-Btn "Diagnostics"      $clrAmber   118 34
+$btnCancelAnalyze = New-Btn "Cancel"           $clrRaised   90 34
 
-$btnAnalyze.Location       = New-Object System.Drawing.Point(12, 12)
-$btnCompute.Location       = New-Object System.Drawing.Point(166, 12)
-$btnAudit.Location         = New-Object System.Drawing.Point(290, 12)
-$btnExecute.Location       = New-Object System.Drawing.Point(396, 12)
-$btnQuickClean.Location    = New-Object System.Drawing.Point(508, 12)
-$btnDiagnostics.Location   = New-Object System.Drawing.Point(640, 12)
-$btnCancelAnalyze.Location = New-Object System.Drawing.Point(772, 12)
+$btnAnalyze.Location       = New-Object System.Drawing.Point(12,  12)
+$btnCompute.Location       = New-Object System.Drawing.Point(158, 12)
+$btnAudit.Location         = New-Object System.Drawing.Point(274, 12)
+$btnExecute.Location       = New-Object System.Drawing.Point(370, 12)
+$btnQuickClean.Location    = New-Object System.Drawing.Point(472, 12)
+$btnHealthAudit.Location   = New-Object System.Drawing.Point(596, 12)
+$btnDiagnostics.Location   = New-Object System.Drawing.Point(720, 12)
+$btnCancelAnalyze.Location = New-Object System.Drawing.Point(844, 12)
 
 $btnCancelAnalyze.Enabled  = $false
 $btnCancelAnalyze.ForeColor = $clrMuted
@@ -453,8 +468,27 @@ $lblExplorerHint.Text      = "Double-click a row to open in Explorer"
 $lblExplorerHint.Font      = $fntSmall
 $lblExplorerHint.ForeColor = $clrMuted
 $lblExplorerHint.AutoSize  = $true
-$lblExplorerHint.Location  = New-Object System.Drawing.Point(610, 62)
+$lblExplorerHint.Location  = New-Object System.Drawing.Point(740, 62)
 $lblExplorerHint.BackColor = [System.Drawing.Color]::Transparent
+
+$lblFixLevel = New-Object System.Windows.Forms.Label
+$lblFixLevel.Text      = "FIX"
+$lblFixLevel.Font      = $fntSmall
+$lblFixLevel.ForeColor = $clrMuted
+$lblFixLevel.AutoSize  = $true
+$lblFixLevel.Location  = New-Object System.Drawing.Point(610, 62)
+$lblFixLevel.BackColor = [System.Drawing.Color]::Transparent
+
+$cmbFixLevel = New-Object System.Windows.Forms.ComboBox
+$cmbFixLevel.DropDownStyle = "DropDownList"
+$cmbFixLevel.Items.AddRange(@("Safe", "Moderate", "Aggressive"))
+$cmbFixLevel.SelectedItem = "Safe"
+$cmbFixLevel.Width = 100
+$cmbFixLevel.Location = New-Object System.Drawing.Point(638, 58)
+$cmbFixLevel.BackColor = $clrRaised
+$cmbFixLevel.ForeColor = $clrText
+$cmbFixLevel.Font = $fntUI
+$cmbFixLevel.FlatStyle = "Flat"
 
 $pnlActionsBorder = New-Object System.Windows.Forms.Panel
 $pnlActionsBorder.Dock      = "Bottom"
@@ -463,9 +497,10 @@ $pnlActionsBorder.BackColor = $clrBorderC
 
 $pnlActions.Controls.AddRange(@(
     $btnAnalyze, $btnCompute, $btnAudit, $btnExecute,
-    $btnQuickClean, $btnDiagnostics, $btnCancelAnalyze,
+    $btnQuickClean, $btnHealthAudit, $btnDiagnostics, $btnCancelAnalyze,
     $lblDepth, $cmbDepth, $lblAuditLevel, $cmbAuditLevel,
     $lblCleanupMode, $cmbCleanupMode, $lblTop, $numTop,
+    $lblFixLevel, $cmbFixLevel,
     $lblExplorerHint, $pnlActionsBorder
 ))
 
@@ -608,7 +643,8 @@ $cmbLogSource.Items.AddRange(@(
     "Cleanup (stdout)", "Cleanup (stderr)",
     "Compute Analyzer (stdout)", "Compute Analyzer (stderr)",
     "Quick Cleanup (stdout)", "Quick Cleanup (stderr)",
-    "Quick Cleanup (log)", "Storage Cleanup (log)"
+    "Quick Cleanup (log)", "Storage Cleanup (log)",
+    "Health Audit (stdout)", "Health Audit (stderr)"
 ))
 $cmbLogSource.SelectedIndex = 0
 
@@ -990,6 +1026,7 @@ function Test-AnyOperationRunning {
     if ($script:cleanupProcess -and (-not $script:cleanupProcess.HasExited)) { $busy = $true }
     if ($script:computeProcess -and (-not $script:computeProcess.HasExited)) { $busy = $true }
     if ($script:quickCleanupProcess -and (-not $script:quickCleanupProcess.HasExited)) { $busy = $true }
+    if ($script:healthAuditProcess -and (-not $script:healthAuditProcess.HasExited)) { $busy = $true }
 
     return $busy
 }
@@ -1005,9 +1042,11 @@ function Set-AnalysisUiState {
     $btnExecute.Enabled = -not $IsBusy
     $btnCompute.Enabled = -not $IsBusy
     $btnQuickClean.Enabled = -not $IsBusy
+    $btnHealthAudit.Enabled = -not $IsBusy
     $cmbDepth.Enabled = -not $IsBusy
     $cmbAuditLevel.Enabled = -not $IsBusy
     $cmbCleanupMode.Enabled = -not $IsBusy
+    $cmbFixLevel.Enabled = -not $IsBusy
     $numTop.Enabled = -not $IsBusy
     $btnCancelAnalyze.Enabled   = $IsBusy
     $btnCancelAnalyze.ForeColor = if ($IsBusy) { $clrRed } else { $clrMuted }
@@ -1552,6 +1591,244 @@ function Poll-QuickCleanup {
     Set-AnalysisUiState -IsBusy:$false -StateText $lblAnalysisState.Text
 }
 
+function Update-HealthAuditProgress {
+    if (-not $script:healthAuditStartedAt) { return }
+    $elapsedSec = [math]::Round(((Get-Date) - $script:healthAuditStartedAt).TotalSeconds, 0)
+    $timeoutSec = [math]::Max(1, $script:healthAuditTimeoutSec)
+    $pct = [math]::Min(95, [int](($elapsedSec / $timeoutSec) * 100))
+    if ($pct -lt $progressAnalysis.Minimum) { $pct = $progressAnalysis.Minimum }
+    if ($pct -gt $progressAnalysis.Maximum) { $pct = $progressAnalysis.Maximum }
+    $progressAnalysis.Value = $pct
+    $script:spinIdx = ($script:spinIdx + 1) % $script:spinFrames.Count
+    $lblAnalysisState.Text = ("Health Audit{0}  {1}s / {2}s" -f $script:spinFrames[$script:spinIdx], $elapsedSec, $timeoutSec)
+    if (($elapsedSec -gt $timeoutSec) -and (-not $script:healthAuditSoftTimeoutWarned)) {
+        $script:healthAuditSoftTimeoutWarned = $true
+        Append-Status ("Health Audit exceeded expected time ({0}s). No forced stop; cancel manually if needed." -f $timeoutSec)
+    }
+}
+
+function Stop-HealthAudit {
+    param([string]$Reason)
+    if ($script:healthAuditProcess -and (-not $script:healthAuditProcess.HasExited)) {
+        try {
+            Stop-Process -Id $script:healthAuditProcess.Id -Force -ErrorAction Stop
+            Append-Status ("Health Audit stopped. Reason: {0}" -f $Reason)
+        } catch {
+            Append-Status ("Unable to stop Health Audit cleanly: {0}" -f $_.Exception.Message)
+        }
+    }
+    $healthAuditTimer.Stop()
+    $script:healthAuditProcess = $null
+    $script:healthAuditStartedAt = $null
+    $script:healthAuditSoftTimeoutWarned = $false
+    $script:healthAuditApplyAfter = $false
+    Set-AnalysisUiState -IsBusy:$false -StateText "Health Audit idle"
+}
+
+function Poll-HealthAudit {
+    if (-not $script:healthAuditProcess) { return }
+    if (-not $script:healthAuditProcess.HasExited) {
+        Update-HealthAuditProgress
+        return
+    }
+
+    $healthAuditTimer.Stop()
+    $durationSec = 0
+    if ($script:healthAuditStartedAt) {
+        $durationSec = [math]::Round(((Get-Date) - $script:healthAuditStartedAt).TotalSeconds, 1)
+    }
+    $exitCode = Get-ProcessExitCodeSafe -Process $script:healthAuditProcess
+    if ($exitCode -ne 0) {
+        $errTail = Get-WorkerErrorTail -ErrorPath $script:healthAuditStdErr
+        if ($errTail) {
+            Append-Status ("Health Audit ended with exit code {0}. Error: {1}" -f $exitCode, $errTail)
+        } else {
+            Append-Status ("Health Audit ended with exit code {0}." -f $exitCode)
+        }
+        $script:healthAuditProcess = $null
+        $script:healthAuditStartedAt = $null
+        $script:healthAuditSoftTimeoutWarned = $false
+        $script:healthAuditApplyAfter = $false
+        Set-AnalysisUiState -IsBusy:$false -StateText "Health Audit idle"
+        return
+    }
+
+    $shouldApply = $script:healthAuditApplyAfter
+    $applyLevel  = $script:healthAuditMaxLevel
+
+    if (Wait-ForOutputFile -Path $script:healthAuditJson -TimeoutMs 4000) {
+        try {
+            $auditResult = Get-Content -LiteralPath $script:healthAuditJson -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
+            $findingsCount = @($auditResult.Findings).Count
+            $optimizedCount = @($auditResult.AlreadyOptimized).Count
+            $critCount = [int]$auditResult.Summary.Critical
+            $impCount  = [int]$auditResult.Summary.Important
+            Append-Status ("Health Audit completed in {0}s. Findings={1} (Critical={2} Important={3}) AlreadyOK={4}" -f $durationSec, $findingsCount, $critCount, $impCount, $optimizedCount)
+            Show-Toast -Title "Health Audit Done" -Body ("{0} findings, {1} already optimized ({2}s)" -f $findingsCount, $optimizedCount, $durationSec) -Level $(if ($critCount -gt 0) { "Warning" } else { "Success" })
+
+            foreach ($f in $auditResult.Findings) {
+                $solLevels = ($f.Solutions | ForEach-Object { $_.Level }) -join '/'
+                Append-Status ("  [{0}] {1} — {2}  (Fixes: {3})" -f [string]$f.Severity, [string]$f.Id, [string]$f.Title, $solLevels)
+            }
+            if ($optimizedCount -gt 0) {
+                Append-Status "  Already optimized: $(($auditResult.AlreadyOptimized | ForEach-Object { $_.Id }) -join ', ')"
+            }
+        } catch {
+            Append-Status ("Health Audit completed in {0}s but parse failed: {1}" -f $durationSec, $_.Exception.Message)
+            $shouldApply = $false
+        }
+    } else {
+        Append-Status ("Health Audit completed in {0}s but output JSON was not found." -f $durationSec)
+        $shouldApply = $false
+    }
+
+    $progressAnalysis.Value = 100
+    $lblAnalysisState.Text = ("Health Audit completed in {0}s." -f $durationSec)
+    $script:healthAuditProcess = $null
+    $script:healthAuditStartedAt = $null
+    $script:healthAuditSoftTimeoutWarned = $false
+    $script:healthAuditApplyAfter = $false
+
+    if ($shouldApply) {
+        Append-Status ("Auto-applying fixes at level: {0}" -f $applyLevel)
+        Run-HealthApply -MaxLevel $applyLevel
+    } else {
+        Set-AnalysisUiState -IsBusy:$false -StateText $lblAnalysisState.Text
+    }
+}
+
+function Run-HealthAudit {
+    param([switch]$ApplyAfter)
+
+    if (-not (Test-Path -LiteralPath $script:healthAuditScript)) {
+        Append-Status "Health audit script not found: $script:healthAuditScript"
+        return
+    }
+    if (Test-AnyOperationRunning) {
+        Append-Status "Another operation is already running. Wait for completion."
+        return
+    }
+    try {
+        Remove-IfExists -Path $script:healthAuditJson
+        Remove-IfExists -Path $script:healthAuditStdOut
+        Remove-IfExists -Path $script:healthAuditStdErr
+
+        $args = @(
+            "-NoProfile",
+            "-ExecutionPolicy", "Bypass",
+            "-File", $script:healthAuditScript,
+            "-OutputJson", $script:healthAuditJson
+        )
+
+        $script:healthAuditStartedAt = Get-Date
+        $script:healthAuditSoftTimeoutWarned = $false
+        $script:healthAuditApplyAfter = [bool]$ApplyAfter
+        $script:healthAuditMaxLevel = [string]$cmbFixLevel.SelectedItem
+        $script:healthAuditProcess = Start-Process -FilePath $script:psHost -ArgumentList $args -WindowStyle Hidden -RedirectStandardOutput $script:healthAuditStdOut -RedirectStandardError $script:healthAuditStdErr -PassThru
+        $progressAnalysis.Value = 1
+        Set-AnalysisUiState -IsBusy:$true -StateText ("Health Audit starting (target {0}s)..." -f $script:healthAuditTimeoutSec)
+        $healthAuditTimer.Start()
+        Append-Status "Health Audit started in background."
+    } catch {
+        Append-Status ("Health Audit error: {0}" -f $_.Exception.Message)
+        $script:healthAuditProcess = $null
+        $script:healthAuditStartedAt = $null
+        $script:healthAuditSoftTimeoutWarned = $false
+        $script:healthAuditApplyAfter = $false
+        Set-AnalysisUiState -IsBusy:$false -StateText "Health Audit idle"
+    }
+}
+
+function Run-HealthApply {
+    param([string]$MaxLevel = 'Safe')
+
+    if (-not (Test-Path -LiteralPath $script:applyFixesScript)) {
+        Append-Status "Apply fixes script not found: $script:applyFixesScript"
+        Set-AnalysisUiState -IsBusy:$false -StateText "Health Audit idle"
+        return
+    }
+    if (-not (Test-Path -LiteralPath $script:healthAuditJson)) {
+        Append-Status "Health audit JSON not found. Run Health Audit first."
+        Set-AnalysisUiState -IsBusy:$false -StateText "Health Audit idle"
+        return
+    }
+    try {
+        Remove-IfExists -Path $script:healthApplyJson
+        $args = @(
+            "-NoProfile",
+            "-ExecutionPolicy", "Bypass",
+            "-File", $script:applyFixesScript,
+            "-InputJson", $script:healthAuditJson,
+            "-OutputJson", $script:healthApplyJson,
+            "-MaxLevel", $MaxLevel
+        )
+        $script:healthAuditStartedAt = Get-Date
+        $script:healthAuditSoftTimeoutWarned = $false
+        $script:healthAuditApplyAfter = $false
+        $script:healthAuditProcess = Start-Process -FilePath $script:psHost -ArgumentList $args -WindowStyle Hidden -RedirectStandardOutput $script:healthAuditStdOut -RedirectStandardError $script:healthAuditStdErr -PassThru
+        $progressAnalysis.Value = 1
+        Set-AnalysisUiState -IsBusy:$true -StateText ("Applying {0} fixes..." -f $MaxLevel)
+        $healthApplyTimer.Start()
+        Append-Status ("Applying {0}-level fixes in background." -f $MaxLevel)
+    } catch {
+        Append-Status ("Apply fixes error: {0}" -f $_.Exception.Message)
+        $script:healthAuditProcess = $null
+        $script:healthAuditStartedAt = $null
+        $script:healthAuditSoftTimeoutWarned = $false
+        Set-AnalysisUiState -IsBusy:$false -StateText "Health Audit idle"
+    }
+}
+
+function Poll-HealthApply {
+    if (-not $script:healthAuditProcess) { return }
+    if (-not $script:healthAuditProcess.HasExited) {
+        Update-HealthAuditProgress
+        return
+    }
+    $healthApplyTimer.Stop()
+    $durationSec = 0
+    if ($script:healthAuditStartedAt) {
+        $durationSec = [math]::Round(((Get-Date) - $script:healthAuditStartedAt).TotalSeconds, 1)
+    }
+    $exitCode = Get-ProcessExitCodeSafe -Process $script:healthAuditProcess
+    if ($exitCode -ne 0) {
+        $errTail = Get-WorkerErrorTail -ErrorPath $script:healthAuditStdErr
+        Append-Status ("Apply fixes ended with exit code {0}. {1}" -f $exitCode, $errTail)
+        $script:healthAuditProcess = $null
+        $script:healthAuditStartedAt = $null
+        $script:healthAuditSoftTimeoutWarned = $false
+        Set-AnalysisUiState -IsBusy:$false -StateText "Apply fixes idle"
+        return
+    }
+    if (Wait-ForOutputFile -Path $script:healthApplyJson -TimeoutMs 4000) {
+        try {
+            $applyResult = Get-Content -LiteralPath $script:healthApplyJson -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
+            $applied = [int]$applyResult.Summary.Applied
+            $failed  = [int]$applyResult.Summary.Failed
+            $skipped = [int]$applyResult.Summary.Skipped
+            Append-Status ("Fixes applied in {0}s: Applied={1} Failed={2} Skipped={3}" -f $durationSec, $applied, $failed, $skipped)
+            Show-Toast -Title "Fixes Applied" -Body ("Applied={0} Failed={1} ({2}s)" -f $applied, $failed, $durationSec) -Level $(if ($failed -gt 0) { "Warning" } else { "Success" })
+            foreach ($r in $applyResult.Results) {
+                if ($r.Status -eq 'Applied') {
+                    Append-Status ("  APPLIED [{0}] {1} — {2}" -f $r.Level, $r.FindingId, $r.Label)
+                } elseif ($r.Status -eq 'Failed') {
+                    Append-Status ("  FAILED [{0}] {1} — {2}: {3}" -f $r.Level, $r.FindingId, $r.Label, $r.Error)
+                }
+            }
+        } catch {
+            Append-Status ("Apply completed in {0}s but parse failed: {1}" -f $durationSec, $_.Exception.Message)
+        }
+    } else {
+        Append-Status ("Apply completed in {0}s but output JSON was not found." -f $durationSec)
+    }
+    Refresh-Drives
+    $progressAnalysis.Value = 100
+    $script:healthAuditProcess = $null
+    $script:healthAuditStartedAt = $null
+    $script:healthAuditSoftTimeoutWarned = $false
+    Set-AnalysisUiState -IsBusy:$false -StateText ("Fixes applied in {0}s." -f $durationSec)
+}
+
 function Run-GarbageAnalysis {
     if (-not (Test-Path -LiteralPath $script:analyzerScript)) {
         Append-Status "Analyzer script not found: $script:analyzerScript"
@@ -1796,6 +2073,13 @@ $btnCancelAnalyze.Add_Click({
             Stop-QuickCleanupOperation -Reason "Manual cancel requested by user."
         }
     }
+
+    if ($script:healthAuditProcess -and (-not $script:healthAuditProcess.HasExited)) {
+        $confirm = [System.Windows.Forms.MessageBox]::Show("Cancel running Health Audit?", "Confirm", "YesNo", "Question")
+        if ($confirm -eq "Yes") {
+            Stop-HealthAudit -Reason "Manual cancel requested by user."
+        }
+    }
 })
 $btnAudit.Add_Click({ Run-Cleanup -ExecuteNow:$false -RunAnalyzeAfter:$false })
 $btnExecute.Add_Click({
@@ -1810,6 +2094,14 @@ $btnQuickClean.Add_Click({
     $confirm = [System.Windows.Forms.MessageBox]::Show("Run quick safe cleanup now?", "Confirm", "YesNo", "Question")
     if ($confirm -eq "Yes") {
         Run-QuickCleanup
+    }
+})
+$btnHealthAudit.Add_Click({
+    $level = [string]$cmbFixLevel.SelectedItem
+    $msg = "Run Health Audit?`n`nAfter scan, fixes at '$level' level will be applied automatically."
+    $confirm = [System.Windows.Forms.MessageBox]::Show($msg, "Health Audit", "YesNo", "Question")
+    if ($confirm -eq "Yes") {
+        Run-HealthAudit -ApplyAfter
     }
 })
 $btnReloadTasks.Add_Click({ Reload-Tasks })
@@ -1843,6 +2135,8 @@ $btnLoadLogs.Add_Click({
         "Quick Cleanup (stderr)"    = $script:quickCleanupStdErr
         "Quick Cleanup (log)"       = (Join-Path $script:hubRoot "logs\quick-cleanup.log")
         "Storage Cleanup (log)"     = $script:defaultLog
+        "Health Audit (stdout)"     = $script:healthAuditStdOut
+        "Health Audit (stderr)"     = $script:healthAuditStdErr
     }
     $selected = [string]$cmbLogSource.SelectedItem
     $logPath = $logMap[$selected]
@@ -1880,6 +2174,14 @@ $computeTimer.Add_Tick({ Poll-ComputeAnalysis })
 $quickCleanupTimer = New-Object System.Windows.Forms.Timer
 $quickCleanupTimer.Interval = 1000
 $quickCleanupTimer.Add_Tick({ Poll-QuickCleanup })
+
+$healthAuditTimer = New-Object System.Windows.Forms.Timer
+$healthAuditTimer.Interval = 1000
+$healthAuditTimer.Add_Tick({ Poll-HealthAudit })
+
+$healthApplyTimer = New-Object System.Windows.Forms.Timer
+$healthApplyTimer.Interval = 1000
+$healthApplyTimer.Add_Tick({ Poll-HealthApply })
 
 $form.Add_Shown({
     Set-NoTheme -Ctrl $listExplorer
