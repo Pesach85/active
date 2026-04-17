@@ -545,6 +545,24 @@ function Get-WorkerErrorTail {
     return [string]$tail
 }
 
+function Get-ProcessExitCodeSafe {
+    param([System.Diagnostics.Process]$Process)
+
+    if ($null -eq $Process) {
+        return -1
+    }
+
+    try {
+        $Process.Refresh()
+        if ($null -eq $Process.ExitCode) {
+            return -1
+        }
+        return [int]$Process.ExitCode
+    } catch {
+        return -1
+    }
+}
+
 function Refresh-Drives {
     $drives = Get-PSDrive -PSProvider FileSystem | Where-Object { $_.Name -in @("C", "D") }
     $summary = $drives | ForEach-Object {
@@ -860,12 +878,13 @@ function Poll-GarbageAnalysis {
         $durationSec = [math]::Round(((Get-Date) - $script:analysisStartedAt).TotalSeconds, 1)
     }
 
-    if ($script:analysisProcess.ExitCode -ne 0) {
+    $analysisExitCode = Get-ProcessExitCodeSafe -Process $script:analysisProcess
+    if ($analysisExitCode -ne 0) {
         $errTail = Get-WorkerErrorTail -ErrorPath $script:analysisStdErr
         if ($errTail) {
-            Append-Status ("Analyzer process ended with exit code {0}. Error: {1}" -f $script:analysisProcess.ExitCode, $errTail)
+            Append-Status ("Analyzer process ended with exit code {0}. Error: {1}" -f $analysisExitCode, $errTail)
         } else {
-            Append-Status ("Analyzer process ended with exit code {0}." -f $script:analysisProcess.ExitCode)
+            Append-Status ("Analyzer process ended with exit code {0}." -f $analysisExitCode)
         }
         $script:analysisProcess = $null
         $script:analysisStartedAt = $null
@@ -916,12 +935,13 @@ function Poll-CleanupOperation {
         $durationSec = [math]::Round(((Get-Date) - $script:cleanupStartedAt).TotalSeconds, 1)
     }
 
-    if ($script:cleanupProcess.ExitCode -ne 0) {
+    $cleanupExitCode = Get-ProcessExitCodeSafe -Process $script:cleanupProcess
+    if ($cleanupExitCode -ne 0) {
         $errTail = Get-WorkerErrorTail -ErrorPath $script:cleanupStdErr
         if ($errTail) {
-            Append-Status ("Cleanup process ended with exit code {0}. Error: {1}" -f $script:cleanupProcess.ExitCode, $errTail)
+            Append-Status ("Cleanup process ended with exit code {0}. Error: {1}" -f $cleanupExitCode, $errTail)
         } else {
-            Append-Status ("Cleanup process ended with exit code {0}." -f $script:cleanupProcess.ExitCode)
+            Append-Status ("Cleanup process ended with exit code {0}." -f $cleanupExitCode)
         }
         $script:cleanupProcess = $null
         $script:cleanupStartedAt = $null
@@ -983,12 +1003,13 @@ function Poll-ComputeAnalysis {
         $durationSec = [math]::Round(((Get-Date) - $script:computeStartedAt).TotalSeconds, 1)
     }
 
-    if ($script:computeProcess.ExitCode -ne 0) {
+    $computeExitCode = Get-ProcessExitCodeSafe -Process $script:computeProcess
+    if ($computeExitCode -ne 0) {
         $errTail = Get-WorkerErrorTail -ErrorPath $script:computeStdErr
         if ($errTail) {
-            Append-Status ("Compute analysis process ended with exit code {0}. Error: {1}" -f $script:computeProcess.ExitCode, $errTail)
+            Append-Status ("Compute analysis process ended with exit code {0}. Error: {1}" -f $computeExitCode, $errTail)
         } else {
-            Append-Status ("Compute analysis process ended with exit code {0}." -f $script:computeProcess.ExitCode)
+            Append-Status ("Compute analysis process ended with exit code {0}." -f $computeExitCode)
         }
         $script:computeProcess = $null
         $script:computeStartedAt = $null
@@ -1046,12 +1067,13 @@ function Poll-QuickCleanup {
         $durationSec = [math]::Round(((Get-Date) - $script:quickCleanupStartedAt).TotalSeconds, 1)
     }
 
-    if ($script:quickCleanupProcess.ExitCode -ne 0) {
+    $quickExitCode = Get-ProcessExitCodeSafe -Process $script:quickCleanupProcess
+    if ($quickExitCode -ne 0) {
         $errTail = Get-WorkerErrorTail -ErrorPath $script:quickCleanupStdErr
         if ($errTail) {
-            Append-Status ("Quick cleanup process ended with exit code {0}. Error: {1}" -f $script:quickCleanupProcess.ExitCode, $errTail)
+            Append-Status ("Quick cleanup process ended with exit code {0}. Error: {1}" -f $quickExitCode, $errTail)
         } else {
-            Append-Status ("Quick cleanup process ended with exit code {0}." -f $script:quickCleanupProcess.ExitCode)
+            Append-Status ("Quick cleanup process ended with exit code {0}." -f $quickExitCode)
         }
         $script:quickCleanupProcess = $null
         $script:quickCleanupStartedAt = $null
@@ -1113,7 +1135,7 @@ function Run-GarbageAnalysis {
             "-NoProfile",
             "-ExecutionPolicy", "Bypass",
             "-File", $script:analyzerScript,
-            "-Drives", "C", "D",
+            "-Drives", "C,D",
             "-Top", "$top",
             "-Depth", $depth,
             "-AuditLevel", $auditLevel,

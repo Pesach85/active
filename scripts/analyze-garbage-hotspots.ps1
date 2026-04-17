@@ -14,6 +14,27 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
+# Normalize CLI input so both "-Drives C D" and "-Drives C,D" resolve correctly.
+$normalizedDrives = New-Object System.Collections.Generic.List[string]
+foreach ($raw in @($Drives)) {
+    if (-not $raw) { continue }
+
+    foreach ($part in ($raw -split "[,;\s]+")) {
+        if (-not $part) { continue }
+        $drive = ($part.Trim().TrimEnd(':')).ToUpperInvariant()
+        if ($drive -match '^[A-Z]$' -and (-not $normalizedDrives.Contains($drive))) {
+            [void]$normalizedDrives.Add($drive)
+        }
+    }
+}
+
+if ($normalizedDrives.Count -eq 0) {
+    $normalizedDrives.Add("C") | Out-Null
+    $normalizedDrives.Add("D") | Out-Null
+}
+
+$Drives = @($normalizedDrives)
+
 $outputDir = Split-Path -Path $OutputCsv -Parent
 if (-not (Test-Path -LiteralPath $outputDir)) {
     New-Item -Path $outputDir -ItemType Directory -Force | Out-Null

@@ -36,6 +36,16 @@
 	- retention automatica log testuali configurabile (`Gui.DiagnosticRetentionDays`).
 - **Esito**: troubleshooting one-click e footprint log più controllato nel tempo.
 
+### Bug 14
+- **Sintomo**: `Analyzer process ended with exit code ...` con errore `A positional parameter cannot be found that accepts argument 'D'` e cleanup con `exit code` vuoto in status.
+- **Causa radice**:
+	- invocazione CLI di `-Drives C D` tramite `Start-Process` non garantiva binding array corretto nello script target,
+	- lettura `ExitCode` non sempre valorizzata al momento del log.
+- **Fix applicato**:
+	- passaggio drives come token singolo `-Drives C,D` + normalizzazione robusta in `analyze-garbage-hotspots.ps1` (split comma/spazi/semicolon),
+	- introdotta funzione `Get-ProcessExitCodeSafe` per reporting deterministico (fallback `-1`).
+- **Esito**: analyzer avvia correttamente con output CSV creato e log exit code sempre valorizzato.
+
 ### Bug 2
 - Sintomo: errori multipli durante azioni dashboard (analyze/cleanup/install) in ambienti con runtime non risolto.
 - Causa: invocazioni dirette `& powershell ...` senza resolver centralizzato e senza gestione errori uniforme.

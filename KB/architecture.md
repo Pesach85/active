@@ -119,6 +119,11 @@ Per ogni cartella candidata:
 - Obiettivo: ridurre MTTR nelle analisi incident senza ricerca manuale file.
 - Regola: retention automatica dei log testuali (`.log`, `.txt`) con finestra configurabile (`Gui.DiagnosticRetentionDays`) all'avvio GUI.
 
+### 14) CLI Array-Binding Safety for Start-Process
+- Pattern: per parametri array passati a script via `Start-Process`, preferire token singolo delimitato (`C,D`) e normalizzare lato script.
+- Obiettivo: prevenire errori di binding posizionale (`argument 'D'`) dovuti a parsing command-line ambiguo.
+- Regola: introdurre normalizzazione input all'inizio script e non assumere che `-Param A B` venga sempre bindato come array.
+
 ## Packaging e distribuzione
 - Dist principale: dist/WindowsOptimizer.
 - GUI eseguibile: dist/WindowsOptimizer/WindowsOptimizer.exe.
