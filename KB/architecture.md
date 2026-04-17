@@ -106,6 +106,14 @@ Per ogni cartella candidata:
 - Obiettivo: recupero rapido spazio e reattivita senza introdurre rischio di regressione operativa.
 - Regola: supportare audit/execute, output JSON deterministico e stop manuale lato GUI.
 
+### 12) Worker Output Handshake + Diagnostics
+- Pattern: ogni worker background deve produrre output file deterministico e stream di diagnostica separati (stdout/stderr).
+- Obiettivo: evitare race tra fine processo e disponibilita file, migliorando l'analisi cause in caso di errore.
+- Regola:
+  - attesa output con retry a timeout breve,
+  - su exit code != 0 riportare tail stderr in UI,
+  - cleanup pre-run dei file output/err precedenti.
+
 ## Packaging e distribuzione
 - Dist principale: dist/WindowsOptimizer.
 - GUI eseguibile: dist/WindowsOptimizer/WindowsOptimizer.exe.

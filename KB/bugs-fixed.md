@@ -19,6 +19,15 @@
 - **Anti-regressione**: single-flight globale tra tutte le operazioni (garbage analysis, cleanup, compute analysis, quick cleanup).
 - **Esito**: nuove capability operative disponibili senza blocchi UI e con packaging dist allineato.
 
+### Bug 13
+- **Sintomo**: in GUI alcuni run riportavano `output JSON was not found` e, in casi intermittenti, `process exit code 1` senza causa diagnostica utile.
+- **Causa radice**: hand-off worker->UI troppo immediato (race su disponibilita file output) e assenza di cattura strutturata stderr/stdout nei processi background.
+- **Fix applicato**:
+	- attesa deterministica output con retry (`Wait-ForOutputFile`) su analyzer/cleanup/compute/quick-clean,
+	- redirect standard output/error a file dedicati per ogni worker,
+	- messaggio status arricchito con tail stderr quando `ExitCode != 0`.
+- **Esito**: ridotte race-condition su output JSON e diagnosi immediata quando un worker fallisce.
+
 ### Bug 2
 - Sintomo: errori multipli durante azioni dashboard (analyze/cleanup/install) in ambienti con runtime non risolto.
 - Causa: invocazioni dirette `& powershell ...` senza resolver centralizzato e senza gestione errori uniforme.

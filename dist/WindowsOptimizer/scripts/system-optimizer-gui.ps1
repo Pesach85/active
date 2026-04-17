@@ -65,22 +65,30 @@ $script:configPath = Join-Path $script:hubRoot "config\\sys-maintenance.json"
 $script:defaultLog = Join-Path $script:hubRoot "logs\\storage-cleanup.log"
 $script:analysisProcess = $null
 $script:analysisCsv = Join-Path $script:hubRoot "logs\\garbage-hotspots-live.csv"
+$script:analysisStdOut = Join-Path $script:hubRoot "logs\garbage-hotspots-live.out.log"
+$script:analysisStdErr = Join-Path $script:hubRoot "logs\garbage-hotspots-live.err.log"
 $script:analysisStartedAt = $null
 $script:analysisTimeoutSec = 0
 $script:analysisSoftTimeoutWarned = $false
 $script:cleanupProcess = $null
 $script:cleanupJson = Join-Path $script:hubRoot "logs\\cleanup-live.json"
+$script:cleanupStdOut = Join-Path $script:hubRoot "logs\cleanup-live.out.log"
+$script:cleanupStdErr = Join-Path $script:hubRoot "logs\cleanup-live.err.log"
 $script:cleanupStartedAt = $null
 $script:cleanupTimeoutSec = 0
 $script:cleanupSoftTimeoutWarned = $false
 $script:cleanupRunAnalyzeAfter = $false
 $script:computeProcess = $null
 $script:computeJson = Join-Path $script:hubRoot "logs\compute-analysis-live.json"
+$script:computeStdOut = Join-Path $script:hubRoot "logs\compute-analysis-live.out.log"
+$script:computeStdErr = Join-Path $script:hubRoot "logs\compute-analysis-live.err.log"
 $script:computeStartedAt = $null
 $script:computeTimeoutSec = 45
 $script:computeSoftTimeoutWarned = $false
 $script:quickCleanupProcess = $null
 $script:quickCleanupJson = Join-Path $script:hubRoot "logs\quick-cleanup-live.json"
+$script:quickCleanupStdOut = Join-Path $script:hubRoot "logs\quick-cleanup-live.out.log"
+$script:quickCleanupStdErr = Join-Path $script:hubRoot "logs\quick-cleanup-live.err.log"
 $script:quickCleanupStartedAt = $null
 $script:quickCleanupTimeoutSec = 120
 $script:quickCleanupSoftTimeoutWarned = $false
@@ -401,6 +409,45 @@ function Load-GuiPreferences {
     }
 }
 
+function Wait-ForOutputFile {
+    param(
+        [string]$Path,
+        [int]$TimeoutMs = 3000,
+        [int]$PollMs = 150
+    )
+
+    $elapsed = 0
+    while ($elapsed -lt $TimeoutMs) {
+        if (Test-Path -LiteralPath $Path) {
+            return $true
+        }
+
+        Start-Sleep -Milliseconds $PollMs
+        $elapsed += $PollMs
+    }
+
+    return (Test-Path -LiteralPath $Path)
+}
+
+function Remove-IfExists {
+    param([string]$Path)
+
+    if (Test-Path -LiteralPath $Path) {
+        Remove-Item -LiteralPath $Path -Force -ErrorAction SilentlyContinue
+    }
+}
+
+function Get-WorkerErrorTail {
+    param([string]$ErrorPath)
+
+    if (-not (Test-Path -LiteralPath $ErrorPath)) {
+        return ""
+    }
+
+    $tail = (Get-Content -LiteralPath $ErrorPath -Tail 6 -ErrorAction SilentlyContinue) -join " | "
+    return [string]$tail
+}
+
 function Refresh-Drives {
     $drives = Get-PSDrive -PSProvider FileSystem | Where-Object { $_.Name -in @("C", "D") }
     $summary = $drives | ForEach-Object {
@@ -717,7 +764,12 @@ function Poll-GarbageAnalysis {
     }
 
     if ($script:analysisProcess.ExitCode -ne 0) {
-        Append-Status ("Analyzer process ended with exit code {0}." -f $script:analysisProcess.ExitCode)
+        $errTail = Get-WorkerErrorTail -ErrorPath $script:analysisStdErr
+        if ($errTail) {
+            Append-Status ("Analyzer process ended with exit code {0}. Error: {1}" -f $script:analysisProcess.ExitCode, $errTail)
+        } else {
+            Append-Status ("Analyzer process ended with exit code {0}." -f $script:analysisProcess.ExitCode)
+        }
         $script:analysisProcess = $null
         $script:analysisStartedAt = $null
         $script:analysisTimeoutSec = 0
@@ -726,7 +778,7 @@ function Poll-GarbageAnalysis {
         return
     }
 
-    if (Test-Path -LiteralPath $script:analysisCsv) {
+    if (Wait-ForOutputFile -Path $script:analysisCsv -TimeoutMs 4000) {
         $rows = Import-Csv -LiteralPath $script:analysisCsv -ErrorAction SilentlyContinue
         if ($rows) {
             Populate-Explorer -Rows @($rows)
@@ -768,7 +820,12 @@ function Poll-CleanupOperation {
     }
 
     if ($script:cleanupProcess.ExitCode -ne 0) {
-        Append-Status ("Cleanup process ended with exit code {0}." -f $script:cleanupProcess.ExitCode)
+        $errTail = Get-WorkerErrorTail -ErrorPath $script:cleanupStdErr
+        if ($errTail) {
+            Append-Status ("Cleanup process ended with exit code {0}. Error: {1}" -f $script:cleanupProcess.ExitCode, $errTail)
+        } else {
+            Append-Status ("Cleanup process ended with exit code {0}." -f $script:cleanupProcess.ExitCode)
+        }
         $script:cleanupProcess = $null
         $script:cleanupStartedAt = $null
         $script:cleanupTimeoutSec = 0
@@ -778,7 +835,7 @@ function Poll-CleanupOperation {
         return
     }
 
-    if (Test-Path -LiteralPath $script:cleanupJson) {
+    if (Wait-ForOutputFile -Path $script:cleanupJson -TimeoutMs 4000) {
         try {
             $cleanupResult = Get-Content -LiteralPath $script:cleanupJson -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
             $cleanupSummary = "Cleanup completed in {0}s: Mode={1} CandidateFiles={2} CandidateGB={3} DeletedFiles={4} DeletedGB={5}" -f 
@@ -830,7 +887,12 @@ function Poll-ComputeAnalysis {
     }
 
     if ($script:computeProcess.ExitCode -ne 0) {
-        Append-Status ("Compute analysis process ended with exit code {0}." -f $script:computeProcess.ExitCode)
+        $errTail = Get-WorkerErrorTail -ErrorPath $script:computeStdErr
+        if ($errTail) {
+            Append-Status ("Compute analysis process ended with exit code {0}. Error: {1}" -f $script:computeProcess.ExitCode, $errTail)
+        } else {
+            Append-Status ("Compute analysis process ended with exit code {0}." -f $script:computeProcess.ExitCode)
+        }
         $script:computeProcess = $null
         $script:computeStartedAt = $null
         $script:computeSoftTimeoutWarned = $false
@@ -838,7 +900,7 @@ function Poll-ComputeAnalysis {
         return
     }
 
-    if (Test-Path -LiteralPath $script:computeJson) {
+    if (Wait-ForOutputFile -Path $script:computeJson -TimeoutMs 4000) {
         try {
             $computeResult = Get-Content -LiteralPath $script:computeJson -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
             $topRows = @($computeResult.TopProcesses)
@@ -888,7 +950,12 @@ function Poll-QuickCleanup {
     }
 
     if ($script:quickCleanupProcess.ExitCode -ne 0) {
-        Append-Status ("Quick cleanup process ended with exit code {0}." -f $script:quickCleanupProcess.ExitCode)
+        $errTail = Get-WorkerErrorTail -ErrorPath $script:quickCleanupStdErr
+        if ($errTail) {
+            Append-Status ("Quick cleanup process ended with exit code {0}. Error: {1}" -f $script:quickCleanupProcess.ExitCode, $errTail)
+        } else {
+            Append-Status ("Quick cleanup process ended with exit code {0}." -f $script:quickCleanupProcess.ExitCode)
+        }
         $script:quickCleanupProcess = $null
         $script:quickCleanupStartedAt = $null
         $script:quickCleanupSoftTimeoutWarned = $false
@@ -896,7 +963,7 @@ function Poll-QuickCleanup {
         return
     }
 
-    if (Test-Path -LiteralPath $script:quickCleanupJson) {
+    if (Wait-ForOutputFile -Path $script:quickCleanupJson -TimeoutMs 4000) {
         try {
             $quickResult = Get-Content -LiteralPath $script:quickCleanupJson -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
             $quickSummary = "Quick cleanup completed in {0}s: Mode={1} CandidateFiles={2} CandidateGB={3} DeletedFiles={4} DeletedGB={5}" -f 
@@ -941,9 +1008,9 @@ function Run-GarbageAnalysis {
 
     try {
         Append-Status ("Analyzing garbage hotspots Depth={0} Audit={1} Mode={2} Top={3}" -f $depth, $auditLevel, $cleanupMode, $top)
-        if (Test-Path -LiteralPath $script:analysisCsv) {
-            Remove-Item -LiteralPath $script:analysisCsv -Force -ErrorAction SilentlyContinue
-        }
+        Remove-IfExists -Path $script:analysisCsv
+        Remove-IfExists -Path $script:analysisStdOut
+        Remove-IfExists -Path $script:analysisStdErr
 
         $args = @(
             "-NoProfile",
@@ -960,7 +1027,7 @@ function Run-GarbageAnalysis {
         $script:analysisStartedAt = Get-Date
         $script:analysisTimeoutSec = Get-AnalysisTimeoutSec -Depth $depth
         $script:analysisSoftTimeoutWarned = $false
-        $script:analysisProcess = Start-Process -FilePath $script:psHost -ArgumentList $args -WindowStyle Hidden -PassThru
+        $script:analysisProcess = Start-Process -FilePath $script:psHost -ArgumentList $args -WindowStyle Hidden -RedirectStandardOutput $script:analysisStdOut -RedirectStandardError $script:analysisStdErr -PassThru
         $progressAnalysis.Value = 1
         Set-AnalysisUiState -IsBusy:$true -StateText ("Analyzer starting (target {0}s)..." -f $script:analysisTimeoutSec)
         $analysisTimer.Start()
@@ -1011,15 +1078,15 @@ function Run-Cleanup {
     $action = if ($ExecuteNow) { "execute" } else { "audit" }
     Append-Status ("Running cleanup {0} with Depth={1}, Audit={2}, Mode={3}" -f $action, $depth, $auditLevel, $cleanupMode)
     try {
-        if (Test-Path -LiteralPath $script:cleanupJson) {
-            Remove-Item -LiteralPath $script:cleanupJson -Force -ErrorAction SilentlyContinue
-        }
+        Remove-IfExists -Path $script:cleanupJson
+        Remove-IfExists -Path $script:cleanupStdOut
+        Remove-IfExists -Path $script:cleanupStdErr
 
         $script:cleanupStartedAt = Get-Date
         $script:cleanupTimeoutSec = Get-CleanupTimeoutSec -Depth $depth -ExecuteNow:$ExecuteNow
         $script:cleanupSoftTimeoutWarned = $false
         $script:cleanupRunAnalyzeAfter = $RunAnalyzeAfter
-        $script:cleanupProcess = Start-Process -FilePath $script:psHost -ArgumentList $args -WindowStyle Hidden -PassThru
+        $script:cleanupProcess = Start-Process -FilePath $script:psHost -ArgumentList $args -WindowStyle Hidden -RedirectStandardOutput $script:cleanupStdOut -RedirectStandardError $script:cleanupStdErr -PassThru
         $progressAnalysis.Value = 1
         Set-AnalysisUiState -IsBusy:$true -StateText ("Cleanup starting (target {0}s)..." -f $script:cleanupTimeoutSec)
         $cleanupTimer.Start()
@@ -1047,9 +1114,9 @@ function Run-ComputeAnalysis {
     }
 
     try {
-        if (Test-Path -LiteralPath $script:computeJson) {
-            Remove-Item -LiteralPath $script:computeJson -Force -ErrorAction SilentlyContinue
-        }
+        Remove-IfExists -Path $script:computeJson
+        Remove-IfExists -Path $script:computeStdOut
+        Remove-IfExists -Path $script:computeStdErr
 
         $args = @(
             "-NoProfile",
@@ -1062,7 +1129,7 @@ function Run-ComputeAnalysis {
 
         $script:computeStartedAt = Get-Date
         $script:computeSoftTimeoutWarned = $false
-        $script:computeProcess = Start-Process -FilePath $script:psHost -ArgumentList $args -WindowStyle Hidden -PassThru
+        $script:computeProcess = Start-Process -FilePath $script:psHost -ArgumentList $args -WindowStyle Hidden -RedirectStandardOutput $script:computeStdOut -RedirectStandardError $script:computeStdErr -PassThru
         $progressAnalysis.Value = 1
         Set-AnalysisUiState -IsBusy:$true -StateText "Compute analysis starting (target 45s)..."
         $computeTimer.Start()
@@ -1088,9 +1155,9 @@ function Run-QuickCleanup {
     }
 
     try {
-        if (Test-Path -LiteralPath $script:quickCleanupJson) {
-            Remove-Item -LiteralPath $script:quickCleanupJson -Force -ErrorAction SilentlyContinue
-        }
+        Remove-IfExists -Path $script:quickCleanupJson
+        Remove-IfExists -Path $script:quickCleanupStdOut
+        Remove-IfExists -Path $script:quickCleanupStdErr
 
         $args = @(
             "-NoProfile",
@@ -1104,7 +1171,7 @@ function Run-QuickCleanup {
 
         $script:quickCleanupStartedAt = Get-Date
         $script:quickCleanupSoftTimeoutWarned = $false
-        $script:quickCleanupProcess = Start-Process -FilePath $script:psHost -ArgumentList $args -WindowStyle Hidden -PassThru
+        $script:quickCleanupProcess = Start-Process -FilePath $script:psHost -ArgumentList $args -WindowStyle Hidden -RedirectStandardOutput $script:quickCleanupStdOut -RedirectStandardError $script:quickCleanupStdErr -PassThru
         $progressAnalysis.Value = 1
         Set-AnalysisUiState -IsBusy:$true -StateText "Quick cleanup starting (target 120s)..."
         $quickCleanupTimer.Start()
