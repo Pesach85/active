@@ -1,8 +1,8 @@
 {
   "Mode": "AUDIT",
   "CleanupMode": "Safe",
-  "AuditDepth": "Quick",
-  "AuditLevel": "FileLevel",
+  "AuditDepth": "Standard",
+  "AuditLevel": "BitLevel",
   "CandidateFiles": 0,
   "CandidateGB": 0.0,
   "DeletedFiles": 0,
@@ -10,8 +10,8 @@
   "Pre": [
     {
       "Name": "C",
-      "FreeGB": 11.02,
-      "UsedGB": 211.08,
+      "FreeGB": 10.88,
+      "UsedGB": 211.22,
       "TotalGB": 222.1
     },
     {
@@ -24,8 +24,8 @@
   "Post": [
     {
       "Name": "C",
-      "FreeGB": 11.02,
-      "UsedGB": 211.08,
+      "FreeGB": 10.88,
+      "UsedGB": 211.22,
       "TotalGB": 222.1
     },
     {

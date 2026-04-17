@@ -1,14 +1,14 @@
 
-[32;1mGeneratedAt            : [0m2026-04-17 11:18:47
+[32;1mGeneratedAt            : [0m2026-04-17 11:43:10
 [32;1mDurationSec            : [0m8
 [32;1mLogicalProcessors      : [0m8
-[32;1mTotalProcessesObserved : [0m253
-[32;1mTopProcesses           : [0m{@{Score=4,15; ProcessName=pwsh; PID=17492; CpuPercent=0; WorkingSetMB=1359,66; 
-                         PrivateMB=1214,44; IoMBps=0; DominantPressure=MemoryHeavy; Recommendation=Normal}, 
-                         @{Score=2,4; ProcessName=Code; PID=7928; CpuPercent=0,07; WorkingSetMB=774,44; 
-                         PrivateMB=775,73; IoMBps=0; DominantPressure=MemoryHeavy; Recommendation=Normal}, 
-                         @{Score=1,62; ProcessName=Code; PID=15428; CpuPercent=0,02; WorkingSetMB=527,41; 
-                         PrivateMB=508,24; IoMBps=0; DominantPressure=MemoryHeavy; Recommendation=Normal}, 
-                         @{Score=1,19; ProcessName=mysqld; PID=7676; CpuPercent=0,05; WorkingSetMB=380,13; 
-                         PrivateMB=586,27; IoMBps=0; DominantPressure=MemoryHeavy; Recommendation=Normal}.}
+[32;1mTotalProcessesObserved : [0m252
+[32;1mTopProcesses           : [0m{@{Score=4,18; ProcessName=pwsh; PID=17492; CpuPercent=0; WorkingSetMB=1369,42; 
+                         PrivateMB=1223,9; IoMBps=0; DominantPressure=MemoryHeavy; Recommendation=Normal}, 
+                         @{Score=2,57; ProcessName=Code; PID=15428; CpuPercent=0,05; WorkingSetMB=831,77; 
+                         PrivateMB=814,41; IoMBps=0; DominantPressure=MemoryHeavy; Recommendation=Normal}, 
+                         @{Score=2,4; ProcessName=Code; PID=7928; CpuPercent=0; WorkingSetMB=787,73; PrivateMB=790,2; 
+                         IoMBps=0; DominantPressure=MemoryHeavy; Recommendation=Normal}, @{Score=1,18; 
+                         ProcessName=explorer; PID=5416; CpuPercent=0,05; WorkingSetMB=379,31; PrivateMB=192,78; 
+                         IoMBps=0; DominantPressure=MemoryHeavy; Recommendation=Normal}.}
 

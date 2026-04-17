@@ -161,3 +161,26 @@
 - **Causa radice**: il tab leggeva solo `storage-cleanup.log` (percorso che non esiste nel contesto dist/EXE). Nessuna visibilità sui log dei 4 worker.
 - **Fix applicato**: sostituito con combo box multi-sorgente (10 log source: stdout/stderr di ogni worker + quick-cleanup.log + storage-cleanup.log) e bottone "Load Last 200 Lines".
 - **Esito**: tab Logs funzionale con selezione sorgente e contenuto visibile.
+
+---
+
+## Improvement 3 — Complete UX Redesign (Dark Theme + Toasts + Animations)
+**Date:** 2025-01-XX
+**File:** scripts/system-optimizer-gui.ps1
+
+### Changes
+- **Dark palette**: clrBg/clrSurface/clrRaised/clrBorder + semantic accent colors (blue, green, red, amber, purple, cyan)
+- **Fonts**: Segoe UI 9.5 (body), 14 Bold (header title), 9 Bold (H2/buttons), Consolas 9 (terminals), Segoe UI 8 (small/labels)
+- **Header bar**: 64px panel with app title + 2 drive mini-cards (C:, D:) with utilization ProgressBar; 3px blue accent bottom line
+- **Flat action buttons**: 7 buttons with semantic color per group (Scan=blue, Compute=purple, Audit=cyan, Execute=red, Quick Clean=green, Diagnostics=amber, Cancel=muted/red when active)
+- **Progress band**: hidden panel (shown only when busy) containing Marquee ProgressBar (6px height) + animated spinner label
+- **Spinner animation**: dots pattern cycling on every Update-*Progress tick: "Scanning."→".."→"..."→etc.
+- **Dark ListView**: SetWindowTheme strips visual styles; per-row colors (High=dark red bg + pink text, Medium=dark amber bg + yellow text, default=surface+text)
+- **Dark TextBox feeds**: BackColor=clrBg, ForeColor=clrText, Consolas font
+- **Owner-draw tabs**: dark tab strip with clrAccent bottom underline on selected tab
+- **Status bar**: 28px bottom panel; left=last action preview, right=PSHost+time (updated on Refresh-Drives)
+- **Show-Toast**: borderless Form 360×90 at screen bottom-right, left-color accent strip, auto-close timer 4.5s — called on all 4 completion paths (Scan, Cleanup, Compute, Quick Clean)
+- **Removed**: old btnRefresh (Refresh Drive Status) — drive data shown in header cards on every Refresh-Drives call
+
+### Outcome
+EXE v1.8.0 compiled and smoke-tested (stays alive >5s).
