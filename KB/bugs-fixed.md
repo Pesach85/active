@@ -200,3 +200,39 @@ EXE v1.8.0 compiled and smoke-tested (stays alive >5s).
 	- rebuild EXE: `dist/WindowsOptimizer/WindowsOptimizer.exe` versione `1.8.1` generata con successo.
 	- smoke test: processo GUI vivo oltre 6s (`ALIVE PID=6464`) senza crash all'avvio.
 - **Esito**: eliminato errore `op_Subtraction`, toasts resi resilienti anche in configurazioni monitor/runtime non standard.
+
+### Bug 18 — Toast timer crash `null-valued expression`
+- **Sintomo**: al completamento di un'operazione compariva popup errore: `Impossibile chiamare un metodo su un'espressione con valore null`. Due finestre di dialogo sovrapposte (toast dietro, errore davanti).
+- **Impatto**: ogni operazione completata con successo generava un errore bloccante; toast inutilizzabile.
+- **Causa radice**: nel timer `.Add_Tick({ $tRef.Close(); $ttimer.Stop(); ... })` i riferimenti `$tRef` e `$ttimer` erano variabili locali della funzione `Show-Toast`. In PowerShell, i `.Add_Tick` / `.Add_Click` scriptblock **non** creano vere closure sulle variabili locali della funzione chiamante. Quando il timer scattava 4.5s dopo, la funzione era già uscita e le variabili risolvevano a `$null`.
+- **Pattern violato**: *PowerShell .NET event handler scoping* — gli scriptblock usati come handler di eventi .NET NON catturano le variabili locali della funzione genitore.
+- **Fix applicato**:
+	1. Riferimenti passati tramite proprietà `.Tag` degli oggetti .NET: `$ttimer.Tag = $toast` e `$toast.Tag = $ttimer`.
+	2. Handler riscritto con `param($sender, $eArgs)`: usa `$sender` (il timer) per raggiungere `$sender.Tag` (il toast).
+	3. Guard `if ($toastRef -and -not $toastRef.IsDisposed)` prima di `.Close()`.
+	4. `$sender.Dispose()` alla fine per pulizia deterministica.
+- **Check anti-regressione**:
+	- Parser: SYNTAX OK.
+	- Rebuild EXE v1.8.2 OK.
+	- Smoke test 8s: ALIVE.
+
+### Bug 19 — Tab strip nascosta dietro header (pulsanti "sotto l'intestazione")
+- **Sintomo**: la barra dei tab (Dashboard / Tasks / Logs / Config) non era visibile; il contenuto della tab appariva immediatamente sotto la riga accent blue dell'header, con i pulsanti azione quasi sovrapposti.
+- **Impatto**: navigazione tra tab impossibile senza scorciatoie; layout percepito come broken.
+- **Causa radice**: in WinForms il dock layout processa i controlli figli dall'indice più alto al più basso. L'ordine originale era:
+	- `form.Controls.Add(pnlHeader)` → index 0
+	- `form.Controls.Add(pnlStatusBar)` → index 1
+	- `form.Controls.Add(tabs)` → index 2
+
+	Il layout processava `tabs` (index 2, Dock=Fill) per primo, assegnandogli l'intera area client. Poi `pnlStatusBar` e `pnlHeader` si sovrapponevano, ma il TabControl aveva già il suo tab strip a Y=0, nascosto sotto il pannello header.
+- **Pattern violato**: *WinForms Dock z-order* — il controllo Dock=Fill deve avere l'indice PIÙ BASSO (aggiunto per PRIMO) così viene processato per ultimo e riceve lo spazio residuo.
+- **Fix applicato**:
+	1. Wrapping in `$form.SuspendLayout()` / `$form.ResumeLayout($false)` per un singolo pass di layout.
+	2. Ordine invertito: `Add(tabs)` → `Add(pnlStatusBar)` → `Add(pnlHeader)`.
+	3. Edge-docked controls (Top/Bottom) hanno ora indici più alti e vengono processati per primi, riservando spazio. Fill (tabs, index 0) riceve il residuo.
+- **Check anti-regressione**:
+	- Parser: SYNTAX OK.
+	- Rebuild EXE v1.8.2 OK.
+	- Smoke test 8s: ALIVE.
+	- Tab strip ora visibile con owner-draw corretto.
+- **Esito**: tab strip visibile, layout deterministico, nessun overlap header/contenuto.

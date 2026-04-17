@@ -260,7 +260,6 @@ $pnlHeaderLine.Height    = 3
 $pnlHeaderLine.BackColor = $clrAccent
 
 $pnlHeader.Controls.AddRange(@($lblAppTitle, $pnlDriveC, $pnlDriveD, $pnlHeaderLine))
-$form.Controls.Add($pnlHeader)
 
 # ── Status bar (bottom) ───────────────────────────────────────────────────────
 $pnlStatusBar = New-Object System.Windows.Forms.Panel
@@ -293,7 +292,6 @@ $lblStatusRight.BackColor = [System.Drawing.Color]::Transparent
 $lblStatusRight.Anchor    = [System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Right
 
 $pnlStatusBar.Controls.AddRange(@($pnlStatusBarLine, $lblStatusLeft, $lblStatusRight))
-$form.Controls.Add($pnlStatusBar)
 
 # ── TabControl ────────────────────────────────────────────────────────────────
 $tabs = New-Object System.Windows.Forms.TabControl
@@ -655,7 +653,14 @@ $tabConfig.Controls.Add($pnlConfigBody)
 
 # ── Assemble ──────────────────────────────────────────────────────────────────
 $tabs.TabPages.AddRange(@($tabDashboard, $tabTasks, $tabLogs, $tabConfig))
-$form.Controls.Add($tabs)
+
+# Dock layout processes children from highest index first. Edge-docked controls
+# (Top/Bottom) must have HIGHER indices so they claim space BEFORE Fill.
+$form.SuspendLayout()
+$form.Controls.Add($tabs)          # index 0 → Dock=Fill  → docked last  → remaining space
+$form.Controls.Add($pnlStatusBar)  # index 1 → Dock=Bottom → docked second
+$form.Controls.Add($pnlHeader)     # index 2 → Dock=Top    → docked first → 64px from top
+$form.ResumeLayout($false)
 
 function Append-Status {
     param([string]$Message)
@@ -1094,10 +1099,22 @@ function Show-Toast {
             }
         })
 
+        # Timer closure fix: .NET event handlers cannot reliably capture
+        # PowerShell local variables after the enclosing function returns.
+        # Use Tag properties to pass object references via the sender param.
         $ttimer = New-Object System.Windows.Forms.Timer
         $ttimer.Interval = 4500
-        $tRef = $toast
-        $ttimer.Add_Tick({ $tRef.Close(); $ttimer.Stop(); $ttimer.Dispose() })
+        $ttimer.Tag  = $toast   # store toast ref in timer's Tag
+        $toast.Tag   = $ttimer  # store timer ref in toast's Tag (prevents GC)
+        $ttimer.Add_Tick({
+            param($sender, $eArgs)
+            $sender.Stop()
+            $toastRef = $sender.Tag
+            if ($toastRef -and -not $toastRef.IsDisposed) {
+                $toastRef.Close()
+            }
+            $sender.Dispose()
+        })
         $ttimer.Start()
         $toast.Show($form)
     } catch {
