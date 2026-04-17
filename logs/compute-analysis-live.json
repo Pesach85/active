@@ -1,0 +1,63 @@
+{
+  "GeneratedAt": "2026-04-17 11:34:20",
+  "DurationSec": 3,
+  "LogicalProcessors": 8,
+  "TotalProcessesObserved": 259,
+  "TopProcesses": [
+    {
+      "Score": 4.16,
+      "ProcessName": "pwsh",
+      "PID": 17492,
+      "CpuPercent": 0.0,
+      "WorkingSetMB": 1363.85,
+      "PrivateMB": 1218.47,
+      "IoMBps": 0.0,
+      "DominantPressure": "MemoryHeavy",
+      "Recommendation": "Normal"
+    },
+    {
+      "Score": 2.96,
+      "ProcessName": "Code",
+      "PID": 15428,
+      "CpuPercent": 0.39,
+      "WorkingSetMB": 899.16,
+      "PrivateMB": 885.05,
+      "IoMBps": 0.0,
+      "DominantPressure": "MemoryHeavy",
+      "Recommendation": "Normal"
+    },
+    {
+      "Score": 2.59,
+      "ProcessName": "Code",
+      "PID": 7928,
+      "CpuPercent": 0.13,
+      "WorkingSetMB": 825.12,
+      "PrivateMB": 834.75,
+      "IoMBps": 0.0,
+      "DominantPressure": "MemoryHeavy",
+      "Recommendation": "Normal"
+    },
+    {
+      "Score": 1.27,
+      "ProcessName": "mysqld",
+      "PID": 7676,
+      "CpuPercent": 0.2,
+      "WorkingSetMB": 380.13,
+      "PrivateMB": 586.27,
+      "IoMBps": 0.0,
+      "DominantPressure": "MemoryHeavy",
+      "Recommendation": "Normal"
+    },
+    {
+      "Score": 1.1,
+      "ProcessName": "explorer",
+      "PID": 5416,
+      "CpuPercent": 0.0,
+      "WorkingSetMB": 361.96,
+      "PrivateMB": 170.62,
+      "IoMBps": 0.0,
+      "DominantPressure": "MemoryHeavy",
+      "Recommendation": "Normal"
+    }
+  ]
+}

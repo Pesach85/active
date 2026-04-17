@@ -1,0 +1,41 @@
+{
+  "GeneratedAt": "2026-04-17 11:35:31",
+  "DurationSec": 3,
+  "LogicalProcessors": 8,
+  "TotalProcessesObserved": 253,
+  "TopProcesses": [
+    {
+      "Score": 4.16,
+      "ProcessName": "pwsh",
+      "PID": 17492,
+      "CpuPercent": 0.0,
+      "WorkingSetMB": 1363.79,
+      "PrivateMB": 1218.42,
+      "IoMBps": 0.0,
+      "DominantPressure": "MemoryHeavy",
+      "Recommendation": "Normal"
+    },
+    {
+      "Score": 2.97,
+      "ProcessName": "Code",
+      "PID": 15428,
+      "CpuPercent": 0.39,
+      "WorkingSetMB": 902.99,
+      "PrivateMB": 889.07,
+      "IoMBps": 0.0,
+      "DominantPressure": "MemoryHeavy",
+      "Recommendation": "Normal"
+    },
+    {
+      "Score": 2.75,
+      "ProcessName": "Code",
+      "PID": 7928,
+      "CpuPercent": 0.52,
+      "WorkingSetMB": 808.48,
+      "PrivateMB": 815.3,
+      "IoMBps": 0.0,
+      "DominantPressure": "MemoryHeavy",
+      "Recommendation": "Normal"
+    }
+  ]
+}

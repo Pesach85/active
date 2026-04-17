@@ -1,0 +1,40 @@
+﻿Timestamp: 2026-04-17 11:09:35
+State: Analyzer idle
+PSHost: C:\Users\Pasquale Lombardi\AppData\Local\Microsoft\WindowsApps\pwsh.exe
+
+=== Recent Status (last 80 lines) ===
+2026-04-17 11:09:20 - C: Free 11,02 GB / Used 211,08 GB | D: Free 3,29 GB / Used 928,22 GB
+2026-04-17 11:09:21 - Startup auto-analyze enabled. Depth=Quick, Top=15.
+2026-04-17 11:09:21 - Analyzing garbage hotspots Depth=Quick Audit=FileLevel Mode=Safe Top=15
+2026-04-17 11:09:22 - Analyzer started in background. UI remains responsive.
+2026-04-17 11:09:23 - Analyzer process ended with exit code . Error: [31;1manalyze-garbage-hotspots.ps1: [31;1mA positional parameter cannot be found that accepts argument 'D'.[0m
+
+
+=== Worker Logs Tail ===
+--- C:\SystemOptimizerHub\active\dist\WindowsOptimizer\logs\garbage-hotspots-live.out.log ---
+(empty)
+
+--- C:\SystemOptimizerHub\active\dist\WindowsOptimizer\logs\garbage-hotspots-live.err.log ---
+[31;1manalyze-garbage-hotspots.ps1: [31;1mA positional parameter cannot be found that accepts argument 'D'.[0m
+
+--- C:\SystemOptimizerHub\active\dist\WindowsOptimizer\logs\cleanup-live.out.log ---
+(missing)
+
+--- C:\SystemOptimizerHub\active\dist\WindowsOptimizer\logs\cleanup-live.err.log ---
+(missing)
+
+--- C:\SystemOptimizerHub\active\dist\WindowsOptimizer\logs\compute-analysis-live.out.log ---
+(missing)
+
+--- C:\SystemOptimizerHub\active\dist\WindowsOptimizer\logs\compute-analysis-live.err.log ---
+(missing)
+
+--- C:\SystemOptimizerHub\active\dist\WindowsOptimizer\logs\quick-cleanup-live.out.log ---
+(missing)
+
+--- C:\SystemOptimizerHub\active\dist\WindowsOptimizer\logs\quick-cleanup-live.err.log ---
+(missing)
+
+--- C:\SystemOptimizerHub\active\dist\WindowsOptimizer\logs\\storage-cleanup.log ---
+(missing)
+

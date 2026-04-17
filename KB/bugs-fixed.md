@@ -145,3 +145,19 @@
 - **Causa radice**: uso di continuazione riga non valida (`\`) in espressione PowerShell con operatore `-f` durante composizione messaggio status.
 - **Fix applicato**: ristrutturata la formattazione in variabile intermedia (`$cleanupSummary`) + `Append-Status $cleanupSummary`, eliminando la continuazione non supportata.
 - **Esito**: parsing clean, nessun errore di compilazione/esecuzione all'avvio GUI.
+
+### Bug 15 — Exit code -1 su tutti i worker
+- **Sintomo**: ogni operazione (Analyze Garbage, Cleanup, Compute, Quick Clean) riporta `exit code -1` nonostante script completati con output valido.
+- **Causa radice (A — psHost shim)**: `Get-Command pwsh` risolveva al file 0-byte AppExecution alias (`AppData\Local\Microsoft\WindowsApps\pwsh.exe`). `Start-Process -PassThru` su questo shim non traccia il processo reale: `.ExitCode` non leggibile.
+- **Causa radice (B — -f parser in @())**: nei worker Compute e QuickCleanup, l'operatore `-f` dentro array `@()` consumava gli elementi successivi (comma-separated) come argomenti format. Risultato: array collassato a stringa singola con `-Top`, `-OutputJson` persi.
+- **Fix applicato**:
+  1. `Resolve-PowerShellHost`: rileva shim 0-byte, cerca real `pwsh.exe` in `Program Files\PowerShell\*` e `Program Files\WindowsApps\Microsoft.PowerShell_*`.
+  2. `Get-ProcessExitCodeSafe`: `HasExited` guard + `WaitForExit()` prima di leggere `ExitCode` (flush handle).
+  3. Array compute/quick-cleanup: variabile intermedia (`$durationStr`, `$topStr`, `$retDaysStr`, `$maxFilesStr`) al posto di `"{0}" -f $var` inline.
+- **Esito**: tutti e 4 i worker EXIT=0, output JSON/CSV presenti, shim aggirato deterministicamente.
+
+### Bug 16 — Logs tab non funzionante
+- **Sintomo**: tab Logs vuoto, nessun contenuto visualizzabile.
+- **Causa radice**: il tab leggeva solo `storage-cleanup.log` (percorso che non esiste nel contesto dist/EXE). Nessuna visibilità sui log dei 4 worker.
+- **Fix applicato**: sostituito con combo box multi-sorgente (10 log source: stdout/stderr di ogni worker + quick-cleanup.log + storage-cleanup.log) e bottone "Load Last 200 Lines".
+- **Esito**: tab Logs funzionale con selezione sorgente e contenuto visibile.

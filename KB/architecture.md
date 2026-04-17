@@ -124,6 +124,21 @@ Per ogni cartella candidata:
 - Obiettivo: prevenire errori di binding posizionale (`argument 'D'`) dovuti a parsing command-line ambiguo.
 - Regola: introdurre normalizzazione input all'inizio script e non assumere che `-Param A B` venga sempre bindato come array.
 
+### 15) PowerShell Host Resolution — Shim Detection
+- Pattern: `Resolve-PowerShellHost` verifica che `Get-Command pwsh` non punti a 0-byte AppExecution alias in `WindowsApps`.
+- Obiettivo: garantire che `Start-Process -PassThru` tracci il processo reale con exit code leggibile.
+- Regola: se candidato è 0 byte, cercare `pwsh.exe` in `Program Files\PowerShell\*` e `Program Files\WindowsApps\Microsoft.PowerShell_*`, ordinati per data.
+
+### 16) Format Operator `-f` — Mai dentro array literal @()
+- Pattern: `"{0}" -f $var` dentro `@(...)` è un bug: `-f` consuma tutti gli elementi comma-separated come argomenti format, collassando l'array.
+- Obiettivo: preservare integrità degli array argomento per `Start-Process`.
+- Regola: estrarre sempre la conversione in variabile intermedia (`$str = "$($var)"`) prima dell'array literal.
+
+### 17) Logs Tab Multi-Source
+- Pattern: combo box con elenco fisso di log source (stdout/stderr per worker + log file) + bottone Load Last N.
+- Obiettivo: rendere visibile e ispezionabile ogni output dei worker senza accesso file system manuale.
+- Regola: aggiornare la mappa `$logMap` quando si aggiungono nuovi worker.
+
 ## Packaging e distribuzione
 - Dist principale: dist/WindowsOptimizer.
 - GUI eseguibile: dist/WindowsOptimizer/WindowsOptimizer.exe.

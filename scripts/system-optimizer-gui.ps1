@@ -32,17 +32,31 @@ if (Test-Path -LiteralPath $scriptsUnderBase) {
     $script:hubRoot = Split-Path -Parent $baseDir
 }
 
-$pwshCmd = Get-Command pwsh -ErrorAction SilentlyContinue
-if ($pwshCmd) {
-    $script:psHost = $pwshCmd.Path
-} else {
-    $winPsCmd = Get-Command powershell -ErrorAction SilentlyContinue
-    if ($winPsCmd) {
-        $script:psHost = $winPsCmd.Path
-    } else {
-        $script:psHost = $null
+function Resolve-PowerShellHost {
+    $cmd = Get-Command pwsh -ErrorAction SilentlyContinue
+    if ($cmd) {
+        $candidate = $cmd.Path
+        $fi = Get-Item -LiteralPath $candidate -ErrorAction SilentlyContinue
+        if ($fi -and $fi.Length -gt 0) {
+            return $candidate
+        }
+        # 0-byte AppExecution alias detected — find real pwsh.exe
+        $searchPaths = @(
+            "$env:ProgramFiles\PowerShell\*\pwsh.exe",
+            "$env:ProgramFiles\WindowsApps\Microsoft.PowerShell_*\pwsh.exe"
+        )
+        foreach ($pattern in $searchPaths) {
+            $real = Get-Item -Path $pattern -ErrorAction SilentlyContinue |
+                    Sort-Object LastWriteTime -Descending | Select-Object -First 1
+            if ($real) { return $real.FullName }
+        }
+        return $candidate
     }
+    $cmd2 = Get-Command powershell -ErrorAction SilentlyContinue
+    if ($cmd2) { return $cmd2.Path }
+    return $null
 }
+$script:psHost = Resolve-PowerShellHost
 
 function Invoke-ChildPowerShell {
     param([string[]]$Args)
@@ -318,15 +332,33 @@ $txtLogs.ScrollBars = "Vertical"
 $txtLogs.Dock = "Fill"
 $txtLogs.ReadOnly = $true
 
+$cmbLogSource = New-Object System.Windows.Forms.ComboBox
+$cmbLogSource.DropDownStyle = "DropDownList"
+$cmbLogSource.Width = 260
+$cmbLogSource.Location = New-Object System.Drawing.Point(20, 18)
+$cmbLogSource.Items.AddRange(@(
+    "Garbage Analyzer (stdout)",
+    "Garbage Analyzer (stderr)",
+    "Cleanup (stdout)",
+    "Cleanup (stderr)",
+    "Compute Analyzer (stdout)",
+    "Compute Analyzer (stderr)",
+    "Quick Cleanup (stdout)",
+    "Quick Cleanup (stderr)",
+    "Quick Cleanup (log)",
+    "Storage Cleanup (log)"
+))
+$cmbLogSource.SelectedIndex = 0
+
 $btnLoadLogs = New-Object System.Windows.Forms.Button
-$btnLoadLogs.Text = "Load Last 200 Log Lines"
-$btnLoadLogs.Width = 190
-$btnLoadLogs.Location = New-Object System.Drawing.Point(20, 20)
+$btnLoadLogs.Text = "Load Last 200 Lines"
+$btnLoadLogs.Width = 160
+$btnLoadLogs.Location = New-Object System.Drawing.Point(300, 16)
 
 $panelLog = New-Object System.Windows.Forms.Panel
 $panelLog.Dock = "Top"
 $panelLog.Height = 60
-$panelLog.Controls.Add($btnLoadLogs)
+$panelLog.Controls.AddRange(@($cmbLogSource, $btnLoadLogs))
 
 $tabLogs.Controls.Add($txtLogs)
 $tabLogs.Controls.Add($panelLog)
@@ -553,10 +585,8 @@ function Get-ProcessExitCodeSafe {
     }
 
     try {
-        $Process.Refresh()
-        if ($null -eq $Process.ExitCode) {
-            return -1
-        }
+        if (-not $Process.HasExited) { return -1 }
+        $Process.WaitForExit()
         return [int]$Process.ExitCode
     } catch {
         return -1
@@ -1237,12 +1267,14 @@ function Run-ComputeAnalysis {
         Remove-IfExists -Path $script:computeStdOut
         Remove-IfExists -Path $script:computeStdErr
 
+        $durationStr = "$($script:computeAnalyzeDurationSec)"
+        $topStr = "$($script:computeAnalyzeTop)"
         $args = @(
             "-NoProfile",
             "-ExecutionPolicy", "Bypass",
             "-File", $script:computeAnalyzerScript,
-            "-DurationSec", "{0}" -f $script:computeAnalyzeDurationSec,
-            "-Top", "{0}" -f $script:computeAnalyzeTop,
+            "-DurationSec", $durationStr,
+            "-Top", $topStr,
             "-OutputJson", $script:computeJson
         )
 
@@ -1278,13 +1310,15 @@ function Run-QuickCleanup {
         Remove-IfExists -Path $script:quickCleanupStdOut
         Remove-IfExists -Path $script:quickCleanupStdErr
 
+        $retDaysStr = "$($script:quickCleanupRetentionDays)"
+        $maxFilesStr = "$($script:quickCleanupMaxFilesPerTarget)"
         $args = @(
             "-NoProfile",
             "-ExecutionPolicy", "Bypass",
             "-File", $script:quickCleanupScript,
             "-Execute",
-            "-RetentionDays", "{0}" -f $script:quickCleanupRetentionDays,
-            "-MaxFilesPerTarget", "{0}" -f $script:quickCleanupMaxFilesPerTarget,
+            "-RetentionDays", $retDaysStr,
+            "-MaxFilesPerTarget", $maxFilesStr,
             "-OutputJson", $script:quickCleanupJson
         )
 
@@ -1386,10 +1420,24 @@ $btnInstallTasks.Add_Click({
     }
 })
 $btnLoadLogs.Add_Click({
-    if (Test-Path -LiteralPath $script:defaultLog) {
-        $txtLogs.Text = (Get-Content -LiteralPath $script:defaultLog -Tail 200 -ErrorAction SilentlyContinue) -join "`r`n"
+    $logMap = @{
+        "Garbage Analyzer (stdout)" = $script:analysisStdOut
+        "Garbage Analyzer (stderr)" = $script:analysisStdErr
+        "Cleanup (stdout)"          = $script:cleanupStdOut
+        "Cleanup (stderr)"          = $script:cleanupStdErr
+        "Compute Analyzer (stdout)" = $script:computeStdOut
+        "Compute Analyzer (stderr)" = $script:computeStdErr
+        "Quick Cleanup (stdout)"    = $script:quickCleanupStdOut
+        "Quick Cleanup (stderr)"    = $script:quickCleanupStdErr
+        "Quick Cleanup (log)"       = (Join-Path $script:hubRoot "logs\quick-cleanup.log")
+        "Storage Cleanup (log)"     = $script:defaultLog
+    }
+    $selected = [string]$cmbLogSource.SelectedItem
+    $logPath = $logMap[$selected]
+    if ($logPath -and (Test-Path -LiteralPath $logPath)) {
+        $txtLogs.Text = (Get-Content -LiteralPath $logPath -Tail 200 -ErrorAction SilentlyContinue) -join "`r`n"
     } else {
-        $txtLogs.Text = "Log file not found: $script:defaultLog"
+        $txtLogs.Text = "Log file not found: $logPath"
     }
 })
 $btnOpenConfig.Add_Click({
