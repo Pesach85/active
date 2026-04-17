@@ -80,3 +80,13 @@
 	- pulsante cancel con stop controllato,
 	- gate centralizzato stato UI (`Set-AnalysisUiState`) e reset unico (`Stop-GarbageAnalysis`).
 - **Esito**: UX deterministica e prevedibile; operatore vede sempre stato analisi e puo interrompere senza regressioni.
+
+### Bug 10
+- **Sintomo**: startup ancora percepito come pesante in alcuni scenari (analisi automatica con parametri non ottimizzati per il primo avvio).
+- **Causa radice**: assenza di profilo startup configurabile separato dai parametri operativi standard.
+- **Fix applicato**: introdotta configurazione GUI in `config/sys-maintenance.json` con chiavi:
+	- `Gui.AutoAnalyzeOnStartup`
+	- `Gui.DefaultAnalyzeDepth`
+	- `Gui.DefaultAnalyzeTop`
+	e lettura robusta in GUI con fallback sicuri (`true`, `Quick`, `15`).
+- **Esito**: startup budget-aware, comportamento deterministico e modulabile senza cambiare codice.

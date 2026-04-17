@@ -66,6 +66,9 @@ $script:analysisCsv = Join-Path $script:hubRoot "logs\\garbage-hotspots-live.csv
 $script:analysisStartedAt = $null
 $script:analysisTimeoutSec = 0
 $script:analysisSoftTimeoutWarned = $false
+$script:autoAnalyzeOnStartup = $true
+$script:startupAnalyzeDepth = "Quick"
+$script:startupAnalyzeTop = 15
 
 $form = New-Object System.Windows.Forms.Form
 $form.Text = "Windows Optimizer Console"
@@ -299,6 +302,41 @@ function Append-Status {
 
     $stamp = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
     $txtStatus.AppendText("$stamp - $Message`r`n")
+}
+
+function Load-GuiPreferences {
+    if (-not (Test-Path -LiteralPath $script:configPath)) {
+        return
+    }
+
+    try {
+        $cfg = Get-Content -LiteralPath $script:configPath -Raw -ErrorAction Stop | ConvertFrom-Json
+    } catch {
+        Append-Status ("Config read warning: {0}" -f $_.Exception.Message)
+        return
+    }
+
+    if (-not $cfg) {
+        return
+    }
+
+    if ($cfg.PSObject.Properties.Name -contains "Gui") {
+        $gui = $cfg.Gui
+        if ($null -ne $gui.AutoAnalyzeOnStartup) {
+            $script:autoAnalyzeOnStartup = [bool]$gui.AutoAnalyzeOnStartup
+        }
+
+        if ($gui.DefaultAnalyzeDepth -and @("Quick", "Standard", "Deep") -contains [string]$gui.DefaultAnalyzeDepth) {
+            $script:startupAnalyzeDepth = [string]$gui.DefaultAnalyzeDepth
+        }
+
+        if ($null -ne $gui.DefaultAnalyzeTop) {
+            $requestedTop = [int]$gui.DefaultAnalyzeTop
+            if ($requestedTop -lt 5) { $requestedTop = 5 }
+            if ($requestedTop -gt 100) { $requestedTop = 100 }
+            $script:startupAnalyzeTop = $requestedTop
+        }
+    }
 }
 
 function Refresh-Drives {
@@ -640,6 +678,12 @@ $btnOpenConfig.Add_Click({
     }
 })
 
+Load-GuiPreferences
+if ($cmbDepth.Items.Contains($script:startupAnalyzeDepth)) {
+    $cmbDepth.SelectedItem = $script:startupAnalyzeDepth
+}
+$numTop.Value = [decimal]$script:startupAnalyzeTop
+
 $analysisTimer = New-Object System.Windows.Forms.Timer
 $analysisTimer.Interval = 1000
 $analysisTimer.Add_Tick({ Poll-GarbageAnalysis })
@@ -647,6 +691,11 @@ $analysisTimer.Add_Tick({ Poll-GarbageAnalysis })
 $form.Add_Shown({
     Refresh-Drives
     Reload-Tasks
-    Run-GarbageAnalysis
+    if ($script:autoAnalyzeOnStartup) {
+        Append-Status ("Startup auto-analyze enabled. Depth={0}, Top={1}." -f [string]$cmbDepth.SelectedItem, [int]$numTop.Value)
+        Run-GarbageAnalysis
+    } else {
+        Append-Status "Startup auto-analyze disabled by config. UI ready."
+    }
 })
 [void]$form.ShowDialog()

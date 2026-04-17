@@ -77,6 +77,12 @@ Per ogni cartella candidata:
 - Obiettivo: prevenire sovrapposizione scansioni e contention su output/log.
 - Regola: massimo 1 analisi garbage alla volta.
 
+### 7) Startup Budget Profile (config-driven)
+- Pattern: profilo startup configurabile (`Gui.AutoAnalyzeOnStartup`, `Gui.DefaultAnalyzeDepth`, `Gui.DefaultAnalyzeTop`) caricato da `config/sys-maintenance.json`.
+- Obiettivo: ridurre overhead iniziale mantenendo osservabilita e controllo.
+- Default consigliato: `AutoAnalyzeOnStartup=true`, `Depth=Quick`, `Top=15`.
+- Fallback: se config assente/non valida, usare default sicuri nel codice (Quick/15/auto-on).
+
 ## Packaging e distribuzione
 - Dist principale: dist/WindowsOptimizer.
 - GUI eseguibile: dist/WindowsOptimizer/WindowsOptimizer.exe.

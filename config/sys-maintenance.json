@@ -23,5 +23,10 @@
     "Zombie":  {
                    "Enabled":  true,
                    "ConsecutiveUnresponsiveChecks":  4
-               }
+               },
+    "Gui":  {
+                "AutoAnalyzeOnStartup":  true,
+                "DefaultAnalyzeDepth":  "Quick",
+                "DefaultAnalyzeTop":  15
+            }
 }
