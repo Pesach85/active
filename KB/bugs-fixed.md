@@ -1,5 +1,25 @@
 # Bugs Fixed
 
+## 2026-04-20 - Office bloccato da canale perpetuo incompatibile
+
+### Bug 22
+- **Sintomo**: installazione Office bloccata da `Questo prodotto non puo essere installato con il canale di aggiornamento selezionato (Office 365)`.
+- **Causa radice**: policy locale `HKLM\SOFTWARE\Policies\Microsoft\office\16.0\common\officeupdate\UpdateBranch=PerpetualVL2021`, incompatibile con licenze Microsoft 365 Apps come Microsoft 365 Business Standard.
+- **Fix applicato**:
+	- aggiunto `scripts/repair-office-m365-channel.ps1` con assessment, apply safe, backup JSON e rollback `-RestoreLatest`;
+	- esteso `scripts/system-health-audit.ps1` con finding `OFFICE-CHANNEL-001` e proposta fix compatibile con Microsoft 365 Apps;
+	- aggiornato `scripts/package-suite.ps1` per distribuire il nuovo script anche in `dist/WindowsOptimizer/scripts`.
+- **Check anti-regressione**:
+	- parser/check errori: `0` su `repair-office-m365-channel.ps1`, `system-health-audit.ps1`, `package-suite.ps1`;
+	- pre-fix assessment: `Status=Mismatch`, `ConfiguredBranches=PerpetualVL2021`, `ClickToRun=NotInstalled`;
+	- post-fix assessment: `Status=Ready`, `HKLM/HKCU UpdateBranch=MonthlyEnterprise`;
+	- post-fix Health Audit: findings totali `7 -> 6`, `AlreadyOptimized 7 -> 8`, con voce positiva `Office channel aligned for Microsoft 365 Apps (MonthlyEnterprise)`.
+- **Criteri riusabili**:
+	- per licenze Microsoft 365 Apps usare solo `Current`, `MonthlyEnterprise`, `SemiAnnualEnterprise`;
+	- quando un blocco installativo deriva da policy Office, applicare prima un fix di branch con backup/rollback e solo dopo rilanciare setup/update;
+	- integrare i fix di compatibilita software nel motore Health Audit invece di aggiungere UI dedicata, se la GUI gia renderizza findings/solutions generici.
+- **Esito**: sistema riallineato a canale supportato per Microsoft 365 Business Standard con rollback disponibile in `logs/diagnostics/office-channel-backup-latest.json`.
+
 ## 2026-04-20 - Deep Scan parse failed: "Tipi di argomento non corrispondenti"
 
 ### Bug 21

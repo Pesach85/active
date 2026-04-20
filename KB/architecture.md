@@ -9,6 +9,7 @@ Workspace operativo globale su C, D e sistema operativo, con profilo centralizza
 - scripts/quick-cleanup-safe.ps1: pulitore rapido a basso rischio con target sicuri e retention breve.
 - scripts/analyze-garbage-hotspots.ps1: ranking statistico cartelle garbage-prone con classificazione.
 - scripts/analyze-compute-resources.ps1: analizzatore intelligente di spesa computazionale per processo (CPU/RAM/IO) con score e raccomandazioni.
+- scripts/repair-office-m365-channel.ps1: rilevazione/fix safe del canale Office per Microsoft 365 Apps con backup JSON e rollback.
 - scripts/system-optimizer-gui.ps1: dashboard UI con explorer evidenziato e controlli intelligenti.
 - scripts/install-monitor-task.ps1: registrazione task monitor startup.
 - scripts/install-cleanup-task.ps1: registrazione task cleanup giornaliero.

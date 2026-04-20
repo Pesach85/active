@@ -357,7 +357,7 @@ $tabDashboard.BackColor            = $clrBg
 $tabDashboard.UseVisualStyleBackColor = $false
 
 $tabTasks = New-Object System.Windows.Forms.TabPage
-$tabTasks.Text                 = "Tasks"
+$tabTasks.Text                 = "Automation"
 $tabTasks.BackColor            = $clrBg
 $tabTasks.UseVisualStyleBackColor = $false
 
@@ -367,7 +367,7 @@ $tabLogs.BackColor            = $clrBg
 $tabLogs.UseVisualStyleBackColor = $false
 
 $tabConfig = New-Object System.Windows.Forms.TabPage
-$tabConfig.Text                 = "Config"
+$tabConfig.Text                 = "Settings"
 $tabConfig.BackColor            = $clrBg
 $tabConfig.UseVisualStyleBackColor = $false
 
@@ -383,39 +383,58 @@ $tabDeepScan.UseVisualStyleBackColor = $false
 # Action panel
 $pnlActions = New-Object System.Windows.Forms.Panel
 $pnlActions.Dock      = "Top"
-$pnlActions.Height    = 106
+$pnlActions.Height    = 142
 $pnlActions.BackColor = $clrSurface
 
-# Row 1 — operation buttons (y=12)
+# Row 1 — primary actions (y=28)
 $clrTeal = [System.Drawing.Color]::FromArgb(13, 148, 136)
 $btnAnalyze       = New-Btn "Scan Garbage"    $clrAccent  140 34
+$btnQuickClean    = New-Btn "Quick Clean"      $clrGreen   118 34
+$btnHealthAudit   = New-Btn "Health Audit"     $clrTeal    118 34
+$btnDeepScanJump  = New-Btn "Deep Scan"        $clrPurple  118 34
 $btnCompute       = New-Btn "Compute"          $clrPurple  110 34
 $btnAudit         = New-Btn "Audit"            $clrCyan     90 34
 $btnExecute       = New-Btn "Execute"          $clrRed      96 34
-$btnQuickClean    = New-Btn "Quick Clean"      $clrGreen   118 34
-$btnHealthAudit   = New-Btn "Health Audit"     $clrTeal    118 34
 $btnDiagnostics   = New-Btn "Diagnostics"      $clrAmber   118 34
 $btnCancelAnalyze = New-Btn "Cancel"           $clrRaised   90 34
 
-$btnAnalyze.Location       = New-Object System.Drawing.Point(12,  12)
-$btnCompute.Location       = New-Object System.Drawing.Point(158, 12)
-$btnAudit.Location         = New-Object System.Drawing.Point(274, 12)
-$btnExecute.Location       = New-Object System.Drawing.Point(370, 12)
-$btnQuickClean.Location    = New-Object System.Drawing.Point(472, 12)
-$btnHealthAudit.Location   = New-Object System.Drawing.Point(596, 12)
-$btnDiagnostics.Location   = New-Object System.Drawing.Point(720, 12)
-$btnCancelAnalyze.Location = New-Object System.Drawing.Point(844, 12)
+$lblPrimaryActions = New-Object System.Windows.Forms.Label
+$lblPrimaryActions.Text      = "DAILY FLOW"
+$lblPrimaryActions.Font      = $fntSmall
+$lblPrimaryActions.ForeColor = $clrMuted
+$lblPrimaryActions.AutoSize  = $true
+$lblPrimaryActions.Location  = New-Object System.Drawing.Point(12, 8)
+$lblPrimaryActions.BackColor = [System.Drawing.Color]::Transparent
+
+$lblAdvancedActions = New-Object System.Windows.Forms.Label
+$lblAdvancedActions.Text      = "ADVANCED"
+$lblAdvancedActions.Font      = $fntSmall
+$lblAdvancedActions.ForeColor = $clrMuted
+$lblAdvancedActions.AutoSize  = $true
+$lblAdvancedActions.Location  = New-Object System.Drawing.Point(12, 76)
+$lblAdvancedActions.BackColor = [System.Drawing.Color]::Transparent
+
+$btnAnalyze.Location       = New-Object System.Drawing.Point(12,  28)
+$btnQuickClean.Location    = New-Object System.Drawing.Point(158, 28)
+$btnHealthAudit.Location   = New-Object System.Drawing.Point(284, 28)
+$btnDeepScanJump.Location  = New-Object System.Drawing.Point(410, 28)
+$btnDiagnostics.Location   = New-Object System.Drawing.Point(536, 28)
+$btnCancelAnalyze.Location = New-Object System.Drawing.Point(662, 28)
+
+$btnCompute.Location       = New-Object System.Drawing.Point(12, 96)
+$btnAudit.Location         = New-Object System.Drawing.Point(130, 96)
+$btnExecute.Location       = New-Object System.Drawing.Point(228, 96)
 
 $btnCancelAnalyze.Enabled  = $false
 $btnCancelAnalyze.ForeColor = $clrMuted
 
-# Row 2 — settings (y=56)
+# Row 2 — advanced controls (y=96)
 $lblDepth = New-Object System.Windows.Forms.Label
-$lblDepth.Text      = "DEPTH"
+$lblDepth.Text      = "SCAN"
 $lblDepth.Font      = $fntSmall
 $lblDepth.ForeColor = $clrMuted
 $lblDepth.AutoSize  = $true
-$lblDepth.Location  = New-Object System.Drawing.Point(12, 62)
+$lblDepth.Location  = New-Object System.Drawing.Point(340, 100)
 $lblDepth.BackColor = [System.Drawing.Color]::Transparent
 
 $cmbDepth = New-Object System.Windows.Forms.ComboBox
@@ -423,18 +442,18 @@ $cmbDepth.DropDownStyle = "DropDownList"
 $cmbDepth.Items.AddRange(@("Quick", "Standard", "Deep"))
 $cmbDepth.SelectedItem = "Standard"
 $cmbDepth.Width = 104
-$cmbDepth.Location = New-Object System.Drawing.Point(60, 58)
+$cmbDepth.Location = New-Object System.Drawing.Point(384, 96)
 $cmbDepth.BackColor = $clrRaised
 $cmbDepth.ForeColor = $clrText
 $cmbDepth.Font = $fntUI
 $cmbDepth.FlatStyle = "Flat"
 
 $lblAuditLevel = New-Object System.Windows.Forms.Label
-$lblAuditLevel.Text      = "AUDIT"
+$lblAuditLevel.Text      = "DETAIL"
 $lblAuditLevel.Font      = $fntSmall
 $lblAuditLevel.ForeColor = $clrMuted
 $lblAuditLevel.AutoSize  = $true
-$lblAuditLevel.Location  = New-Object System.Drawing.Point(178, 62)
+$lblAuditLevel.Location  = New-Object System.Drawing.Point(500, 100)
 $lblAuditLevel.BackColor = [System.Drawing.Color]::Transparent
 
 $cmbAuditLevel = New-Object System.Windows.Forms.ComboBox
@@ -442,7 +461,7 @@ $cmbAuditLevel.DropDownStyle = "DropDownList"
 $cmbAuditLevel.Items.AddRange(@("FileLevel", "BitLevel"))
 $cmbAuditLevel.SelectedItem = "FileLevel"
 $cmbAuditLevel.Width = 110
-$cmbAuditLevel.Location = New-Object System.Drawing.Point(226, 58)
+$cmbAuditLevel.Location = New-Object System.Drawing.Point(548, 96)
 $cmbAuditLevel.BackColor = $clrRaised
 $cmbAuditLevel.ForeColor = $clrText
 $cmbAuditLevel.Font = $fntUI
@@ -453,7 +472,7 @@ $lblCleanupMode.Text      = "MODE"
 $lblCleanupMode.Font      = $fntSmall
 $lblCleanupMode.ForeColor = $clrMuted
 $lblCleanupMode.AutoSize  = $true
-$lblCleanupMode.Location  = New-Object System.Drawing.Point(350, 62)
+$lblCleanupMode.Location  = New-Object System.Drawing.Point(672, 100)
 $lblCleanupMode.BackColor = [System.Drawing.Color]::Transparent
 
 $cmbCleanupMode = New-Object System.Windows.Forms.ComboBox
@@ -461,7 +480,7 @@ $cmbCleanupMode.DropDownStyle = "DropDownList"
 $cmbCleanupMode.Items.AddRange(@("Safe", "Radical"))
 $cmbCleanupMode.SelectedItem = "Safe"
 $cmbCleanupMode.Width = 90
-$cmbCleanupMode.Location = New-Object System.Drawing.Point(396, 58)
+$cmbCleanupMode.Location = New-Object System.Drawing.Point(718, 96)
 $cmbCleanupMode.BackColor = $clrRaised
 $cmbCleanupMode.ForeColor = $clrText
 $cmbCleanupMode.Font = $fntUI
@@ -472,7 +491,7 @@ $lblTop.Text      = "TOP"
 $lblTop.Font      = $fntSmall
 $lblTop.ForeColor = $clrMuted
 $lblTop.AutoSize  = $true
-$lblTop.Location  = New-Object System.Drawing.Point(500, 62)
+$lblTop.Location  = New-Object System.Drawing.Point(982, 100)
 $lblTop.BackColor = [System.Drawing.Color]::Transparent
 
 $numTop = New-Object System.Windows.Forms.NumericUpDown
@@ -480,25 +499,25 @@ $numTop.Minimum  = 5
 $numTop.Maximum  = 100
 $numTop.Value    = 25
 $numTop.Width    = 64
-$numTop.Location = New-Object System.Drawing.Point(530, 58)
+$numTop.Location = New-Object System.Drawing.Point(1012, 96)
 $numTop.BackColor = $clrRaised
 $numTop.ForeColor = $clrText
 $numTop.Font = $fntUI
 
 $lblExplorerHint = New-Object System.Windows.Forms.Label
-$lblExplorerHint.Text      = "Double-click a row to open in Explorer"
+$lblExplorerHint.Text      = "Double-click a row to open the path"
 $lblExplorerHint.Font      = $fntSmall
 $lblExplorerHint.ForeColor = $clrMuted
 $lblExplorerHint.AutoSize  = $true
-$lblExplorerHint.Location  = New-Object System.Drawing.Point(740, 62)
+$lblExplorerHint.Location  = New-Object System.Drawing.Point(1086, 100)
 $lblExplorerHint.BackColor = [System.Drawing.Color]::Transparent
 
 $lblFixLevel = New-Object System.Windows.Forms.Label
-$lblFixLevel.Text      = "FIX"
+$lblFixLevel.Text      = "MAX FIX"
 $lblFixLevel.Font      = $fntSmall
 $lblFixLevel.ForeColor = $clrMuted
 $lblFixLevel.AutoSize  = $true
-$lblFixLevel.Location  = New-Object System.Drawing.Point(610, 62)
+$lblFixLevel.Location  = New-Object System.Drawing.Point(824, 100)
 $lblFixLevel.BackColor = [System.Drawing.Color]::Transparent
 
 $cmbFixLevel = New-Object System.Windows.Forms.ComboBox
@@ -506,7 +525,7 @@ $cmbFixLevel.DropDownStyle = "DropDownList"
 $cmbFixLevel.Items.AddRange(@("Safe", "Moderate", "Aggressive"))
 $cmbFixLevel.SelectedItem = "Safe"
 $cmbFixLevel.Width = 100
-$cmbFixLevel.Location = New-Object System.Drawing.Point(638, 58)
+$cmbFixLevel.Location = New-Object System.Drawing.Point(878, 96)
 $cmbFixLevel.BackColor = $clrRaised
 $cmbFixLevel.ForeColor = $clrText
 $cmbFixLevel.Font = $fntUI
@@ -518,8 +537,10 @@ $pnlActionsBorder.Height    = 1
 $pnlActionsBorder.BackColor = $clrBorderC
 
 $pnlActions.Controls.AddRange(@(
-    $btnAnalyze, $btnCompute, $btnAudit, $btnExecute,
-    $btnQuickClean, $btnHealthAudit, $btnDiagnostics, $btnCancelAnalyze,
+    $lblPrimaryActions, $lblAdvancedActions,
+    $btnAnalyze, $btnQuickClean, $btnHealthAudit, $btnDeepScanJump,
+    $btnDiagnostics, $btnCancelAnalyze,
+    $btnCompute, $btnAudit, $btnExecute,
     $lblDepth, $cmbDepth, $lblAuditLevel, $cmbAuditLevel,
     $lblCleanupMode, $cmbCleanupMode, $lblTop, $numTop,
     $lblFixLevel, $cmbFixLevel,
@@ -923,7 +944,7 @@ $tabDeepScan.Controls.Add($pnlDeepScanHeader)       # index 2 → Top    → doc
 $tabDeepScan.ResumeLayout($false)
 
 # ── Assemble ──────────────────────────────────────────────────────────────────
-$tabs.TabPages.AddRange(@($tabDashboard, $tabTasks, $tabLogs, $tabConfig, $tabDeepScan))
+$tabs.TabPages.AddRange(@($tabDashboard, $tabDeepScan, $tabTasks, $tabLogs, $tabConfig))
 
 # Dock layout processes children from highest index first. Edge-docked controls
 # (Top/Bottom) must have HIGHER indices so they claim space BEFORE Fill.
@@ -2695,6 +2716,7 @@ $listExplorer.Add_DoubleClick({
 })
 
 $btnAnalyze.Add_Click({ Run-GarbageAnalysis })
+$btnDeepScanJump.Add_Click({ $tabs.SelectedTab = $tabDeepScan })
 $btnDiagnostics.Add_Click({ Open-DiagnosticsBundle })
 $btnCancelAnalyze.Add_Click({
     if ($script:analysisProcess -and (-not $script:analysisProcess.HasExited)) {

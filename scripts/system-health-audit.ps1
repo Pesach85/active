@@ -75,6 +75,46 @@ function New-Solution {
     }
 }
 
+function New-OfficeM365ChannelFinding {
+    param(
+        [string]$CurrentBranch,
+        [string]$CurrentProduct,
+        [string]$RecommendedChannels,
+        [string]$RepairScriptPath
+    )
+
+    $inspectCommand = "& '$RepairScriptPath'"
+    $repairCommand = "& '$RepairScriptPath' -Apply -PreferredChannel MonthlyEnterprise"
+    $rollbackCommand = "& '$RepairScriptPath' -RestoreLatest"
+    $currentValue = if ([string]::IsNullOrWhiteSpace($CurrentProduct)) {
+        "Policy branch=$CurrentBranch; ClickToRun=NotInstalled"
+    } else {
+        "Policy branch=$CurrentBranch; Product=$CurrentProduct"
+    }
+
+    $solutions = @(
+        (New-Solution -Level 'Safe' -Label 'Inspect current Office channel compatibility' `
+            -Command $inspectCommand `
+            -Rollback 'N/A (read-only)' `
+            -RiskNote 'Read-only assessment of policy and Click-to-Run state.'),
+        (New-Solution -Level 'Safe' -Label 'Align Office policy to Monthly Enterprise Channel for Microsoft 365 Apps' `
+            -Command $repairCommand `
+            -Rollback $rollbackCommand `
+            -RiskNote 'Creates a JSON backup before changing the Office update policy.')
+    )
+
+    return New-Finding `
+        -Id 'OFFICE-CHANNEL-001' `
+        -Severity 'Important' `
+        -Category 'OS' `
+        -Title 'Office update channel policy incompatible with Microsoft 365 Apps' `
+        -Description "A perpetual/LTSC Office channel is configured on this PC. That blocks Microsoft 365 Apps installations and updates with the error 'Questo prodotto non puo essere installato con il canale di aggiornamento selezionato'." `
+        -CurrentValue $currentValue `
+        -RecommendedValue "Microsoft 365 Business Standard supports: $RecommendedChannels. Recommended default: Monthly Enterprise Channel." `
+        -Impact 'Office install/update remains blocked until the policy is moved away from Perpetual/LTSC.' `
+        -Solutions $solutions
+}
+
 # ── collector arrays ───────────────────────────────────────────────────────────
 $findings = [System.Collections.ArrayList]::new()
 $hardwareProfile = [ordered]@{}
@@ -585,6 +625,53 @@ if (-not $isHighPerf) {
 # ── ALREADY OPTIMIZED (positive findings) ─────────────────────────────────────
 Write-Progress2 "Collecting positive findings..."
 $positives = [System.Collections.ArrayList]::new()
+$repairOfficeChannelScript = Join-Path $PSScriptRoot 'repair-office-m365-channel.ps1'
+$recommendedM365Channels = 'Current Channel, Monthly Enterprise Channel, Semi-Annual Enterprise Channel'
+
+# ── OFFICE UPDATE CHANNEL ─────────────────────────────────────────────────────
+Write-Progress2 "Checking Office update channel compatibility..."
+$officePolicyPath = 'HKLM:\SOFTWARE\Policies\Microsoft\office\16.0\common\officeupdate'
+$officePolicy = Get-ItemProperty -LiteralPath $officePolicyPath -EA SilentlyContinue
+$officeBranch = ''
+if ($officePolicy -and ($officePolicy.PSObject.Properties.Name -contains 'UpdateBranch')) {
+    $officeBranch = [string]$officePolicy.UpdateBranch
+}
+
+$officeClickToRun = Get-ItemProperty -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Office\ClickToRun\Configuration' -EA SilentlyContinue
+$officeProduct = ''
+$officeUpdateChannel = ''
+$officeCdnBase = ''
+if ($officeClickToRun) {
+    if ($officeClickToRun.PSObject.Properties.Name -contains 'ProductReleaseIds') {
+        $officeProduct = [string]$officeClickToRun.ProductReleaseIds
+    }
+    if ($officeClickToRun.PSObject.Properties.Name -contains 'UpdateChannel') {
+        $officeUpdateChannel = [string]$officeClickToRun.UpdateChannel
+    }
+    if ($officeClickToRun.PSObject.Properties.Name -contains 'CDNBaseUrl') {
+        $officeCdnBase = [string]$officeClickToRun.CDNBaseUrl
+    }
+}
+
+$officeMismatch = $false
+if ($officeBranch -match 'Perpetual|LTSC') {
+    $officeMismatch = $true
+}
+if ($officeProduct -match 'Perpetual|LTSC|2021Volume|2024Volume') {
+    $officeMismatch = $true
+}
+if ($officeUpdateChannel -match 'Perpetual|LTSC') {
+    $officeMismatch = $true
+}
+if ($officeCdnBase -match 'Perpetual|LTSC') {
+    $officeMismatch = $true
+}
+
+if ($officeMismatch -and (Test-Path -LiteralPath $repairOfficeChannelScript)) {
+    [void]$findings.Add((New-OfficeM365ChannelFinding -CurrentBranch $officeBranch -CurrentProduct $officeProduct -RecommendedChannels $recommendedM365Channels -RepairScriptPath $repairOfficeChannelScript))
+} elseif (-not [string]::IsNullOrWhiteSpace($officeBranch) -and ($officeBranch -in @('Current', 'MonthlyEnterprise', 'SemiAnnualEnterprise'))) {
+    [void]$positives.Add(("Office channel aligned for Microsoft 365 Apps ({0})" -f $officeBranch))
+}
 
 # SysMain
 $sysMain = Get-Service SysMain -EA SilentlyContinue
