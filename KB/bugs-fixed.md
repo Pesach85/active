@@ -1,5 +1,24 @@
 # Bugs Fixed
 
+## 2026-04-20 - Deep Scan parse failed: "Tipi di argomento non corrispondenti"
+
+### Bug 21
+- **Sintomo**: ogni Deep Scan completava il worker in background ma la GUI riportava `Deep Scan completed in ... but parse failed: Tipi di argomento non corrispondenti`.
+- **Causa radice**: in `Get-DeepScanFilteredFindings` il return usava `return @($result)` dove `$result` era `System.Collections.Generic.List[object]`. In questo contesto WinForms/PowerShell il wrapping con `@()` generava errore runtime `Argument types do not match` (repro deterministico), interrompendo il blocco try di `Poll-DeepScan`.
+- **Fix applicato**:
+	- sostituito `return @($result)` con `return $result.ToArray()`;
+	- aggiunto `[void]` su `$result.Add(...)` per evitare output impliciti nel pipeline di funzione.
+	- fix applicato sia in `scripts/system-optimizer-gui.ps1` sia nella copia `dist/WindowsOptimizer/scripts/system-optimizer-gui.ps1`.
+- **Check anti-regressione**:
+	- parser GUI script: `parserErrors=0` su source e dist;
+	- rebuild EXE: output generato in `dist/WindowsOptimizer/WindowsOptimizer.exe`;
+	- smoke test post-build: GUI `AliveAfter6s=True`.
+- **Criteri riusabili**:
+	- nelle funzioni PowerShell che restituiscono collezioni per binding UI, evitare `@($genericList)` e preferire `ToArray()`;
+	- sopprimere sempre il valore di ritorno di `.Add()` (`[void]` o `$null =`) nelle funzioni che devono restituire solo il payload finale;
+	- per flussi parser+rendering, separare output dati da side-effects UI e mantenere return shape strettamente tipizzato.
+- **Esito**: Deep Scan torna in stato parse-success con rendering findings/filtri senza regressioni sul ciclo build/distribuzione.
+
 ## 2026-04-17 - Packaging Health Audit scripts mancanti in dist
 
 ### Bug 20

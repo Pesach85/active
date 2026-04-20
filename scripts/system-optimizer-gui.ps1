@@ -2086,7 +2086,7 @@ function Get-DeepScanFilteredFindings {
             default { $true }
         }
         if ($include) {
-            $result.Add([pscustomobject]@{
+            [void]$result.Add([pscustomobject]@{
                 __SourceIndex     = $i
                 Severity          = [string]$f.Severity
                 Category          = [string]$f.Category
@@ -2097,7 +2097,7 @@ function Get-DeepScanFilteredFindings {
             })
         }
     }
-    return @($result)
+    return $result.ToArray()
 }
 
 function Export-DeepScanReport {
