@@ -7,6 +7,7 @@
 /logs/*.csv
 /logs/health-audit-live.json
 /logs/*-live.json
+/logs/writeoffload-step-*.json
 /logs/diagnostics/
 
 # dist runtime artifacts (overwritten each run, not source artifacts)

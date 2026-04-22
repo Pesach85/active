@@ -399,3 +399,25 @@ Corretto packaging della suite includendo gli script health mancanti e rigenerat
 
 ### Esito
 Completato
+
+## 2026-04-22 12:49:28
+### Obiettivo
+Avvio fase esecutiva write-offload NVMe con validazione deterministica
+
+### Task
+Eseguiti step S00,S10,S20,S30 con audit/apply e check pass/fail
+
+### Modifiche
+- Creato scripts/execute-nvme-writeoffload-step.ps1 (step engine deterministico)
+- Eseguito S00 baseline -> Completed/Pass=True
+- Eseguito S10 DataHub mount+scaffold -> Completed/Pass=True
+- Eseguito S20 User TEMP/TMP relocation -> Completed/Pass=True
+- Eseguito S30 Machine TEMP/TMP relocation -> Completed/Pass=True
+
+### Decisioni
+- Target operativo stabile impostato su C:\DataHub montato su volume dati E:
+- Ogni step prosegue solo con DeterministicPass=True
+- Rollback per env vars salvato in logs/diagnostics con backup JSON
+
+### Esito
+Completato
