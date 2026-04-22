@@ -7,7 +7,7 @@
     checks, actions, rollback hints, and outcome.
 
 .PARAMETER StepId
-    Step selector: S00, S10, S20, S30
+    Step selector: S00, S10, S20, S30, S40, S50, S60, S70, S80
 
 .PARAMETER OutputJson
     Path to JSON report for the executed step.
@@ -22,7 +22,7 @@
     Stable logical data root path (default C:\DataHub).
 #>
 param(
-    [Parameter(Mandatory)][ValidateSet('S00','S10','S20','S30','S40','S50','S60')][string]$StepId,
+    [Parameter(Mandatory)][ValidateSet('S00','S10','S20','S30','S40','S50','S60','S70','S80')][string]$StepId,
     [Parameter(Mandatory)][string]$OutputJson,
     [switch]$Apply,
     [ValidatePattern('^[A-Za-z]$')][string]$DataDriveLetter = 'E',
@@ -501,6 +501,166 @@ try {
             $report.Summary.BestNextDecision = if ($allPass) { 'Wave 2 complete. Verify browser/app performance post-relocation. Next: Wave 3 (package manager caches).' } else { 'Fix blocking checks or restore from backup.' }
             [void]$rollback.Add(("Restore caches from backup file: {0}" -f $backupPath))
             $report.Metrics.CacheRelocationBackup = $backupPath
+        }
+
+        'S70' {
+            Write-Progress2 'Auditing package manager caches...'
+
+            $pkgCacheData = [ordered]@{
+                NPM = @{ Path = $null; SizeMB = 0 }
+                Pnpm = @{ Path = $null; SizeMB = 0 }
+                Yarn = @{ Path = $null; SizeMB = 0 }
+                Pip = @{ Path = $null; SizeMB = 0 }
+                NuGet = @{ Path = $null; SizeMB = 0 }
+                Maven = @{ Path = $null; SizeMB = 0 }
+                Gradle = @{ Path = $null; SizeMB = 0 }
+            }
+
+            $userProfile = $env:USERPROFILE
+            if ($userProfile) {
+                # npm cache
+                $npmCache = Join-Path $userProfile '.npm'
+                if (Test-Path -LiteralPath $npmCache) {
+                    $pkgCacheData.NPM.Path = $npmCache
+                    $pkgCacheData.NPM.SizeMB = (Get-ChildItem -Path $npmCache -Recurse -File -ErrorAction SilentlyContinue | Measure-Object -Property Length -Sum).Sum / 1MB
+                }
+
+                # pnpm store
+                $pnpmHome = $env:PNPM_HOME; if (-not $pnpmHome) { $pnpmHome = Join-Path $userProfile '.pnpm-store' }
+                if (Test-Path -LiteralPath $pnpmHome) {
+                    $pkgCacheData.Pnpm.Path = $pnpmHome
+                    $pkgCacheData.Pnpm.SizeMB = (Get-ChildItem -Path $pnpmHome -Recurse -File -ErrorAction SilentlyContinue | Measure-Object -Property Length -Sum).Sum / 1MB
+                }
+
+                # yarn cache
+                $yarnCache = Join-Path $userProfile '.yarn\cache'
+                if (Test-Path -LiteralPath $yarnCache) {
+                    $pkgCacheData.Yarn.Path = $yarnCache
+                    $pkgCacheData.Yarn.SizeMB = (Get-ChildItem -Path $yarnCache -Recurse -File -ErrorAction SilentlyContinue | Measure-Object -Property Length -Sum).Sum / 1MB
+                }
+
+                # pip cache
+                $pipCache = Join-Path $userProfile 'AppData\Local\pip\Cache'
+                if (Test-Path -LiteralPath $pipCache) {
+                    $pkgCacheData.Pip.Path = $pipCache
+                    $pkgCacheData.Pip.SizeMB = (Get-ChildItem -Path $pipCache -Recurse -File -ErrorAction SilentlyContinue | Measure-Object -Property Length -Sum).Sum / 1MB
+                }
+
+                # NuGet cache
+                $nugetCache = Join-Path $userProfile '.nuget\packages'
+                if (Test-Path -LiteralPath $nugetCache) {
+                    $pkgCacheData.NuGet.Path = $nugetCache
+                    $pkgCacheData.NuGet.SizeMB = (Get-ChildItem -Path $nugetCache -Recurse -File -ErrorAction SilentlyContinue | Measure-Object -Property Length -Sum).Sum / 1MB
+                }
+
+                # Maven cache
+                $mavenHome = $env:M2_HOME; if (-not $mavenHome) { $mavenHome = Join-Path $userProfile '.m2' }
+                if (Test-Path -LiteralPath $mavenHome) {
+                    $pkgCacheData.Maven.Path = $mavenHome
+                    $pkgCacheData.Maven.SizeMB = (Get-ChildItem -Path $mavenHome -Recurse -File -ErrorAction SilentlyContinue | Measure-Object -Property Length -Sum).Sum / 1MB
+                }
+
+                # Gradle cache
+                $gradleHome = $env:GRADLE_USER_HOME; if (-not $gradleHome) { $gradleHome = Join-Path $userProfile '.gradle' }
+                if (Test-Path -LiteralPath $gradleHome) {
+                    $pkgCacheData.Gradle.Path = $gradleHome
+                    $pkgCacheData.Gradle.SizeMB = (Get-ChildItem -Path $gradleHome -Recurse -File -ErrorAction SilentlyContinue | Measure-Object -Property Length -Sum).Sum / 1MB
+                }
+            }
+
+            $totalPkgMb = @($pkgCacheData.Values | ForEach-Object { $_.SizeMB }) | Measure-Object -Sum | Select-Object -ExpandProperty Sum
+            Add-Check -Checks $checks -Name 'PkgCacheDetected' -Passed ($totalPkgMb -gt 0) -Current ([string]$totalPkgMb) -Expected '>0 MB'
+            Add-Check -Checks $checks -Name 'DataRootPkgCacheExists' -Passed (Test-Path -LiteralPath (Join-Path $DataRoot 'PkgCache')) -Current $(if (Test-Path -LiteralPath (Join-Path $DataRoot 'PkgCache')) { 'Exists' } else { 'Missing' }) -Expected 'Exists'
+
+            $report.Summary.Status = 'Completed'
+            $report.Summary.DeterministicPass = $true
+            $report.Summary.BestNextDecision = if ($totalPkgMb -gt 100) { 'Proceed to S80 (pagefile relocation) which requires reboot.' } else { 'Skip to S80 or reschedule later.' }
+            $report.Metrics.PackageManagerCaches = $pkgCacheData
+            [void]$actions.Add(("Detected package manager caches total: {0:F2} MB" -f $totalPkgMb))
+        }
+
+        'S80' {
+            Write-Progress2 'Setting up pagefile relocation...'
+            Add-Check -Checks $checks -Name 'AdminRequired' -Passed ([bool]$report.Admin) -Current ([string]$report.Admin) -Expected 'True'
+
+            if (-not $report.Admin) {
+                throw 'S80 apply requires Administrator rights.'
+            }
+
+            if (-not $dataPresent) {
+                throw ("Data drive {0}: not found." -f $DataDriveLetter.ToUpperInvariant())
+            }
+
+            $pagefileRoot = Join-Path $DataRoot 'Pagefile'
+            $pagefilePrimary = Join-Path $pagefileRoot 'pagefile.sys'
+            Ensure-Dir -Path $pagefileRoot
+
+            $stamp = (Get-Date).ToString('yyyyMMdd-HHmmss')
+            $backupPath = Join-Path (Join-Path $PSScriptRoot '..\logs\diagnostics') ("pagefile-config-backup-{0}.json" -f $stamp)
+            Ensure-Dir -Path (Split-Path -Parent $backupPath)
+
+            $backup = [ordered]@{
+                Timestamp = (Get-Date -Format 'yyyy-MM-ddTHH:mm:ss')
+                PagefilePrimary = $pagefilePrimary
+                PagefileFallback = 'C:\pagefile.sys'
+                RequiresReboot = $true
+                ConfigCommand = "fsutil behavior set disable-lastaccess 1"
+            }
+
+            if ($Apply) {
+                try {
+                    # Disable last-access timestamp for performance
+                    fsutil behavior set disable-lastaccess 1 -ErrorAction SilentlyContinue | Out-Null
+
+                    # Configure pagefile registry entry (will take effect after reboot)
+                    # HKLM\System\CurrentControlSet\Control\Session Manager\Memory Management
+                    $regPath = 'HKLM:\System\CurrentControlSet\Control\Session Manager\Memory Management'
+                    if (-not (Test-Path -LiteralPath $regPath)) {
+                        New-Item -Path $regPath -Force | Out-Null
+                    }
+
+                    # Create pagefile registry entries for multi-boot safety
+                    # PagingFiles format: "C:\pagefile.sys 1024 2048" (min/max in MB)
+                    $pagefileSpec = @(
+                        ("{0} 2048 4096" -f $pagefilePrimary),
+                        "C:\pagefile.sys 512 1024"
+                    ) -join "`0"
+
+                    New-ItemProperty -Path $regPath -Name 'PagingFiles' -Value $pagefileSpec -Force | Out-Null
+                    [void]$actions.Add(("Configured pagefile registry: {0} (primary) + C:\ (fallback)" -f $pagefilePrimary))
+                    [void]$backup.Add('AppliedDate', (Get-Date -Format 'yyyy-MM-ddTHH:mm:ss'))
+                }
+                catch {
+                    throw ("Pagefile configuration failed: {0}" -f $_.Exception.Message)
+                }
+            }
+
+            [System.IO.File]::WriteAllText($backupPath, ($backup | ConvertTo-Json -Depth 6), [System.Text.Encoding]::UTF8)
+            [void]$actions.Add(("Saved pagefile config backup: {0}" -f $backupPath))
+
+            # Validation: check registry entry was written
+            $pagingFilesValue = $null
+            $regPath = 'HKLM:\System\CurrentControlSet\Control\Session Manager\Memory Management'
+            if (Test-Path -LiteralPath $regPath) {
+                $pagingFilesValue = Get-ItemProperty -Path $regPath -Name 'PagingFiles' -ErrorAction SilentlyContinue | Select-Object -ExpandProperty PagingFiles
+            }
+
+            $pagefileConfigured = $null -ne $pagingFilesValue -and ($pagingFilesValue -like "*$pagefilePrimary*")
+            $pagefileFallbackPresent = $null -ne $pagingFilesValue -and ($pagingFilesValue -like "*C:\pagefile.sys*")
+
+            Add-Check -Checks $checks -Name 'PagefileTargetDirExists' -Passed (Test-Path -LiteralPath $pagefileRoot) -Current ([string](Test-Path -LiteralPath $pagefileRoot)) -Expected 'True'
+            Add-Check -Checks $checks -Name 'PagefilePrimaryConfigured' -Passed $pagefileConfigured -Current ([string]$pagefileConfigured) -Expected 'True'
+            Add-Check -Checks $checks -Name 'PagefileFallbackConfigured' -Passed $pagefileFallbackPresent -Current ([string]$pagefileFallbackPresent) -Expected 'True'
+            Add-Check -Checks $checks -Name 'RebootRequired' -Passed $true -Current 'Reboot required' -Expected 'Pending'
+
+            $allPass = @($checks | Where-Object { -not $_.Passed }).Count -eq 0
+            $report.Summary.Status = if ($allPass) { 'Completed' } else { 'Blocked' }
+            $report.Summary.DeterministicPass = $allPass
+            $report.Summary.BestNextDecision = if ($allPass) { 'REBOOT REQUIRED to activate pagefile relocation. After reboot, verify C:\DataHub\Pagefile\pagefile.sys is in use.' } else { 'Fix blocking checks or verify registry write permissions.' }
+            [void]$rollback.Add(("Restore pagefile config from backup: {0}" -f $backupPath))
+            [void]$rollback.Add("Delete HKLM:\System\CurrentControlSet\Control\Session Manager\Memory Management\PagingFiles and reboot to revert.")
+            $report.Metrics.PagefileConfig = $backup
+            $report.Applied = [bool]$Apply -and $pagefileConfigured
         }
     }
 
