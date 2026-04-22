@@ -1,5 +1,43 @@
 # Journal Decisionale
 
+## 2026-04-22 12:35:00
+### Obiettivo
+Valutare untracked locali e imporre all'agent la chiusura task con repository locale pulito.
+
+### Task
+Classificati gli untracked tra push e ignore, aggiornati gitignore e istruzioni always-on per hygiene obbligatoria.
+
+### Modifiche
+- Aggiornato `.gitignore` con `/logs/*-live.json` e `/logs/diagnostics/` per evitare staging di artifact runtime locali.
+- Aggiornato `.github/instructions/windows-optimization.instructions.md` con sezione `Igiene repository locale (obbligatoria)` e comando gate `./scripts/repo-cleanup-before-push.ps1 -Apply`.
+
+### Decisioni
+- `scripts/analyze-nvme-readonly-plan.ps1` e modifiche GUI restano candidati al push (sorgente).
+- Backup diagnostici Office e report live NVMe non vanno pushati: sono runtime/local diagnostics.
+
+### Esito
+Completato
+
+## 2026-04-22 00:00:00
+### Obiettivo
+Introdurre un advisory dedicato per NVMe usurato con decisione operativa immediata e piano di write-offload, integrato in GUI senza regressioni.
+
+### Task
+Creato script di analisi read-only per rischio NVMe e aggiunto flusso GUI completo (run, polling, stop, timer, log source) con ordine funzioni logico.
+
+### Modifiche
+- Creato `scripts/analyze-nvme-readonly-plan.ps1` con output JSON: BestNextDecision, TechnicalRationale, ImmediateOperationalSteps, AntiRegressionChecks e WriteOffloadPlan.
+- Aggiornato `scripts/system-optimizer-gui.ps1` con nuovo comando `NVMe Plan`, stato processo dedicato, funzioni `Update/Stop/Poll/Run-NvmeAdvisor`, timer dedicato e integrazione log.
+- Eseguiti gate anti-regressione obbligatori: parser check GUI/script (`0` errori), rebuild EXE completato, smoke test GUI `AliveAfter6s=True`.
+
+### Decisioni
+- Approccio observation-first: lo script NVMe non applica modifiche sistema, genera solo advisory e piano operativo con rollback indicato per ogni fase.
+- Integrazione incrementale nella dashboard esistente per minimizzare rischio layout/event regressions su WinForms.
+- Nessuna terminazione aggressiva automatica: stop solo manuale via pulsante Cancel.
+
+### Esito
+Completato
+
 ## 2026-04-20 11:20:00
 ### Obiettivo
 Rendere la GUI piu immediata e leggibile con un ordinamento UX senior orientato al flusso operativo reale.

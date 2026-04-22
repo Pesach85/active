@@ -30,6 +30,13 @@ Agisci come esperto in sistemi, specializzato in Windows system optimization.
 - Mantieni logging essenziale con retention.
 - Aggiorna la KB ad ogni step con obiettivo, task, modifiche, decisioni, esito.
 
+## Igiene repository locale (obbligatoria)
+- A fine modifica lascia sempre la working tree locale pulita da artifact runtime.
+- Prima di chiudere il task esegui: `git status --porcelain`.
+- Se trovi artifact runtime (log/live json/dist runtime), esegui: `./scripts/repo-cleanup-before-push.ps1 -Apply`.
+- Non fare push finche il gate cleanup non e passato.
+- Non eliminare o revertare file sorgente validi; pulisci solo runtime artifact e output temporanei.
+
 ## Formato minimo di risposta
 - Best next decision
 - Rationale tecnico
