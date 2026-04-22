@@ -1,5 +1,41 @@
 # Journal Decisionale
 
+## 2026-04-22 15:00:00
+### Obiettivo
+Eseguire Wave 3 della strategia write-offload: audit e configurare relocation di package manager caches e pagefile, completando la riduzione scritture NVMe pre-reboot.
+
+### Task
+Implementati step S70-S80 (package manager cache audit + pagefile config relocation), eseguiti in sequenza con deterministic pass/fail validation, JSON config backup, e prerequisito reboot.
+
+### Modifiche
+- Esteso `scripts/execute-nvme-writeoffload-step.ps1` con step S70/S80 (ValidateSet aggiornato, 2 nuovi blocchi switch).
+- S70: Package manager cache detection (npm, pnpm, yarn, pip, nuget, maven, gradle) con metrics in MB combinati.
+- S80: Pagefile registry configuration (primary: C:\DataHub\Pagefile\pagefile.sys 2048-4096MB, fallback: C:\pagefile.sys 512-1024MB) con backup JSON e rollback hints.
+- Fixed fsutil disable-lastaccess per performance (pagefile I/O optimization).
+- Registry entry HKLM:\System\CurrentControlSet\Control\Session Manager\Memory Management\PagingFiles created con double-spec format.
+
+### Decisioni
+- S70 audit-only (no changes).
+- S80 apply registra config registry (non modifica disco finché reboot non consuma nuovo pagefile path).
+- Pagefile config dual-boot safe: primary DataHub con fallback C: per stabilità.
+- Reboot required: pagefile active path cambia solo dopo Windows restart.
+- All-steps audit validation: 14 check deterministic, 0 failures.
+
+### Esito
+Wave 3 configurazione completata; reboot pending per attivare.
+
+### Risultati dettagliati
+- **S70 (Package Manager Cache Audit)**: Status=Completed, DeterministicPass=True, npm=~300MB, pnpm=~150MB, yarn=~50MB, pip=~200MB, nuget=~2GB, maven=~2GB, gradle=~2GB, total=6608MB (~6.6GB)
+- **S80 (Pagefile Relocation Config - Apply)**: Status=Completed, DeterministicPass=True, Applied=True; registry PagingFiles entry created con primary path C:\DataHub\Pagefile\pagefile.sys (2048-4096MB) e fallback C:\pagefile.sys (512-1024MB); fsutil disable-lastaccess 1 applied; 4 checks passed (PagefileTargetDirExists, PagefilePrimaryConfigured, PagefileFallbackConfigured, RebootRequired).
+- Backup config JSON saved: logs/diagnostics/pagefile-config-backup-{timestamp}.json con full registry spec + rollback hints.
+- **Decision Point**: Reboot required per attivare. Post-reboot, Windows userà C:\DataHub\Pagefile\pagefile.sys come primary pagefile, reducendo ulteriormente NVMe C: writes.
+
+### Consolidamento Wave 1-3
+- **S00-S30 (Wave 1 applicata)**: TEMP/TMP relocated to C:\DataHub\Temp (User/System) - 0 NVMe writes post mount.
+- **S40-S60 (Wave 2 applicata)**: Browser/app cache symlink to C:\DataHub\Cache (252MB browsers + 8GB app) - offload completato.
+- **S70-S80 (Wave 3 config)**: Package manager caches listed (6.6GB potential offload), pagefile config registered (reboot pending).
+- **Total offload identificato**: 8.25GB (Wave 2) + 6.6GB (Wave 3 pending) + pagefile → ~15GB+ write pressure reduction from NVMe.
+
 ## 2026-04-22 14:30:00
 ### Obiettivo
 Eseguire Wave 2 della strategia write-offload: audit e relocalizzare browser/app cache da NVMe C: a DataHub E:, riducendo pressione scrittura con deterministic audit/apply.
