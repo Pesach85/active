@@ -1,5 +1,30 @@
 # Journal Decisionale
 
+## 2026-04-22 13:00:00
+### Obiettivo
+Determinare in modo deterministico se la partizione 4 e legacy e integrare in GUI un flusso audit/apply per liberare spazio e unire a C solo quando i check sono tutti veri.
+
+### Task
+Creato script partizioni deterministic-only con remediation condizionale e aggiunta funzione GUI Partition Plan (audit e apply confermato).
+
+### Modifiche
+- Creato `scripts/analyze-recovery-partition-legacy.ps1` con output JSON strutturato (Assessment, Evidence, Remediation).
+- Aggiornato `scripts/system-optimizer-gui.ps1` con nuovo pulsante `Partition Plan`, stato processo dedicato, funzioni `Update/Stop/Poll/Run-PartitionLegacy`, timer e sorgenti log dedicate.
+- Validazione locale eseguita: parser script/gui OK, rebuild EXE OK, smoke test GUI `AliveAfter6s=True`.
+
+### Decisioni
+- Modalita predefinita audit-only: nessuna modifica partizioni senza esplicita conferma utente.
+- Apply consentito solo se `DeterministicLegacy=True` e tutti gli 8 check evidenza risultano `Passed=True`.
+- Se un check fallisce, l'apply e bloccato deterministicamente senza ipotesi.
+
+### Esito
+Completato
+
+### Aggiornamento esecuzione
+- Eseguito apply deterministicamente con `scripts/analyze-recovery-partition-legacy.ps1 -ApplyIfLegacy`.
+- Partizione `Disk1/Part4` rimossa e spazio unito a `Disk1/Part3 (C:)`.
+- Verifica post-change: WinRE rimane `Enabled` su `harddisk1/partition5` (nessuna regressione recovery path).
+
 ## 2026-04-22 12:35:00
 ### Obiettivo
 Valutare untracked locali e imporre all'agent la chiusura task con repository locale pulito.
