@@ -116,6 +116,7 @@ $script:quickCleanupMaxFilesPerTarget = 2000
 $script:diagnosticRetentionDays = 7
 $script:diagnosticsDir = Join-Path $script:hubRoot "logs\diagnostics"
 $script:healthAuditScript  = Join-Path $script:scriptRoot "system-health-audit.ps1"
+$script:nvmeAdvisorScript  = Join-Path $script:scriptRoot "analyze-nvme-readonly-plan.ps1"
 $script:applyFixesScript   = Join-Path $script:scriptRoot "apply-safe-fixes.ps1"
 $script:healthAuditProcess = $null
 $script:healthAuditJson    = Join-Path $script:hubRoot "logs\health-audit-live.json"
@@ -127,6 +128,13 @@ $script:healthAuditTimeoutSec = 90
 $script:healthAuditSoftTimeoutWarned = $false
 $script:healthAuditApplyAfter = $false
 $script:healthAuditMaxLevel   = 'Safe'
+$script:nvmeAdvisorProcess = $null
+$script:nvmeAdvisorJson    = Join-Path $script:hubRoot "logs\nvme-advisor-live.json"
+$script:nvmeAdvisorStdOut  = Join-Path $script:hubRoot "logs\nvme-advisor-live.out.log"
+$script:nvmeAdvisorStdErr  = Join-Path $script:hubRoot "logs\nvme-advisor-live.err.log"
+$script:nvmeAdvisorStartedAt = $null
+$script:nvmeAdvisorTimeoutSec = 75
+$script:nvmeAdvisorSoftTimeoutWarned = $false
 
 # ─── Deep Scan state ──────────────────────────────────────────────────────────
 $script:deepScanProcess          = $null
@@ -391,6 +399,7 @@ $clrTeal = [System.Drawing.Color]::FromArgb(13, 148, 136)
 $btnAnalyze       = New-Btn "Scan Garbage"    $clrAccent  140 34
 $btnQuickClean    = New-Btn "Quick Clean"      $clrGreen   118 34
 $btnHealthAudit   = New-Btn "Health Audit"     $clrTeal    118 34
+$btnNvmePlan      = New-Btn "NVMe Plan"        $clrAmber   110 34
 $btnDeepScanJump  = New-Btn "Deep Scan"        $clrPurple  118 34
 $btnCompute       = New-Btn "Compute"          $clrPurple  110 34
 $btnAudit         = New-Btn "Audit"            $clrCyan     90 34
@@ -417,9 +426,10 @@ $lblAdvancedActions.BackColor = [System.Drawing.Color]::Transparent
 $btnAnalyze.Location       = New-Object System.Drawing.Point(12,  28)
 $btnQuickClean.Location    = New-Object System.Drawing.Point(158, 28)
 $btnHealthAudit.Location   = New-Object System.Drawing.Point(284, 28)
-$btnDeepScanJump.Location  = New-Object System.Drawing.Point(410, 28)
-$btnDiagnostics.Location   = New-Object System.Drawing.Point(536, 28)
-$btnCancelAnalyze.Location = New-Object System.Drawing.Point(662, 28)
+$btnNvmePlan.Location      = New-Object System.Drawing.Point(410, 28)
+$btnDeepScanJump.Location  = New-Object System.Drawing.Point(528, 28)
+$btnDiagnostics.Location   = New-Object System.Drawing.Point(654, 28)
+$btnCancelAnalyze.Location = New-Object System.Drawing.Point(780, 28)
 
 $btnCompute.Location       = New-Object System.Drawing.Point(12, 96)
 $btnAudit.Location         = New-Object System.Drawing.Point(130, 96)
@@ -538,7 +548,7 @@ $pnlActionsBorder.BackColor = $clrBorderC
 
 $pnlActions.Controls.AddRange(@(
     $lblPrimaryActions, $lblAdvancedActions,
-    $btnAnalyze, $btnQuickClean, $btnHealthAudit, $btnDeepScanJump,
+    $btnAnalyze, $btnQuickClean, $btnHealthAudit, $btnNvmePlan, $btnDeepScanJump,
     $btnDiagnostics, $btnCancelAnalyze,
     $btnCompute, $btnAudit, $btnExecute,
     $lblDepth, $cmbDepth, $lblAuditLevel, $cmbAuditLevel,
@@ -687,7 +697,8 @@ $cmbLogSource.Items.AddRange(@(
     "Compute Analyzer (stdout)", "Compute Analyzer (stderr)",
     "Quick Cleanup (stdout)", "Quick Cleanup (stderr)",
     "Quick Cleanup (log)", "Storage Cleanup (log)",
-    "Health Audit (stdout)", "Health Audit (stderr)"
+    "Health Audit (stdout)", "Health Audit (stderr)",
+    "NVMe Plan (stdout)", "NVMe Plan (stderr)"
 ))
 $cmbLogSource.SelectedIndex = 0
 
@@ -1283,6 +1294,7 @@ function Test-AnyOperationRunning {
     if ($script:computeProcess -and (-not $script:computeProcess.HasExited)) { $busy = $true }
     if ($script:quickCleanupProcess -and (-not $script:quickCleanupProcess.HasExited)) { $busy = $true }
     if ($script:healthAuditProcess -and (-not $script:healthAuditProcess.HasExited)) { $busy = $true }
+    if ($script:nvmeAdvisorProcess -and (-not $script:nvmeAdvisorProcess.HasExited)) { $busy = $true }
     if ($script:deepScanProcess -and (-not $script:deepScanProcess.HasExited)) { $busy = $true }
     if ($script:deepScanApplyProcess -and (-not $script:deepScanApplyProcess.HasExited)) { $busy = $true }
 
@@ -1301,6 +1313,7 @@ function Set-AnalysisUiState {
     $btnCompute.Enabled = -not $IsBusy
     $btnQuickClean.Enabled = -not $IsBusy
     $btnHealthAudit.Enabled = -not $IsBusy
+    $btnNvmePlan.Enabled = -not $IsBusy
     $cmbDepth.Enabled = -not $IsBusy
     $cmbAuditLevel.Enabled = -not $IsBusy
     $cmbCleanupMode.Enabled = -not $IsBusy
@@ -2092,6 +2105,136 @@ function Poll-HealthApply {
     Set-AnalysisUiState -IsBusy:$false -StateText ("Fixes applied in {0}s." -f $durationSec)
 }
 
+function Update-NvmeAdvisorProgress {
+    if (-not $script:nvmeAdvisorStartedAt) { return }
+    $elapsedSec = [math]::Round(((Get-Date) - $script:nvmeAdvisorStartedAt).TotalSeconds, 0)
+    $timeoutSec = [math]::Max(1, $script:nvmeAdvisorTimeoutSec)
+    $pct = [math]::Min(95, [int](($elapsedSec / $timeoutSec) * 100))
+    if ($pct -lt $progressAnalysis.Minimum) { $pct = $progressAnalysis.Minimum }
+    if ($pct -gt $progressAnalysis.Maximum) { $pct = $progressAnalysis.Maximum }
+    $progressAnalysis.Value = $pct
+    $script:spinIdx = ($script:spinIdx + 1) % $script:spinFrames.Count
+    $lblAnalysisState.Text = ("NVMe Plan{0}  {1}s / {2}s" -f $script:spinFrames[$script:spinIdx], $elapsedSec, $timeoutSec)
+    if (($elapsedSec -gt $timeoutSec) -and (-not $script:nvmeAdvisorSoftTimeoutWarned)) {
+        $script:nvmeAdvisorSoftTimeoutWarned = $true
+        Append-Status ("NVMe Plan exceeded expected time ({0}s). No forced stop; cancel manually if needed." -f $timeoutSec)
+    }
+}
+
+function Stop-NvmeAdvisor {
+    param([string]$Reason)
+    if ($script:nvmeAdvisorProcess -and (-not $script:nvmeAdvisorProcess.HasExited)) {
+        try {
+            Stop-Process -Id $script:nvmeAdvisorProcess.Id -Force -ErrorAction Stop
+            Append-Status ("NVMe Plan stopped. Reason: {0}" -f $Reason)
+        } catch {
+            Append-Status ("Unable to stop NVMe Plan cleanly: {0}" -f $_.Exception.Message)
+        }
+    }
+    $nvmeAdvisorTimer.Stop()
+    $script:nvmeAdvisorProcess = $null
+    $script:nvmeAdvisorStartedAt = $null
+    $script:nvmeAdvisorSoftTimeoutWarned = $false
+    Set-AnalysisUiState -IsBusy:$false -StateText "NVMe Plan idle"
+}
+
+function Poll-NvmeAdvisor {
+    if (-not $script:nvmeAdvisorProcess) { return }
+    if (-not $script:nvmeAdvisorProcess.HasExited) {
+        Update-NvmeAdvisorProgress
+        return
+    }
+
+    $nvmeAdvisorTimer.Stop()
+    $durationSec = 0
+    if ($script:nvmeAdvisorStartedAt) {
+        $durationSec = [math]::Round(((Get-Date) - $script:nvmeAdvisorStartedAt).TotalSeconds, 1)
+    }
+    $exitCode = Get-ProcessExitCodeSafe -Process $script:nvmeAdvisorProcess
+    if ($exitCode -ne 0) {
+        $errTail = Get-WorkerErrorTail -ErrorPath $script:nvmeAdvisorStdErr
+        if ($errTail) {
+            Append-Status ("NVMe Plan ended with exit code {0}. Error: {1}" -f $exitCode, $errTail)
+        } else {
+            Append-Status ("NVMe Plan ended with exit code {0}." -f $exitCode)
+        }
+        $script:nvmeAdvisorProcess = $null
+        $script:nvmeAdvisorStartedAt = $null
+        $script:nvmeAdvisorSoftTimeoutWarned = $false
+        Set-AnalysisUiState -IsBusy:$false -StateText "NVMe Plan idle"
+        return
+    }
+
+    if (Wait-ForOutputFile -Path $script:nvmeAdvisorJson -TimeoutMs 4000) {
+        try {
+            $advisor = Get-Content -LiteralPath $script:nvmeAdvisorJson -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
+            $risk = [string]$advisor.Assessment.RiskLevel
+            $decision = [string]$advisor.BestNextDecision
+            $targetDrive = [string]$advisor.TargetDrive
+            $writeDrive = [string]$advisor.RecommendedWriteDrive
+            Append-Status ("NVMe Plan completed in {0}s. Risk={1}. Target={2} WriteDrive={3}" -f $durationSec, $risk, $targetDrive, $writeDrive)
+            Append-Status ("  Best next decision: {0}" -f $decision)
+            if ($advisor.WriteOffloadPlan -and $advisor.WriteOffloadPlan.Steps) {
+                foreach ($step in $advisor.WriteOffloadPlan.Steps) {
+                    Append-Status ("  Step {0}: {1}" -f [int]$step.Step, [string]$step.Title)
+                }
+            }
+
+            $toastLevel = if ($risk -eq 'Critical') { 'Warning' } else { 'Success' }
+            Show-Toast -Title "NVMe Plan Ready" -Body ("Risk {0} - see status feed ({1}s)" -f $risk, $durationSec) -Level $toastLevel
+        } catch {
+            Append-Status ("NVMe Plan completed in {0}s but parse failed: {1}" -f $durationSec, $_.Exception.Message)
+        }
+    } else {
+        Append-Status ("NVMe Plan completed in {0}s but output JSON was not found." -f $durationSec)
+    }
+
+    $progressAnalysis.Value = 100
+    $lblAnalysisState.Text = ("NVMe Plan completed in {0}s." -f $durationSec)
+    $script:nvmeAdvisorProcess = $null
+    $script:nvmeAdvisorStartedAt = $null
+    $script:nvmeAdvisorSoftTimeoutWarned = $false
+    Set-AnalysisUiState -IsBusy:$false -StateText $lblAnalysisState.Text
+}
+
+function Run-NvmeAdvisor {
+    if (-not (Test-Path -LiteralPath $script:nvmeAdvisorScript)) {
+        Append-Status "NVMe advisor script not found: $script:nvmeAdvisorScript"
+        return
+    }
+    if (Test-AnyOperationRunning) {
+        Append-Status "Another operation is already running. Wait for completion."
+        return
+    }
+
+    try {
+        Remove-IfExists -Path $script:nvmeAdvisorJson
+        Remove-IfExists -Path $script:nvmeAdvisorStdOut
+        Remove-IfExists -Path $script:nvmeAdvisorStdErr
+
+        $args = @(
+            "-NoProfile",
+            "-ExecutionPolicy", "Bypass",
+            "-File", $script:nvmeAdvisorScript,
+            "-OutputJson", $script:nvmeAdvisorJson
+        )
+
+        $script:nvmeAdvisorStartedAt = Get-Date
+        $script:nvmeAdvisorSoftTimeoutWarned = $false
+        $script:nvmeAdvisorProcess = Start-Process -FilePath $script:psHost -ArgumentList $args -WindowStyle Hidden -RedirectStandardOutput $script:nvmeAdvisorStdOut -RedirectStandardError $script:nvmeAdvisorStdErr -PassThru
+        $progressAnalysis.Value = 1
+        Set-AnalysisUiState -IsBusy:$true -StateText ("NVMe Plan starting (target {0}s)..." -f $script:nvmeAdvisorTimeoutSec)
+        $nvmeAdvisorTimer.Start()
+        Append-Status "NVMe Plan started in background."
+    } catch {
+        Append-Status ("NVMe Plan error: {0}" -f $_.Exception.Message)
+        $script:nvmeAdvisorProcess = $null
+        $script:nvmeAdvisorStartedAt = $null
+        $script:nvmeAdvisorSoftTimeoutWarned = $false
+        Set-AnalysisUiState -IsBusy:$false -StateText "NVMe Plan idle"
+    }
+}
+
 # ═══════════════════════════════════════════════════════════════════════════════
 #  Deep Scan functions
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -2755,6 +2898,14 @@ $btnCancelAnalyze.Add_Click({
         if ($confirm -eq "Yes") {
             Stop-HealthAudit -Reason "Manual cancel requested by user."
         }
+        return
+    }
+
+    if ($script:nvmeAdvisorProcess -and (-not $script:nvmeAdvisorProcess.HasExited)) {
+        $confirm = [System.Windows.Forms.MessageBox]::Show("Cancel running NVMe Plan?", "Confirm", "YesNo", "Question")
+        if ($confirm -eq "Yes") {
+            Stop-NvmeAdvisor -Reason "Manual cancel requested by user."
+        }
     }
 })
 $btnAudit.Add_Click({ Run-Cleanup -ExecuteNow:$false -RunAnalyzeAfter:$false })
@@ -2778,6 +2929,12 @@ $btnHealthAudit.Add_Click({
     $confirm = [System.Windows.Forms.MessageBox]::Show($msg, "Health Audit", "YesNo", "Question")
     if ($confirm -eq "Yes") {
         Run-HealthAudit -ApplyAfter
+    }
+})
+$btnNvmePlan.Add_Click({
+    $confirm = [System.Windows.Forms.MessageBox]::Show("Run NVMe risk advisory and write-offload plan?`n`nThis is read-only and does not change system settings.", "NVMe Plan", "YesNo", "Question")
+    if ($confirm -eq "Yes") {
+        Run-NvmeAdvisor
     }
 })
 $btnReloadTasks.Add_Click({ Reload-Tasks })
@@ -2813,6 +2970,8 @@ $btnLoadLogs.Add_Click({
         "Storage Cleanup (log)"     = $script:defaultLog
         "Health Audit (stdout)"     = $script:healthAuditStdOut
         "Health Audit (stderr)"     = $script:healthAuditStdErr
+        "NVMe Plan (stdout)"        = $script:nvmeAdvisorStdOut
+        "NVMe Plan (stderr)"        = $script:nvmeAdvisorStdErr
     }
     $selected = [string]$cmbLogSource.SelectedItem
     $logPath = $logMap[$selected]
@@ -2918,6 +3077,10 @@ $healthAuditTimer.Add_Tick({ Poll-HealthAudit })
 $healthApplyTimer = New-Object System.Windows.Forms.Timer
 $healthApplyTimer.Interval = 1000
 $healthApplyTimer.Add_Tick({ Poll-HealthApply })
+
+$nvmeAdvisorTimer = New-Object System.Windows.Forms.Timer
+$nvmeAdvisorTimer.Interval = 1000
+$nvmeAdvisorTimer.Add_Tick({ Poll-NvmeAdvisor })
 
 $deepScanTimer = New-Object System.Windows.Forms.Timer
 $deepScanTimer.Interval = 1000
