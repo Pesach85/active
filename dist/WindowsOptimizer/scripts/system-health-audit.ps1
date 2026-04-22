@@ -1,6 +1,6 @@
-<#
+﻿<#
 .SYNOPSIS
-    System Health Audit — scans hardware, OS config, and services to find
+    System Health Audit - scans hardware, OS config, and services to find
     optimization opportunities.  Outputs a structured JSON report that the
     GUI parses and displays as actionable findings.
 
@@ -27,7 +27,7 @@ param(
 
 $ErrorActionPreference = 'Continue'
 
-# ── helpers ────────────────────────────────────────────────────────────────────
+# â”€â”€ helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function Write-Progress2 { param([string]$Msg) Write-Host "[AUDIT] $Msg" }
 
 function New-Finding {
@@ -115,13 +115,59 @@ function New-OfficeM365ChannelFinding {
         -Solutions $solutions
 }
 
-# ── collector arrays ───────────────────────────────────────────────────────────
+function Test-CommandAvailable {
+    param([string]$Name)
+
+    return [bool](Get-Command $Name -ErrorAction SilentlyContinue)
+}
+
+function Test-WingetPackageInstalled {
+    param([string]$PackageId)
+
+    if (-not (Test-CommandAvailable -Name 'winget')) {
+        return $false
+    }
+
+    $stdoutPath = [System.IO.Path]::Combine($env:TEMP, ("winget-list-{0}.out.log" -f ([guid]::NewGuid().ToString("N"))))
+    $stderrPath = [System.IO.Path]::Combine($env:TEMP, ("winget-list-{0}.err.log" -f ([guid]::NewGuid().ToString("N"))))
+
+    try {
+        $args = @(
+            'list',
+            '--id', $PackageId,
+            '--exact',
+            '--accept-source-agreements'
+        )
+
+        $proc = Start-Process -FilePath 'winget' -ArgumentList $args -WindowStyle Hidden -RedirectStandardOutput $stdoutPath -RedirectStandardError $stderrPath -PassThru
+        $finished = $proc.WaitForExit(12000)
+        if (-not $finished) {
+            try { Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue } catch {}
+            return $false
+        }
+
+        if (-not (Test-Path -LiteralPath $stdoutPath)) {
+            return $false
+        }
+
+        $out = Get-Content -LiteralPath $stdoutPath -Raw -ErrorAction SilentlyContinue
+        if (-not $out) { return $false }
+        return ($out -match [regex]::Escape($PackageId))
+    } catch {
+        return $false
+    } finally {
+        Remove-Item -LiteralPath $stdoutPath -Force -ErrorAction SilentlyContinue
+        Remove-Item -LiteralPath $stderrPath -Force -ErrorAction SilentlyContinue
+    }
+}
+
+# â”€â”€ collector arrays â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 $findings = [System.Collections.ArrayList]::new()
 $hardwareProfile = [ordered]@{}
 
-# ══════════════════════════════════════════════════════════════════════════════
-#  PHASE 1 — Hardware Inventory
-# ══════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+#  PHASE 1 - Hardware Inventory
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 Write-Progress2 "Collecting hardware inventory..."
 
 # --- CPU ---
@@ -229,12 +275,12 @@ $hardwareProfile.GPU = @($gpus | ForEach-Object {
     }
 })
 
-# ══════════════════════════════════════════════════════════════════════════════
-#  PHASE 2 — Finding Detection
-# ══════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+#  PHASE 2 - Finding Detection
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 Write-Progress2 "Analyzing disk health..."
 
-# ── DISK HEALTH ───────────────────────────────────────────────────────────────
+# â”€â”€ DISK HEALTH â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 foreach ($pd in $physDisks) {
     if ($pd.HealthStatus -ne 'Healthy') {
         [void]$findings.Add((New-Finding `
@@ -263,7 +309,7 @@ foreach ($pd in $physDisks) {
     }
 }
 
-# ── DISK SPACE ────────────────────────────────────────────────────────────────
+# â”€â”€ DISK SPACE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 Write-Progress2 "Analyzing disk space..."
 foreach ($vol in $volumes) {
     $sizeGB = [math]::Round($vol.Size / 1GB, 1)
@@ -367,7 +413,7 @@ Write-Host `"Removed `$cleaned temp files.`"" `
         -Solutions @($solutions.ToArray())))
 }
 
-# ── RAM SINGLE-CHANNEL ────────────────────────────────────────────────────────
+# â”€â”€ RAM SINGLE-CHANNEL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 Write-Progress2 "Analyzing memory configuration..."
 if (-not $isDualChannel -and $slotsTotal -ge 2) {
     $currentModule = $dimms[0]
@@ -390,7 +436,7 @@ if (-not $isDualChannel -and $slotsTotal -ge 2) {
         )))
 }
 
-# ── INTEL RST DRIVER ──────────────────────────────────────────────────────────
+# â”€â”€ INTEL RST DRIVER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 Write-Progress2 "Checking storage controller driver..."
 if ($rstDrv) {
     $rstVersionStr = $rstDrv.DriverVersion
@@ -440,7 +486,7 @@ Write-Host 'Registry prepared. REBOOT INTO SAFE MODE, then change BIOS from RAID
     }
 }
 
-# ── SERVICES ──────────────────────────────────────────────────────────────────
+# â”€â”€ SERVICES â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 Write-Progress2 "Analyzing running services..."
 $heavyServices = @(
     @{ Name='MySQL80';                    Desc='MySQL Server';             Note='Database server' },
@@ -493,7 +539,7 @@ if ($runningHeavy.Count -gt 0) {
         )))
 }
 
-# ── STARTUP PROGRAMS ──────────────────────────────────────────────────────────
+# â”€â”€ STARTUP PROGRAMS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 Write-Progress2 "Checking startup programs..."
 $startupEntries = [System.Collections.ArrayList]::new()
 foreach ($regPath in @('HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run', 'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run')) {
@@ -534,7 +580,7 @@ if ($startupEntries.Count -gt 0) {
         )))
 }
 
-# ── NTFS TUNING ───────────────────────────────────────────────────────────────
+# â”€â”€ NTFS TUNING â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 Write-Progress2 "Checking NTFS/filesystem tuning..."
 
 $memUsage = 0
@@ -577,7 +623,7 @@ if ($ntfsSolutions.Count -gt 0) {
         -Solutions @($ntfsSolutions.ToArray())))
 }
 
-# ── VISUAL EFFECTS ────────────────────────────────────────────────────────────
+# â”€â”€ VISUAL EFFECTS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 Write-Progress2 "Checking visual effects..."
 $vfx = Get-ItemProperty -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\VisualEffects' -EA SilentlyContinue
 $vfxSetting = if ($vfx) { [int]$vfx.VisualFXSetting } else { 3 }
@@ -600,7 +646,7 @@ if ($vfxSetting -ne 2) {
         )))
 }
 
-# ── POWER PLAN CHECK ──────────────────────────────────────────────────────────
+# â”€â”€ POWER PLAN CHECK â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 Write-Progress2 "Checking power plan..."
 $activePlan = powercfg /getactivescheme 2>$null
 $isHighPerf = $activePlan -match '8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c'
@@ -622,13 +668,13 @@ if (-not $isHighPerf) {
         )))
 }
 
-# ── ALREADY OPTIMIZED (positive findings) ─────────────────────────────────────
+# â”€â”€ ALREADY OPTIMIZED (positive findings) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 Write-Progress2 "Collecting positive findings..."
 $positives = [System.Collections.ArrayList]::new()
 $repairOfficeChannelScript = Join-Path $PSScriptRoot 'repair-office-m365-channel.ps1'
 $recommendedM365Channels = 'Current Channel, Monthly Enterprise Channel, Semi-Annual Enterprise Channel'
 
-# ── OFFICE UPDATE CHANNEL ─────────────────────────────────────────────────────
+# â”€â”€ OFFICE UPDATE CHANNEL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 Write-Progress2 "Checking Office update channel compatibility..."
 $officePolicyPath = 'HKLM:\SOFTWARE\Policies\Microsoft\office\16.0\common\officeupdate'
 $officePolicy = Get-ItemProperty -LiteralPath $officePolicyPath -EA SilentlyContinue
@@ -673,6 +719,83 @@ if ($officeMismatch -and (Test-Path -LiteralPath $repairOfficeChannelScript)) {
     [void]$positives.Add(("Office channel aligned for Microsoft 365 Apps ({0})" -f $officeBranch))
 }
 
+# â”€â”€ REQUIRED SYSTEM PACKAGES â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+Write-Progress2 "Checking required system packages..."
+
+$wingetAvailable = Test-CommandAvailable -Name 'winget'
+$pwshInfo = Get-Command pwsh -ErrorAction SilentlyContinue
+$pwshMajor = if ($pwshInfo -and $pwshInfo.Version) { [int]$pwshInfo.Version.Major } else { 0 }
+$diskHealthWarning = @($physDisks | Where-Object { $_.HealthStatus -ne 'Healthy' }).Count -gt 0
+
+if (-not $wingetAvailable) {
+    [void]$findings.Add((New-Finding `
+        -Id 'PKG-CORE-001' `
+        -Severity 'Info' `
+        -Category 'OS' `
+        -Title 'Windows Package Manager (winget) not available' `
+        -Description 'winget is missing or unusable. The suite can still proceed using external vendor installers.' `
+        -CurrentValue 'winget command not found' `
+        -RecommendedValue 'External installer path available and validated' `
+        -Impact 'Store-based remediation is unavailable; use external installer flow.' `
+        -Solutions @(
+            (New-Solution -Level 'Safe' -Label 'Open PowerShell release page (external installer path)' `
+                -Command 'Start-Process "https://aka.ms/powershell-release?tag=stable"' `
+                -Rollback 'N/A (manual install path)' `
+                -RiskNote 'Uses external vendor installer flow without Store dependency.')
+        )))
+}
+
+if ($pwshMajor -lt 7) {
+    $psCurrent = if ($pwshInfo -and $pwshInfo.Version) { "pwsh $($pwshInfo.Version)" } else { 'pwsh not found' }
+    $pwshSolutions = [System.Collections.ArrayList]::new()
+    $ensureCoreScript = Join-Path $PSScriptRoot 'ensure-powershell-core.ps1'
+    $ensureCoreCmd = ('powershell -NoProfile -ExecutionPolicy Bypass -File "{0}" -InstallIfMissing' -f $ensureCoreScript)
+    [void]$pwshSolutions.Add((New-Solution -Level 'Safe' -Label 'Install PowerShell 7 using external installer flow' `
+        -Command $ensureCoreCmd `
+        -Rollback 'Uninstall PowerShell 7 from Apps and Features if needed' `
+        -RiskNote 'Uses external vendor installer path; no Store/AppInstaller dependency.'))
+    [void]$pwshSolutions.Add((New-Solution -Level 'Safe' -Label 'Open PowerShell 7 download page' `
+        -Command 'Start-Process "https://aka.ms/powershell-release?tag=stable"' `
+        -Rollback 'N/A (manual install path)' `
+        -RiskNote 'Manual fallback when automated external install is blocked by policy.'))
+
+    [void]$findings.Add((New-Finding `
+        -Id 'PKG-CORE-002' `
+        -Severity 'Critical' `
+        -Category 'OS' `
+        -Title 'PowerShell 7 runtime missing for core automation' `
+        -Description 'The optimization suite expects PowerShell 7 (pwsh) for core-only tasks and deterministic background workers.' `
+        -CurrentValue $psCurrent `
+        -RecommendedValue 'pwsh 7.x installed and resolvable' `
+        -Impact 'Some always-on tasks and GUI worker orchestration may be degraded or incompatible.' `
+        -Solutions @($pwshSolutions.ToArray())))
+} else {
+    [void]$positives.Add(("PowerShell Core available ({0})" -f $pwshInfo.Version.ToString()))
+}
+
+$crystalInstalled = Test-WingetPackageInstalled -PackageId 'CrystalDewWorld.CrystalDiskInfo'
+$crystalInstalled = $crystalInstalled -or (Test-Path -LiteralPath 'C:\Program Files\CrystalDiskInfo\DiskInfo64.exe') -or (Test-Path -LiteralPath 'C:\Program Files (x86)\CrystalDiskInfo\DiskInfo32.exe')
+if ($diskHealthWarning -and (-not $crystalInstalled)) {
+    [void]$findings.Add((New-Finding `
+        -Id 'PKG-DIAG-001' `
+        -Severity 'Important' `
+        -Category 'Disk' `
+        -Title 'CrystalDiskInfo not installed for NVMe SMART diagnostics' `
+        -Description 'Disk health warning was detected and SMART passthrough may be limited by Intel RST. CrystalDiskInfo is required for a direct diagnostic check.' `
+        -CurrentValue 'CrystalDiskInfo not installed' `
+        -RecommendedValue 'CrystalDiskInfo installed' `
+        -Impact 'NVMe wear/failure trend cannot be validated quickly from GUI-safe tooling.' `
+        -Solutions @(
+            (New-Solution -Level 'Safe' -Label 'Open CrystalDiskInfo official download page' `
+                -Command 'Start-Process "https://crystalmark.info/en/software/crystaldiskinfo/"' `
+                -Rollback 'N/A (manual install path)' `
+                -RiskNote 'Uses external installer flow independent from Microsoft Store.')
+        )
+    ))
+} elseif ($diskHealthWarning -and $crystalInstalled) {
+    [void]$positives.Add('CrystalDiskInfo installed for NVMe diagnostic validation')
+}
+
 # SysMain
 $sysMain = Get-Service SysMain -EA SilentlyContinue
 if ($sysMain -and $sysMain.Status -ne 'Running') {
@@ -713,9 +836,9 @@ if ($isHighPerf) {
     [void]$positives.Add('Power plan: High Performance')
 }
 
-# ══════════════════════════════════════════════════════════════════════════════
-#  PHASE 3 — Load KB overrides (future extensibility)
-# ══════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+#  PHASE 3 - Load KB overrides (future extensibility)
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 if ($KnowledgeBase -and (Test-Path $KnowledgeBase)) {
     Write-Progress2 "Loading knowledge base overrides..."
     try {
@@ -738,7 +861,7 @@ if ($KnowledgeBase -and (Test-Path $KnowledgeBase)) {
                         $existing = $findings | Where-Object { $_.Id -eq $ef.Id }
                         if (-not $existing) {
                             [void]$findings.Add($ef)
-                            Write-Progress2 "KB added finding: $($ef.Id) — $($ef.Title)"
+                            Write-Progress2 "KB added finding: $($ef.Id) - $($ef.Title)"
                         }
                     }
                 }
@@ -749,9 +872,9 @@ if ($KnowledgeBase -and (Test-Path $KnowledgeBase)) {
     }
 }
 
-# ══════════════════════════════════════════════════════════════════════════════
-#  PHASE 4 — Build & Write JSON report
-# ══════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+#  PHASE 4 - Build & Write JSON report
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 Write-Progress2 "Building report..."
 
 # Sort findings: Critical first, then Important, Moderate, Info
@@ -778,5 +901,5 @@ $json = $report | ConvertTo-Json -Depth 10 -Compress:$false
 [System.IO.File]::WriteAllText($OutputJson, $json, [System.Text.Encoding]::UTF8)
 
 Write-Progress2 "Report saved to $OutputJson"
-Write-Progress2 ("Summary: {0} findings ({1} Critical, {2} Important, {3} Moderate, {4} Info) — {5} items already optimized" -f `
+Write-Progress2 ("Summary: {0} findings ({1} Critical, {2} Important, {3} Moderate, {4} Info) - {5} items already optimized" -f `
     $report.Summary.TotalFindings, $report.Summary.Critical, $report.Summary.Important, $report.Summary.Moderate, $report.Summary.Info, $report.Summary.AlreadyOptimized)

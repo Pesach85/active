@@ -129,6 +129,8 @@ $script:healthAuditTimeoutSec = 90
 $script:healthAuditSoftTimeoutWarned = $false
 $script:healthAuditApplyAfter = $false
 $script:healthAuditMaxLevel   = 'Safe'
+$script:healthAuditApplyPackagesOnly = $false
+$script:healthAuditApplyFindingIds = @()
 $script:nvmeAdvisorProcess = $null
 $script:nvmeAdvisorJson    = Join-Path $script:hubRoot "logs\nvme-advisor-live.json"
 $script:nvmeAdvisorStdOut  = Join-Path $script:hubRoot "logs\nvme-advisor-live.out.log"
@@ -144,6 +146,11 @@ $script:partitionLegacyStartedAt = $null
 $script:partitionLegacyTimeoutSec = 90
 $script:partitionLegacySoftTimeoutWarned = $false
 $script:partitionLegacyApplyRequested = $false
+$script:coreInstallProcess = $null
+$script:coreInstallStartedAt = $null
+$script:coreInstallTimeoutSec = 300
+$script:coreInstallStdOut = Join-Path $script:hubRoot "logs\core-install-live.out.log"
+$script:coreInstallStdErr = Join-Path $script:hubRoot "logs\core-install-live.err.log"
 
 # ─── Deep Scan state ──────────────────────────────────────────────────────────
 $script:deepScanProcess          = $null
@@ -408,6 +415,7 @@ $clrTeal = [System.Drawing.Color]::FromArgb(13, 148, 136)
 $btnAnalyze       = New-Btn "Scan Garbage"    $clrAccent  140 34
 $btnQuickClean    = New-Btn "Quick Clean"      $clrGreen   118 34
 $btnHealthAudit   = New-Btn "Health Audit"     $clrTeal    118 34
+$btnPkgFix        = New-Btn "Pkg Prereq Fix"   $clrTeal    126 34
 $btnNvmePlan      = New-Btn "NVMe Plan"        $clrAmber   110 34
 $btnDeepScanJump  = New-Btn "Deep Scan"        $clrPurple  118 34
 $btnPartitionPlan = New-Btn "Partition Plan"   $clrCyan    126 34
@@ -436,11 +444,12 @@ $lblAdvancedActions.BackColor = [System.Drawing.Color]::Transparent
 $btnAnalyze.Location       = New-Object System.Drawing.Point(12,  28)
 $btnQuickClean.Location    = New-Object System.Drawing.Point(158, 28)
 $btnHealthAudit.Location   = New-Object System.Drawing.Point(284, 28)
-$btnNvmePlan.Location      = New-Object System.Drawing.Point(410, 28)
-$btnDeepScanJump.Location  = New-Object System.Drawing.Point(528, 28)
-$btnDiagnostics.Location   = New-Object System.Drawing.Point(654, 28)
-$btnPartitionPlan.Location = New-Object System.Drawing.Point(780, 28)
-$btnCancelAnalyze.Location = New-Object System.Drawing.Point(914, 28)
+$btnPkgFix.Location        = New-Object System.Drawing.Point(410, 28)
+$btnNvmePlan.Location      = New-Object System.Drawing.Point(544, 28)
+$btnDeepScanJump.Location  = New-Object System.Drawing.Point(662, 28)
+$btnDiagnostics.Location   = New-Object System.Drawing.Point(788, 28)
+$btnPartitionPlan.Location = New-Object System.Drawing.Point(914, 28)
+$btnCancelAnalyze.Location = New-Object System.Drawing.Point(1048, 28)
 
 $btnCompute.Location       = New-Object System.Drawing.Point(12, 96)
 $btnAudit.Location         = New-Object System.Drawing.Point(130, 96)
@@ -559,7 +568,7 @@ $pnlActionsBorder.BackColor = $clrBorderC
 
 $pnlActions.Controls.AddRange(@(
     $lblPrimaryActions, $lblAdvancedActions,
-    $btnAnalyze, $btnQuickClean, $btnHealthAudit, $btnNvmePlan, $btnDeepScanJump,
+    $btnAnalyze, $btnQuickClean, $btnHealthAudit, $btnPkgFix, $btnNvmePlan, $btnDeepScanJump,
     $btnPartitionPlan,
     $btnDiagnostics, $btnCancelAnalyze,
     $btnCompute, $btnAudit, $btnExecute,
@@ -711,7 +720,8 @@ $cmbLogSource.Items.AddRange(@(
     "Quick Cleanup (log)", "Storage Cleanup (log)",
     "Health Audit (stdout)", "Health Audit (stderr)",
     "NVMe Plan (stdout)", "NVMe Plan (stderr)",
-    "Partition Plan (stdout)", "Partition Plan (stderr)"
+    "Partition Plan (stdout)", "Partition Plan (stderr)",
+    "Core Install (stdout)", "Core Install (stderr)"
 ))
 $cmbLogSource.SelectedIndex = 0
 
@@ -1309,6 +1319,7 @@ function Test-AnyOperationRunning {
     if ($script:healthAuditProcess -and (-not $script:healthAuditProcess.HasExited)) { $busy = $true }
     if ($script:nvmeAdvisorProcess -and (-not $script:nvmeAdvisorProcess.HasExited)) { $busy = $true }
     if ($script:partitionLegacyProcess -and (-not $script:partitionLegacyProcess.HasExited)) { $busy = $true }
+    if ($script:coreInstallProcess -and (-not $script:coreInstallProcess.HasExited)) { $busy = $true }
     if ($script:deepScanProcess -and (-not $script:deepScanProcess.HasExited)) { $busy = $true }
     if ($script:deepScanApplyProcess -and (-not $script:deepScanApplyProcess.HasExited)) { $busy = $true }
 
@@ -1327,6 +1338,7 @@ function Set-AnalysisUiState {
     $btnCompute.Enabled = -not $IsBusy
     $btnQuickClean.Enabled = -not $IsBusy
     $btnHealthAudit.Enabled = -not $IsBusy
+    $btnPkgFix.Enabled = -not $IsBusy
     $btnNvmePlan.Enabled = -not $IsBusy
     $btnPartitionPlan.Enabled = -not $IsBusy
     $cmbDepth.Enabled = -not $IsBusy
@@ -1913,6 +1925,8 @@ function Stop-HealthAudit {
     $script:healthAuditStartedAt = $null
     $script:healthAuditSoftTimeoutWarned = $false
     $script:healthAuditApplyAfter = $false
+    $script:healthAuditApplyPackagesOnly = $false
+    $script:healthAuditApplyFindingIds = @()
     Set-AnalysisUiState -IsBusy:$false -StateText "Health Audit idle"
 }
 
@@ -1946,6 +1960,8 @@ function Poll-HealthAudit {
 
     $shouldApply = $script:healthAuditApplyAfter
     $applyLevel  = $script:healthAuditMaxLevel
+    $applyPackagesOnly = $script:healthAuditApplyPackagesOnly
+    $applyFindingIds = @()
 
     if (Wait-ForOutputFile -Path $script:healthAuditJson -TimeoutMs 4000) {
         try {
@@ -1964,6 +1980,16 @@ function Poll-HealthAudit {
             if ($optimizedCount -gt 0) {
                 Append-Status "  Already optimized: $(($auditResult.AlreadyOptimized | ForEach-Object { $_.Id }) -join ', ')"
             }
+
+            if ($applyPackagesOnly) {
+                $applyFindingIds = @($auditResult.Findings | Where-Object { [string]$_.Id -like 'PKG-*' } | ForEach-Object { [string]$_.Id })
+                if ($applyFindingIds.Count -eq 0) {
+                    Append-Status "Required packages already compliant. No PKG-* fixes to apply."
+                    $shouldApply = $false
+                } else {
+                    Append-Status ("Package-only remediation queue: {0}" -f ($applyFindingIds -join ', '))
+                }
+            }
         } catch {
             Append-Status ("Health Audit completed in {0}s but parse failed: {1}" -f $durationSec, $_.Exception.Message)
             $shouldApply = $false
@@ -1979,17 +2005,27 @@ function Poll-HealthAudit {
     $script:healthAuditStartedAt = $null
     $script:healthAuditSoftTimeoutWarned = $false
     $script:healthAuditApplyAfter = $false
+    $script:healthAuditApplyPackagesOnly = $false
+    $script:healthAuditApplyFindingIds = @()
 
     if ($shouldApply) {
-        Append-Status ("Auto-applying fixes at level: {0}" -f $applyLevel)
-        Run-HealthApply -MaxLevel $applyLevel
+        if ($applyPackagesOnly -and $applyFindingIds.Count -gt 0) {
+            Append-Status "Auto-applying package prerequisite fixes (Safe level)."
+            Run-HealthApply -MaxLevel 'Safe' -FindingIds $applyFindingIds
+        } else {
+            Append-Status ("Auto-applying fixes at level: {0}" -f $applyLevel)
+            Run-HealthApply -MaxLevel $applyLevel
+        }
     } else {
         Set-AnalysisUiState -IsBusy:$false -StateText $lblAnalysisState.Text
     }
 }
 
 function Run-HealthAudit {
-    param([switch]$ApplyAfter)
+    param(
+        [switch]$ApplyAfter,
+        [switch]$ApplyPackagesOnly
+    )
 
     if (-not (Test-Path -LiteralPath $script:healthAuditScript)) {
         Append-Status "Health audit script not found: $script:healthAuditScript"
@@ -2014,24 +2050,35 @@ function Run-HealthAudit {
         $script:healthAuditStartedAt = Get-Date
         $script:healthAuditSoftTimeoutWarned = $false
         $script:healthAuditApplyAfter = [bool]$ApplyAfter
-        $script:healthAuditMaxLevel = [string]$cmbFixLevel.SelectedItem
+        $script:healthAuditApplyPackagesOnly = [bool]$ApplyPackagesOnly
+        $script:healthAuditApplyFindingIds = @()
+        $script:healthAuditMaxLevel = if ($ApplyPackagesOnly) { 'Safe' } else { [string]$cmbFixLevel.SelectedItem }
         $script:healthAuditProcess = Start-Process -FilePath $script:psHost -ArgumentList $args -WindowStyle Hidden -RedirectStandardOutput $script:healthAuditStdOut -RedirectStandardError $script:healthAuditStdErr -PassThru
         $progressAnalysis.Value = 1
         Set-AnalysisUiState -IsBusy:$true -StateText ("Health Audit starting (target {0}s)..." -f $script:healthAuditTimeoutSec)
         $healthAuditTimer.Start()
-        Append-Status "Health Audit started in background."
+        if ($ApplyPackagesOnly) {
+            Append-Status "Health Audit started for package prerequisite remediation flow."
+        } else {
+            Append-Status "Health Audit started in background."
+        }
     } catch {
         Append-Status ("Health Audit error: {0}" -f $_.Exception.Message)
         $script:healthAuditProcess = $null
         $script:healthAuditStartedAt = $null
         $script:healthAuditSoftTimeoutWarned = $false
         $script:healthAuditApplyAfter = $false
+        $script:healthAuditApplyPackagesOnly = $false
+        $script:healthAuditApplyFindingIds = @()
         Set-AnalysisUiState -IsBusy:$false -StateText "Health Audit idle"
     }
 }
 
 function Run-HealthApply {
-    param([string]$MaxLevel = 'Safe')
+    param(
+        [string]$MaxLevel = 'Safe',
+        [string[]]$FindingIds
+    )
 
     if (-not (Test-Path -LiteralPath $script:applyFixesScript)) {
         Append-Status "Apply fixes script not found: $script:applyFixesScript"
@@ -2053,14 +2100,24 @@ function Run-HealthApply {
             "-OutputJson", $script:healthApplyJson,
             "-MaxLevel", $MaxLevel
         )
+        if ($FindingIds -and $FindingIds.Count -gt 0) {
+            $args += "-FindingIds"
+            $args += @($FindingIds)
+        }
         $script:healthAuditStartedAt = Get-Date
         $script:healthAuditSoftTimeoutWarned = $false
         $script:healthAuditApplyAfter = $false
+        $script:healthAuditApplyPackagesOnly = $false
+        $script:healthAuditApplyFindingIds = @()
         $script:healthAuditProcess = Start-Process -FilePath $script:psHost -ArgumentList $args -WindowStyle Hidden -RedirectStandardOutput $script:healthAuditStdOut -RedirectStandardError $script:healthAuditStdErr -PassThru
         $progressAnalysis.Value = 1
         Set-AnalysisUiState -IsBusy:$true -StateText ("Applying {0} fixes..." -f $MaxLevel)
         $healthApplyTimer.Start()
-        Append-Status ("Applying {0}-level fixes in background." -f $MaxLevel)
+        if ($FindingIds -and $FindingIds.Count -gt 0) {
+            Append-Status ("Applying {0}-level fixes for selected findings: {1}" -f $MaxLevel, ($FindingIds -join ', '))
+        } else {
+            Append-Status ("Applying {0}-level fixes in background." -f $MaxLevel)
+        }
     } catch {
         Append-Status ("Apply fixes error: {0}" -f $_.Exception.Message)
         $script:healthAuditProcess = $null
@@ -2282,6 +2339,128 @@ function Stop-PartitionLegacy {
     $script:partitionLegacySoftTimeoutWarned = $false
     $script:partitionLegacyApplyRequested = $false
     Set-AnalysisUiState -IsBusy:$false -StateText "Partition Plan idle"
+}
+
+function Update-CoreInstallProgress {
+    if (-not $script:coreInstallStartedAt) { return }
+    $elapsedSec = [math]::Round(((Get-Date) - $script:coreInstallStartedAt).TotalSeconds, 0)
+    $timeoutSec = [math]::Max(1, $script:coreInstallTimeoutSec)
+    $pct = [math]::Min(95, [int](($elapsedSec / $timeoutSec) * 100))
+    if ($pct -lt $progressAnalysis.Minimum) { $pct = $progressAnalysis.Minimum }
+    if ($pct -gt $progressAnalysis.Maximum) { $pct = $progressAnalysis.Maximum }
+    $progressAnalysis.Value = $pct
+    $script:spinIdx = ($script:spinIdx + 1) % $script:spinFrames.Count
+    $lblAnalysisState.Text = ("Core Install{0}  {1}s / {2}s" -f $script:spinFrames[$script:spinIdx], $elapsedSec, $timeoutSec)
+}
+
+function Stop-CoreInstall {
+    param([string]$Reason)
+
+    if ($script:coreInstallProcess -and (-not $script:coreInstallProcess.HasExited)) {
+        try {
+            Stop-Process -Id $script:coreInstallProcess.Id -Force -ErrorAction Stop
+            Append-Status ("Core Install stopped. Reason: {0}" -f $Reason)
+        } catch {
+            Append-Status ("Unable to stop Core Install cleanly: {0}" -f $_.Exception.Message)
+        }
+    }
+
+    $coreInstallTimer.Stop()
+    $script:coreInstallProcess = $null
+    $script:coreInstallStartedAt = $null
+    Set-AnalysisUiState -IsBusy:$false -StateText "Core Install idle"
+}
+
+function Poll-CoreInstall {
+    if (-not $script:coreInstallProcess) { return }
+    if (-not $script:coreInstallProcess.HasExited) {
+        Update-CoreInstallProgress
+        return
+    }
+
+    $coreInstallTimer.Stop()
+    $durationSec = 0
+    if ($script:coreInstallStartedAt) {
+        $durationSec = [math]::Round(((Get-Date) - $script:coreInstallStartedAt).TotalSeconds, 1)
+    }
+    $exitCode = Get-ProcessExitCodeSafe -Process $script:coreInstallProcess
+    if ($exitCode -ne 0) {
+        $errTail = Get-WorkerErrorTail -ErrorPath $script:coreInstallStdErr
+
+        # Parse structured tokens from stdout to surface actionable guidance
+        $stdoutLines = @()
+        if (Test-Path -LiteralPath $script:coreInstallStdOut) {
+            try { $stdoutLines = Get-Content -LiteralPath $script:coreInstallStdOut -ErrorAction SilentlyContinue } catch {}
+        }
+        $fallbackUrl = $stdoutLines | Where-Object { $_ -match "^INSTALL_FALLBACK_URL:|^INSTALL_EXTERNAL_URL:" } | Select-Object -Last 1
+        $externalFailed = $stdoutLines | Where-Object { $_ -match "^INSTALL_EXTERNAL_FAILED:" } | Select-Object -Last 1
+        $installFailed = $stdoutLines | Where-Object { $_ -match "^INSTALL_FAILED:" } | Select-Object -Last 1
+
+        if ($fallbackUrl) {
+            $url = ($fallbackUrl -replace "^INSTALL_FALLBACK_URL:\s*|^INSTALL_EXTERNAL_URL:\s*", "").Trim()
+            Append-Status "ERRORE Core Install: percorso installazione automatica non riuscito su questo host."
+            if ($externalFailed) {
+                Append-Status ("Dettaglio: {0}" -f ($externalFailed -replace "^INSTALL_EXTERNAL_FAILED:\s*", ""))
+            }
+            Append-Status "Azione: usa installer esterno PowerShell 7."
+            Append-Status ("Download diretto: {0}" -f $url)
+            Append-Status "Dopo installazione manuale, premi di nuovo 'Install Core'."
+        } elseif ($installFailed) {
+            Append-Status ("Core Install fallito: {0}" -f ($installFailed -replace "^INSTALL_FAILED:\s*", ""))
+        } else {
+            Append-Status ("Core Install ended with exit code {0}. {1}" -f $exitCode, $errTail)
+        }
+
+        $script:coreInstallProcess = $null
+        $script:coreInstallStartedAt = $null
+        Set-AnalysisUiState -IsBusy:$false -StateText "Core Install failed"
+        return
+    }
+
+    Append-Status ("Core Install completed in {0}s." -f $durationSec)
+    Reload-Tasks
+    $progressAnalysis.Value = 100
+    $script:coreInstallProcess = $null
+    $script:coreInstallStartedAt = $null
+    Set-AnalysisUiState -IsBusy:$false -StateText ("Core Install completed in {0}s." -f $durationSec)
+}
+
+function Run-CoreInstall {
+    if (-not (Test-Path -LiteralPath $script:coreScript)) {
+        Append-Status "Core bootstrap script not found: $script:coreScript"
+        return
+    }
+    if (Test-AnyOperationRunning) {
+        Append-Status "Another operation is already running. Wait for completion."
+        return
+    }
+
+    try {
+        Remove-IfExists -Path $script:coreInstallStdOut
+        Remove-IfExists -Path $script:coreInstallStdErr
+
+        $args = @(
+            "-NoProfile",
+            "-ExecutionPolicy", "Bypass",
+            "-File", $script:coreScript,
+            "-InstallIfMissing",
+            "-ApplyTasksCoreOnly",
+            "-MonitorInstallerPath", $script:monitorInstaller,
+            "-CleanupInstallerPath", $script:cleanupInstaller
+        )
+
+        $script:coreInstallStartedAt = Get-Date
+        $script:coreInstallProcess = Start-Process -FilePath $script:psHost -ArgumentList $args -WindowStyle Hidden -RedirectStandardOutput $script:coreInstallStdOut -RedirectStandardError $script:coreInstallStdErr -PassThru
+        $progressAnalysis.Value = 1
+        Set-AnalysisUiState -IsBusy:$true -StateText ("Core Install starting (target {0}s)..." -f $script:coreInstallTimeoutSec)
+        $coreInstallTimer.Start()
+        Append-Status "Core Install started in background."
+    } catch {
+        Append-Status ("Core Install error: {0}" -f $_.Exception.Message)
+        $script:coreInstallProcess = $null
+        $script:coreInstallStartedAt = $null
+        Set-AnalysisUiState -IsBusy:$false -StateText "Core Install idle"
+    }
 }
 
 function Poll-PartitionLegacy {
@@ -3085,6 +3264,14 @@ $btnCancelAnalyze.Add_Click({
         if ($confirm -eq "Yes") {
             Stop-PartitionLegacy -Reason "Manual cancel requested by user."
         }
+        return
+    }
+
+    if ($script:coreInstallProcess -and (-not $script:coreInstallProcess.HasExited)) {
+        $confirm = [System.Windows.Forms.MessageBox]::Show("Cancel running Core Install?", "Confirm", "YesNo", "Question")
+        if ($confirm -eq "Yes") {
+            Stop-CoreInstall -Reason "Manual cancel requested by user."
+        }
     }
 })
 $btnAudit.Add_Click({ Run-Cleanup -ExecuteNow:$false -RunAnalyzeAfter:$false })
@@ -3110,6 +3297,13 @@ $btnHealthAudit.Add_Click({
         Run-HealthAudit -ApplyAfter
     }
 })
+$btnPkgFix.Add_Click({
+    $msg = "Run package prerequisite check and apply SAFE fixes for missing PKG-* items?`n`nThis targets required system packages only."
+    $confirm = [System.Windows.Forms.MessageBox]::Show($msg, "Package Prerequisites", "YesNo", "Question")
+    if ($confirm -eq "Yes") {
+        Run-HealthAudit -ApplyAfter -ApplyPackagesOnly
+    }
+})
 $btnNvmePlan.Add_Click({
     $confirm = [System.Windows.Forms.MessageBox]::Show("Run NVMe risk advisory and write-offload plan?`n`nThis is read-only and does not change system settings.", "NVMe Plan", "YesNo", "Question")
     if ($confirm -eq "Yes") {
@@ -3131,24 +3325,7 @@ $btnPartitionPlan.Add_Click({
     }
 })
 $btnReloadTasks.Add_Click({ Reload-Tasks })
-$btnInstallTasks.Add_Click({
-    $args = @(
-        "-NoProfile",
-        "-ExecutionPolicy", "Bypass",
-        "-File", $script:coreScript,
-        "-InstallIfMissing",
-        "-ApplyTasksCoreOnly",
-        "-MonitorInstallerPath", $script:monitorInstaller,
-        "-CleanupInstallerPath", $script:cleanupInstaller
-    )
-    try {
-        Invoke-ChildPowerShell -Args $args | Out-Null
-        Reload-Tasks
-        Append-Status "Core tasks installation completed."
-    } catch {
-        Append-Status ("Core install error: {0}" -f $_.Exception.Message)
-    }
-})
+$btnInstallTasks.Add_Click({ Run-CoreInstall })
 $btnLoadLogs.Add_Click({
     $logMap = @{
         "Garbage Analyzer (stdout)" = $script:analysisStdOut
@@ -3167,6 +3344,8 @@ $btnLoadLogs.Add_Click({
         "NVMe Plan (stderr)"        = $script:nvmeAdvisorStdErr
         "Partition Plan (stdout)"   = $script:partitionLegacyStdOut
         "Partition Plan (stderr)"   = $script:partitionLegacyStdErr
+        "Core Install (stdout)"      = $script:coreInstallStdOut
+        "Core Install (stderr)"      = $script:coreInstallStdErr
     }
     $selected = [string]$cmbLogSource.SelectedItem
     $logPath = $logMap[$selected]
@@ -3276,6 +3455,10 @@ $healthApplyTimer.Add_Tick({ Poll-HealthApply })
 $nvmeAdvisorTimer = New-Object System.Windows.Forms.Timer
 $nvmeAdvisorTimer.Interval = 1000
 $nvmeAdvisorTimer.Add_Tick({ Poll-NvmeAdvisor })
+
+$coreInstallTimer = New-Object System.Windows.Forms.Timer
+$coreInstallTimer.Interval = 1000
+$coreInstallTimer.Add_Tick({ Poll-CoreInstall })
 
 $partitionLegacyTimer = New-Object System.Windows.Forms.Timer
 $partitionLegacyTimer.Interval = 1000

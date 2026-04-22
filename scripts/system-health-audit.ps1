@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    System Health Audit — scans hardware, OS config, and services to find
+    System Health Audit - scans hardware, OS config, and services to find
     optimization opportunities.  Outputs a structured JSON report that the
     GUI parses and displays as actionable findings.
 
@@ -115,12 +115,58 @@ function New-OfficeM365ChannelFinding {
         -Solutions $solutions
 }
 
+function Test-CommandAvailable {
+    param([string]$Name)
+
+    return [bool](Get-Command $Name -ErrorAction SilentlyContinue)
+}
+
+function Test-WingetPackageInstalled {
+    param([string]$PackageId)
+
+    if (-not (Test-CommandAvailable -Name 'winget')) {
+        return $false
+    }
+
+    $stdoutPath = [System.IO.Path]::Combine($env:TEMP, ("winget-list-{0}.out.log" -f ([guid]::NewGuid().ToString("N"))))
+    $stderrPath = [System.IO.Path]::Combine($env:TEMP, ("winget-list-{0}.err.log" -f ([guid]::NewGuid().ToString("N"))))
+
+    try {
+        $args = @(
+            'list',
+            '--id', $PackageId,
+            '--exact',
+            '--accept-source-agreements'
+        )
+
+        $proc = Start-Process -FilePath 'winget' -ArgumentList $args -WindowStyle Hidden -RedirectStandardOutput $stdoutPath -RedirectStandardError $stderrPath -PassThru
+        $finished = $proc.WaitForExit(12000)
+        if (-not $finished) {
+            try { Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue } catch {}
+            return $false
+        }
+
+        if (-not (Test-Path -LiteralPath $stdoutPath)) {
+            return $false
+        }
+
+        $out = Get-Content -LiteralPath $stdoutPath -Raw -ErrorAction SilentlyContinue
+        if (-not $out) { return $false }
+        return ($out -match [regex]::Escape($PackageId))
+    } catch {
+        return $false
+    } finally {
+        Remove-Item -LiteralPath $stdoutPath -Force -ErrorAction SilentlyContinue
+        Remove-Item -LiteralPath $stderrPath -Force -ErrorAction SilentlyContinue
+    }
+}
+
 # ── collector arrays ───────────────────────────────────────────────────────────
 $findings = [System.Collections.ArrayList]::new()
 $hardwareProfile = [ordered]@{}
 
 # ══════════════════════════════════════════════════════════════════════════════
-#  PHASE 1 — Hardware Inventory
+#  PHASE 1 - Hardware Inventory
 # ══════════════════════════════════════════════════════════════════════════════
 Write-Progress2 "Collecting hardware inventory..."
 
@@ -230,7 +276,7 @@ $hardwareProfile.GPU = @($gpus | ForEach-Object {
 })
 
 # ══════════════════════════════════════════════════════════════════════════════
-#  PHASE 2 — Finding Detection
+#  PHASE 2 - Finding Detection
 # ══════════════════════════════════════════════════════════════════════════════
 Write-Progress2 "Analyzing disk health..."
 
@@ -673,6 +719,83 @@ if ($officeMismatch -and (Test-Path -LiteralPath $repairOfficeChannelScript)) {
     [void]$positives.Add(("Office channel aligned for Microsoft 365 Apps ({0})" -f $officeBranch))
 }
 
+# ── REQUIRED SYSTEM PACKAGES ─────────────────────────────────────────────────
+Write-Progress2 "Checking required system packages..."
+
+$wingetAvailable = Test-CommandAvailable -Name 'winget'
+$pwshInfo = Get-Command pwsh -ErrorAction SilentlyContinue
+$pwshMajor = if ($pwshInfo -and $pwshInfo.Version) { [int]$pwshInfo.Version.Major } else { 0 }
+$diskHealthWarning = @($physDisks | Where-Object { $_.HealthStatus -ne 'Healthy' }).Count -gt 0
+
+if (-not $wingetAvailable) {
+    [void]$findings.Add((New-Finding `
+        -Id 'PKG-CORE-001' `
+        -Severity 'Info' `
+        -Category 'OS' `
+        -Title 'Windows Package Manager (winget) not available' `
+        -Description 'winget is missing or unusable. The suite can still proceed using external vendor installers.' `
+        -CurrentValue 'winget command not found' `
+        -RecommendedValue 'External installer path available and validated' `
+        -Impact 'Store-based remediation is unavailable; use external installer flow.' `
+        -Solutions @(
+            (New-Solution -Level 'Safe' -Label 'Open PowerShell release page (external installer path)' `
+                -Command 'Start-Process "https://aka.ms/powershell-release?tag=stable"' `
+                -Rollback 'N/A (manual install path)' `
+                -RiskNote 'Uses external vendor installer flow without Store dependency.')
+        )))
+}
+
+if ($pwshMajor -lt 7) {
+    $psCurrent = if ($pwshInfo -and $pwshInfo.Version) { "pwsh $($pwshInfo.Version)" } else { 'pwsh not found' }
+    $pwshSolutions = [System.Collections.ArrayList]::new()
+    $ensureCoreScript = Join-Path $PSScriptRoot 'ensure-powershell-core.ps1'
+    $ensureCoreCmd = ('powershell -NoProfile -ExecutionPolicy Bypass -File "{0}" -InstallIfMissing' -f $ensureCoreScript)
+    [void]$pwshSolutions.Add((New-Solution -Level 'Safe' -Label 'Install PowerShell 7 using external installer flow' `
+        -Command $ensureCoreCmd `
+        -Rollback 'Uninstall PowerShell 7 from Apps and Features if needed' `
+        -RiskNote 'Uses external vendor installer path; no Store/AppInstaller dependency.'))
+    [void]$pwshSolutions.Add((New-Solution -Level 'Safe' -Label 'Open PowerShell 7 download page' `
+        -Command 'Start-Process "https://aka.ms/powershell-release?tag=stable"' `
+        -Rollback 'N/A (manual install path)' `
+        -RiskNote 'Manual fallback when automated external install is blocked by policy.'))
+
+    [void]$findings.Add((New-Finding `
+        -Id 'PKG-CORE-002' `
+        -Severity 'Critical' `
+        -Category 'OS' `
+        -Title 'PowerShell 7 runtime missing for core automation' `
+        -Description 'The optimization suite expects PowerShell 7 (pwsh) for core-only tasks and deterministic background workers.' `
+        -CurrentValue $psCurrent `
+        -RecommendedValue 'pwsh 7.x installed and resolvable' `
+        -Impact 'Some always-on tasks and GUI worker orchestration may be degraded or incompatible.' `
+        -Solutions @($pwshSolutions.ToArray())))
+} else {
+    [void]$positives.Add(("PowerShell Core available ({0})" -f $pwshInfo.Version.ToString()))
+}
+
+$crystalInstalled = Test-WingetPackageInstalled -PackageId 'CrystalDewWorld.CrystalDiskInfo'
+$crystalInstalled = $crystalInstalled -or (Test-Path -LiteralPath 'C:\Program Files\CrystalDiskInfo\DiskInfo64.exe') -or (Test-Path -LiteralPath 'C:\Program Files (x86)\CrystalDiskInfo\DiskInfo32.exe')
+if ($diskHealthWarning -and (-not $crystalInstalled)) {
+    [void]$findings.Add((New-Finding `
+        -Id 'PKG-DIAG-001' `
+        -Severity 'Important' `
+        -Category 'Disk' `
+        -Title 'CrystalDiskInfo not installed for NVMe SMART diagnostics' `
+        -Description 'Disk health warning was detected and SMART passthrough may be limited by Intel RST. CrystalDiskInfo is required for a direct diagnostic check.' `
+        -CurrentValue 'CrystalDiskInfo not installed' `
+        -RecommendedValue 'CrystalDiskInfo installed' `
+        -Impact 'NVMe wear/failure trend cannot be validated quickly from GUI-safe tooling.' `
+        -Solutions @(
+            (New-Solution -Level 'Safe' -Label 'Open CrystalDiskInfo official download page' `
+                -Command 'Start-Process "https://crystalmark.info/en/software/crystaldiskinfo/"' `
+                -Rollback 'N/A (manual install path)' `
+                -RiskNote 'Uses external installer flow independent from Microsoft Store.')
+        )
+    ))
+} elseif ($diskHealthWarning -and $crystalInstalled) {
+    [void]$positives.Add('CrystalDiskInfo installed for NVMe diagnostic validation')
+}
+
 # SysMain
 $sysMain = Get-Service SysMain -EA SilentlyContinue
 if ($sysMain -and $sysMain.Status -ne 'Running') {
@@ -714,7 +837,7 @@ if ($isHighPerf) {
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
-#  PHASE 3 — Load KB overrides (future extensibility)
+#  PHASE 3 - Load KB overrides (future extensibility)
 # ══════════════════════════════════════════════════════════════════════════════
 if ($KnowledgeBase -and (Test-Path $KnowledgeBase)) {
     Write-Progress2 "Loading knowledge base overrides..."
@@ -738,7 +861,7 @@ if ($KnowledgeBase -and (Test-Path $KnowledgeBase)) {
                         $existing = $findings | Where-Object { $_.Id -eq $ef.Id }
                         if (-not $existing) {
                             [void]$findings.Add($ef)
-                            Write-Progress2 "KB added finding: $($ef.Id) — $($ef.Title)"
+                            Write-Progress2 "KB added finding: $($ef.Id) - $($ef.Title)"
                         }
                     }
                 }
@@ -750,7 +873,7 @@ if ($KnowledgeBase -and (Test-Path $KnowledgeBase)) {
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
-#  PHASE 4 — Build & Write JSON report
+#  PHASE 4 - Build & Write JSON report
 # ══════════════════════════════════════════════════════════════════════════════
 Write-Progress2 "Building report..."
 
@@ -778,5 +901,5 @@ $json = $report | ConvertTo-Json -Depth 10 -Compress:$false
 [System.IO.File]::WriteAllText($OutputJson, $json, [System.Text.Encoding]::UTF8)
 
 Write-Progress2 "Report saved to $OutputJson"
-Write-Progress2 ("Summary: {0} findings ({1} Critical, {2} Important, {3} Moderate, {4} Info) — {5} items already optimized" -f `
+Write-Progress2 ("Summary: {0} findings ({1} Critical, {2} Important, {3} Moderate, {4} Info) - {5} items already optimized" -f `
     $report.Summary.TotalFindings, $report.Summary.Critical, $report.Summary.Important, $report.Summary.Moderate, $report.Summary.Info, $report.Summary.AlreadyOptimized)
