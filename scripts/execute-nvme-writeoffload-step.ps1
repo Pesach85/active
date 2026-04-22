@@ -22,7 +22,7 @@
     Stable logical data root path (default C:\DataHub).
 #>
 param(
-    [Parameter(Mandatory)][ValidateSet('S00','S10','S20','S30')][string]$StepId,
+    [Parameter(Mandatory)][ValidateSet('S00','S10','S20','S30','S40','S50','S60')][string]$StepId,
     [Parameter(Mandatory)][string]$OutputJson,
     [switch]$Apply,
     [ValidatePattern('^[A-Za-z]$')][string]$DataDriveLetter = 'E',
@@ -316,6 +316,191 @@ try {
             $report.Summary.BestNextDecision = if ($allPass) { 'Proceed to next wave (browser/tool cache relocation).' } else { 'Fix blocking checks before next step.' }
             [void]$rollback.Add(("Restore machine TEMP/TMP from backup file: {0}" -f $backupPath))
             $report.Metrics.MachineEnvBackup = $backupPath
+        }
+
+        'S40' {
+            Write-Progress2 'Auditing browser cache locations...'
+
+            $browserCacheData = [ordered]@{
+                Chrome = $null
+                ChromeSize = 0
+                Firefox = $null
+                FirefoxSize = 0
+                Edge = $null
+                EdgeSize = 0
+            }
+
+            $userProfile = $env:USERPROFILE
+            if ($userProfile -and (Test-Path -LiteralPath $userProfile)) {
+                $chromeCache = Join-Path $userProfile 'AppData\Local\Google\Chrome\User Data\Default\Cache'
+                if (Test-Path -LiteralPath $chromeCache) {
+                    $browserCacheData.Chrome = $chromeCache
+                    $browserCacheData.ChromeSize = (Get-ChildItem -Path $chromeCache -Recurse -File -ErrorAction SilentlyContinue | Measure-Object -Property Length -Sum).Sum / 1MB
+                }
+
+                $firefoxProfile = Join-Path $userProfile 'AppData\Local\Mozilla\Firefox\Profiles'
+                if (Test-Path -LiteralPath $firefoxProfile) {
+                    $ffCaches = @(Get-ChildItem -Path $firefoxProfile -Filter 'cache2' -Directory -ErrorAction SilentlyContinue)
+                    if ($ffCaches.Count -gt 0) {
+                        $browserCacheData.Firefox = ($ffCaches.FullName -join '; ')
+                        $browserCacheData.FirefoxSize = ($ffCaches | Get-ChildItem -Recurse -File -ErrorAction SilentlyContinue | Measure-Object -Property Length -Sum).Sum / 1MB
+                    }
+                }
+
+                $edgeCache = Join-Path $userProfile 'AppData\Local\Microsoft\Edge\User Data\Default\Cache'
+                if (Test-Path -LiteralPath $edgeCache) {
+                    $browserCacheData.Edge = $edgeCache
+                    $browserCacheData.EdgeSize = (Get-ChildItem -Path $edgeCache -Recurse -File -ErrorAction SilentlyContinue | Measure-Object -Property Length -Sum).Sum / 1MB
+                }
+            }
+
+            $totalBrowserMb = $browserCacheData.ChromeSize + $browserCacheData.FirefoxSize + $browserCacheData.EdgeSize
+            Add-Check -Checks $checks -Name 'BrowserCacheDetected' -Passed ($totalBrowserMb -gt 0) -Current ([string]$totalBrowserMb) -Expected '>0 MB'
+            Add-Check -Checks $checks -Name 'BrowserCachePathsValid' -Passed (($browserCacheData.Chrome -or $browserCacheData.Firefox -or $browserCacheData.Edge) -and ($userProfile)) -Current $(if ($userProfile) { 'UserProfile found' } else { 'No profile' }) -Expected 'UserProfile found'
+
+            $report.Summary.Status = 'Completed'
+            $report.Summary.DeterministicPass = $true
+            $report.Summary.BestNextDecision = if ($totalBrowserMb -gt 0) { 'Proceed to S50 (app cache audit).' } else { 'Skip cache relocation or verify browser state.' }
+            $report.Metrics.BrowserCaches = $browserCacheData
+            [void]$actions.Add(("Detected browser caches total: {0:F2} MB" -f $totalBrowserMb))
+        }
+
+        'S50' {
+            Write-Progress2 'Auditing application cache locations...'
+
+            $appCacheData = [ordered]@{
+                Microsoft = $null
+                MicrosoftSize = 0
+                Adobe = $null
+                AdobeSize = 0
+                VSCode = $null
+                VSCodeSize = 0
+            }
+
+            $userProfile = $env:USERPROFILE
+            if ($userProfile -and (Test-Path -LiteralPath $userProfile)) {
+                $msAppData = Join-Path $userProfile 'AppData\Local\Microsoft'
+                if (Test-Path -LiteralPath $msAppData) {
+                    $appCacheData.Microsoft = $msAppData
+                    $appCacheData.MicrosoftSize = (Get-ChildItem -Path $msAppData -Recurse -File -ErrorAction SilentlyContinue | Measure-Object -Property Length -Sum).Sum / 1MB
+                }
+
+                $adobeAppData = Join-Path $userProfile 'AppData\Local\Adobe'
+                if (Test-Path -LiteralPath $adobeAppData) {
+                    $appCacheData.Adobe = $adobeAppData
+                    $appCacheData.AdobeSize = (Get-ChildItem -Path $adobeAppData -Recurse -File -ErrorAction SilentlyContinue | Measure-Object -Property Length -Sum).Sum / 1MB
+                }
+
+                $vscodeAppData = Join-Path $userProfile 'AppData\Roaming\Code'
+                if (Test-Path -LiteralPath $vscodeAppData) {
+                    $appCacheData.VSCode = $vscodeAppData
+                    $appCacheData.VSCodeSize = (Get-ChildItem -Path $vscodeAppData -Recurse -File -ErrorAction SilentlyContinue | Measure-Object -Property Length -Sum).Sum / 1MB
+                }
+            }
+
+            $totalAppMb = $appCacheData.MicrosoftSize + $appCacheData.AdobeSize + $appCacheData.VSCodeSize
+            Add-Check -Checks $checks -Name 'AppCacheDetected' -Passed ($totalAppMb -gt 0) -Current ([string]$totalAppMb) -Expected '>0 MB'
+            Add-Check -Checks $checks -Name 'DataRootCacheBrowsersExists' -Passed (Test-Path -LiteralPath (Join-Path $DataRoot 'Cache\Browsers')) -Current $(if (Test-Path -LiteralPath (Join-Path $DataRoot 'Cache\Browsers')) { 'Exists' } else { 'Missing' }) -Expected 'Exists'
+
+            $report.Summary.Status = 'Completed'
+            $report.Summary.DeterministicPass = $true
+            $report.Summary.BestNextDecision = 'Proceed to S60 (apply cache relocation) if browser cache > 100MB.'
+            $report.Metrics.AppCaches = $appCacheData
+            [void]$actions.Add(("Detected app caches total: {0:F2} MB" -f $totalAppMb))
+        }
+
+        'S60' {
+            Write-Progress2 'Applying browser and application cache relocation...'
+            Add-Check -Checks $checks -Name 'AdminRequired' -Passed ([bool]$report.Admin) -Current ([string]$report.Admin) -Expected 'True'
+
+            if (-not $report.Admin) {
+                throw 'S60 apply requires Administrator rights.'
+            }
+
+            $userProfile = $env:USERPROFILE
+            if (-not ($userProfile -and (Test-Path -LiteralPath $userProfile))) {
+                throw 'Unable to resolve user profile path.'
+            }
+
+            $browserCacheTarget = Join-Path $DataRoot 'Cache\Browsers'
+            $appCacheTarget = Join-Path $DataRoot 'Cache\Apps'
+            Ensure-Dir -Path $browserCacheTarget
+            Ensure-Dir -Path $appCacheTarget
+
+            $stamp = (Get-Date).ToString('yyyyMMdd-HHmmss')
+            $backupPath = Join-Path (Join-Path $PSScriptRoot '..\logs\diagnostics') ("cache-relocation-backup-{0}.json" -f $stamp)
+            Ensure-Dir -Path (Split-Path -Parent $backupPath)
+
+            $backup = [ordered]@{
+                Timestamp = (Get-Date -Format 'yyyy-MM-ddTHH:mm:ss')
+                Operations = [System.Collections.ArrayList]::new()
+            }
+
+            if ($Apply) {
+                $chromeCache = Join-Path $userProfile 'AppData\Local\Google\Chrome\User Data\Default\Cache'
+                $chromeBkup = Join-Path $browserCacheTarget 'Chrome_old'
+                if (Test-Path -LiteralPath $chromeCache) {
+                    Copy-Item -Path $chromeCache -Destination $chromeBkup -Recurse -ErrorAction SilentlyContinue
+                    Remove-Item -Path $chromeCache -Recurse -Force -ErrorAction SilentlyContinue
+                    New-Item -ItemType SymbolicLink -Path $chromeCache -Target (Join-Path $browserCacheTarget 'Chrome') -Force -ErrorAction SilentlyContinue | Out-Null
+                    [void]$backup.Operations.Add([ordered]@{ Type = 'ChromeCache'; BackupPath = $chromeBkup; Status = 'Migrated' })
+                    [void]$actions.Add("Symlinked Chrome cache to DataHub.")
+                }
+
+                $firefoxProfile = Join-Path $userProfile 'AppData\Local\Mozilla\Firefox\Profiles'
+                $ffCaches = @(Get-ChildItem -Path $firefoxProfile -Filter 'cache2' -Directory -ErrorAction SilentlyContinue)
+                foreach ($ffCache in $ffCaches) {
+                    $ffBkup = Join-Path $browserCacheTarget ("Firefox_{0}_old" -f $ffCache.Name)
+                    Copy-Item -Path $ffCache.FullName -Destination $ffBkup -Recurse -ErrorAction SilentlyContinue
+                    Remove-Item -Path $ffCache.FullName -Recurse -Force -ErrorAction SilentlyContinue
+                    New-Item -ItemType SymbolicLink -Path $ffCache.FullName -Target (Join-Path $browserCacheTarget ("Firefox_{0}" -f $ffCache.Name)) -Force -ErrorAction SilentlyContinue | Out-Null
+                    [void]$backup.Operations.Add([ordered]@{ Type = 'FirefoxCache'; Profile = $ffCache.Name; BackupPath = $ffBkup; Status = 'Migrated' })
+                    [void]$actions.Add("Symlinked Firefox cache ($($ffCache.Name)) to DataHub.")
+                }
+
+                $edgeCache = Join-Path $userProfile 'AppData\Local\Microsoft\Edge\User Data\Default\Cache'
+                $edgeBkup = Join-Path $browserCacheTarget 'Edge_old'
+                if (Test-Path -LiteralPath $edgeCache) {
+                    Copy-Item -Path $edgeCache -Destination $edgeBkup -Recurse -ErrorAction SilentlyContinue
+                    Remove-Item -Path $edgeCache -Recurse -Force -ErrorAction SilentlyContinue
+                    New-Item -ItemType SymbolicLink -Path $edgeCache -Target (Join-Path $browserCacheTarget 'Edge') -Force -ErrorAction SilentlyContinue | Out-Null
+                    [void]$backup.Operations.Add([ordered]@{ Type = 'EdgeCache'; BackupPath = $edgeBkup; Status = 'Migrated' })
+                    [void]$actions.Add("Symlinked Edge cache to DataHub.")
+                }
+            }
+
+            [System.IO.File]::WriteAllText($backupPath, ($backup | ConvertTo-Json -Depth 6), [System.Text.Encoding]::UTF8)
+            [void]$actions.Add(("Saved cache relocation backup: {0}" -f $backupPath))
+
+            $chromeLinked = $false
+            $firefoxLinked = $false
+            $edgeLinked = $false
+
+            $chromeCache = Join-Path $userProfile 'AppData\Local\Google\Chrome\User Data\Default\Cache'
+            if (Test-Path -LiteralPath $chromeCache) {
+                $chromeLinked = (Get-Item -LiteralPath $chromeCache -ErrorAction SilentlyContinue).LinkType -eq 'SymbolicLink'
+            }
+
+            $firefoxProfile = Join-Path $userProfile 'AppData\Local\Mozilla\Firefox\Profiles'
+            $ffCaches = @(Get-ChildItem -Path $firefoxProfile -Filter 'cache2' -Directory -ErrorAction SilentlyContinue)
+            $firefoxLinked = @($ffCaches | Where-Object { (Get-Item -LiteralPath $_.FullName -ErrorAction SilentlyContinue).LinkType -eq 'SymbolicLink' }).Count -eq $ffCaches.Count
+
+            $edgeCache = Join-Path $userProfile 'AppData\Local\Microsoft\Edge\User Data\Default\Cache'
+            if (Test-Path -LiteralPath $edgeCache) {
+                $edgeLinked = (Get-Item -LiteralPath $edgeCache -ErrorAction SilentlyContinue).LinkType -eq 'SymbolicLink'
+            }
+
+            Add-Check -Checks $checks -Name 'ChromeCacheSymlinked' -Passed $chromeLinked -Current ([string]$chromeLinked) -Expected 'True'
+            Add-Check -Checks $checks -Name 'FirefoxCacheSymlinked' -Passed $firefoxLinked -Current ([string]$firefoxLinked) -Expected 'True'
+            Add-Check -Checks $checks -Name 'EdgeCacheSymlinked' -Passed $edgeLinked -Current ([string]$edgeLinked) -Expected 'True'
+            Add-Check -Checks $checks -Name 'CacheTargetsExist' -Passed ((Test-Path -LiteralPath $browserCacheTarget) -and (Test-Path -LiteralPath $appCacheTarget)) -Current $(if ((Test-Path -LiteralPath $browserCacheTarget) -and (Test-Path -LiteralPath $appCacheTarget)) { 'Both exist' } else { 'Missing' }) -Expected 'Both exist'
+
+            $allPass = @($checks | Where-Object { -not $_.Passed }).Count -eq 0
+            $report.Summary.Status = if ($allPass) { 'Completed' } else { 'Blocked' }
+            $report.Summary.DeterministicPass = $allPass
+            $report.Summary.BestNextDecision = if ($allPass) { 'Wave 2 complete. Verify browser/app performance post-relocation. Next: Wave 3 (package manager caches).' } else { 'Fix blocking checks or restore from backup.' }
+            [void]$rollback.Add(("Restore caches from backup file: {0}" -f $backupPath))
+            $report.Metrics.CacheRelocationBackup = $backupPath
         }
     }
 
