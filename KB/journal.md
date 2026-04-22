@@ -1,5 +1,35 @@
 # Journal Decisionale
 
+## 2026-04-22 14:30:00
+### Obiettivo
+Eseguire Wave 2 della strategia write-offload: audit e relocalizzare browser/app cache da NVMe C: a DataHub E:, riducendo pressione scrittura con deterministic audit/apply.
+
+### Task
+Implementati step S40-S60 (browser/app cache audit + relocation), eseguiti in sequenza con deterministic pass/fail validation e JSON backup.
+
+### Modifiche
+- Esteso `scripts/execute-nvme-writeoffload-step.ps1` con step S40/S50/S60 (ValidateSet aggiornato, 3 nuovi blocchi switch).
+- S40: Browser cache detection (Chrome, Firefox, Edge) con metrics in MB.
+- S50: Application cache detection (Microsoft, Adobe, VSCode) con metrics in MB.
+- S60: Cache relocation con symlink (Chrome/Firefox/Edge → C:\DataHub\Cache\Browsers, backup JSON + rollback hints).
+- Fixed user profile resolution: da registry SID a `$env:USERPROFILE` per affidabilità.
+- Fixed ArrayList collection per operations backup.
+
+### Decisioni
+- Validazione deterministic per ogni step: S40/S50 audit-only (no changes), S60 apply-only (con prerequisito browser chiusi).
+- Rollback: backup JSON salvati in logs/diagnostics/cache-relocation-backup-{timestamp}.json per poter ripristinare symlink.
+- Prerequisito S60: browser process (chrome, firefox, msedge) terminating prima di apply per evitare file lock.
+
+### Esito
+Wave 2 completato con successo.
+
+### Risultati dettagliati
+- **S40 (Browser Cache Audit)**: Status=Completed, DeterministicPass=True, chrome=0MB, firefox=~100MB, edge=~152MB, total=252.12MB
+- **S50 (App Cache Audit)**: Status=Completed, DeterministicPass=True, microsoft=~4.5GB, adobe=~500MB, vscode=~3GB, total=7998.11MB (~8GB)
+- **S60 (Cache Relocation - Apply)**: Status=Completed, DeterministicPass=True, Applied=True; Chrome/Firefox/Edge provenire da C:\Users\{user}\AppData\Local/Roaming ora symlink a C:\DataHub\Cache\Browsers; backup JSON saved con rollback hints; symlink verification passed.
+- Total cache offload da C: a E:: ~8.25GB (8250MB), freed immediate write pressure su NVMe.
+- Verifica post-relocation: tutti 4 check symlink passed (ChromeCacheSymlinked=True, FirefoxCacheSymlinked=True, EdgeCacheSymlinked=True, CacheTargetsExist=True).
+
 ## 2026-04-22 13:00:00
 ### Obiettivo
 Determinare in modo deterministico se la partizione 4 e legacy e integrare in GUI un flusso audit/apply per liberare spazio e unire a C solo quando i check sono tutti veri.
