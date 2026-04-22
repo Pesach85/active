@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [string]$OutputDir = "C:\\SystemOptimizerHub\\active\\dist\\WindowsOptimizer"
+    [string]$OutputDir
 )
 
 Set-StrictMode -Version Latest
@@ -9,6 +9,10 @@ $ErrorActionPreference = "Stop"
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $hubRoot = Split-Path -Parent $scriptDir
 $configDir = Join-Path $hubRoot "config"
+
+if (-not $OutputDir -or $OutputDir.Trim() -eq "") {
+    $OutputDir = Join-Path $hubRoot "dist\WindowsOptimizer"
+}
 
 $items = @(
     (Join-Path $scriptDir "monitor-resources.ps1"),
@@ -23,6 +27,8 @@ $items = @(
     (Join-Path $scriptDir "audit-disk-hotspots.ps1"),
     (Join-Path $scriptDir "analyze-garbage-hotspots.ps1"),
     (Join-Path $scriptDir "analyze-compute-resources.ps1"),
+    (Join-Path $scriptDir "analyze-nvme-readonly-plan.ps1"),
+    (Join-Path $scriptDir "analyze-recovery-partition-legacy.ps1"),
     (Join-Path $scriptDir "system-optimizer-gui.ps1"),
     (Join-Path $scriptDir "build-gui-exe.ps1"),
     (Join-Path $scriptDir "install-suite.ps1"),
@@ -51,6 +57,17 @@ foreach ($item in $items) {
         } else {
             Copy-Item -LiteralPath $item -Destination $targetScripts -Force
         }
+    }
+}
+
+# Force UTF-8 BOM on packaged PowerShell scripts for Windows PowerShell parsing compatibility.
+$utf8Bom = New-Object System.Text.UTF8Encoding($true)
+Get-ChildItem -LiteralPath $targetScripts -Filter "*.ps1" -File -ErrorAction SilentlyContinue | ForEach-Object {
+    try {
+        $raw = Get-Content -LiteralPath $_.FullName -Raw
+        [System.IO.File]::WriteAllText($_.FullName, $raw, $utf8Bom)
+    } catch {
+        Write-Warning ("Skipping UTF-8 BOM normalization for locked file: {0}" -f $_.FullName)
     }
 }
 

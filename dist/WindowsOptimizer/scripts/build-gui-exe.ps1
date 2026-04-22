@@ -1,11 +1,21 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
-    [string]$SourceScript = "C:\\SystemOptimizerHub\\active\\scripts\\system-optimizer-gui.ps1",
-    [string]$OutputExe = "C:\\SystemOptimizerHub\\active\\dist\\WindowsOptimizer\\WindowsOptimizer.exe"
+    [string]$SourceScript,
+    [string]$OutputExe
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+
+$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$hubRoot = Split-Path -Parent $scriptDir
+
+if (-not $SourceScript -or $SourceScript.Trim() -eq "") {
+    $SourceScript = Join-Path $scriptDir "system-optimizer-gui.ps1"
+}
+if (-not $OutputExe -or $OutputExe.Trim() -eq "") {
+    $OutputExe = Join-Path $hubRoot "dist\WindowsOptimizer\WindowsOptimizer.exe"
+}
 
 if (-not (Test-Path -LiteralPath $SourceScript)) {
     throw "Source script not found: $SourceScript"
@@ -17,7 +27,7 @@ if (-not (Test-Path -LiteralPath $parent)) {
 }
 
 if (-not (Get-Command Invoke-PS2EXE -ErrorAction SilentlyContinue)) {
-    $moduleCacheRoot = "C:\\SystemOptimizerHub\\active\\scripts\\modules"
+    $moduleCacheRoot = Join-Path $scriptDir "modules"
     if (-not (Test-Path -LiteralPath $moduleCacheRoot)) {
         New-Item -Path $moduleCacheRoot -ItemType Directory -Force | Out-Null
     }
@@ -27,7 +37,7 @@ if (-not (Get-Command Invoke-PS2EXE -ErrorAction SilentlyContinue)) {
         $manifest = Get-ChildItem -LiteralPath $moduleCacheRoot -Filter ps2exe.psd1 -Recurse -ErrorAction Stop | Select-Object -First 1
         Import-Module -Name $manifest.FullName -Force -ErrorAction Stop
     } catch {
-        Install-Module -Name ps2exe -Scope AllUsers -Force -AllowClobber -ErrorAction Stop
+        Install-Module -Name ps2exe -Scope CurrentUser -Force -AllowClobber -ErrorAction Stop
     }
 }
 

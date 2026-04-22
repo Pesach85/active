@@ -1,5 +1,175 @@
 # Journal Decisionale
 
+## 2026-04-22 — Store/AppInstaller cronico rotto: strategia external-installer-first
+### Obiettivo
+Riallineare remediation pacchetti al vincolo reale host: Microsoft Store/App Installer non affidabili; usare installatori esterni come percorso primario.
+
+### Task
+- Rendere `Install Core` indipendente da winget/Store
+- Aggiornare Health Audit per proporre fix coerenti con installer esterni
+- Evitare regressioni nel polling GUI e nel flusso auto-apply
+
+### Modifiche
+- `scripts/ensure-powershell-core.ps1`:
+	- nuova modalita default `INSTALL_MODE: external-installer-first`
+	- scoperta release PowerShell da GitHub API (`releases/latest`) con selezione asset `win-x64.msi`
+	- download MSI in `%TEMP%` + installazione con `msiexec /passive /norestart ADD_PATH=1`
+	- fallback browser su pagina stable quando URL MSI non disponibile
+	- fallback winget ora opzionale (`-AllowWingetFallback`), non piu default
+- `scripts/system-health-audit.ps1`:
+	- `PKG-CORE-002` ora propone fix Safe tramite `ensure-powershell-core.ps1 -InstallIfMissing` (external flow)
+	- `PKG-DIAG-001` non dipende piu da winget: rilevazione CrystalDiskInfo anche da path locale + soluzione Safe su pagina ufficiale esterna
+	- `PKG-CORE-001` declassato a Info e riformulato su percorso esterno valido
+- `scripts/system-optimizer-gui.ps1`:
+	- `Poll-CoreInstall` generalizzato: parsing token `INSTALL_EXTERNAL_URL`/`INSTALL_EXTERNAL_FAILED`, messaggi non vincolati a 0x80080005
+
+### Decisioni
+- **Best next decision**: in questo host usare sempre remediation pacchetti via installer esterni; mantenere winget solo come fallback esplicito.
+- Manteniamo interventi incrementali e osservabili: nessuna terminazione aggressiva, logging a token strutturati.
+
+### Check anti-regressione
+- package-suite: OK
+- rebuild EXE: OK (`dist/WindowsOptimizer/WindowsOptimizer.exe`)
+- smoke test: `AliveAfter6s=True`
+- cleanup gate runtime: eseguito `scripts/repo-cleanup-before-push.ps1 -Apply`
+
+---
+
+## 2026-04-22 — Apply JSON not found + winget 0x80080005 (seconda occorrenza)
+### Obiettivo
+Risolvere: (1) "Apply completed in 1,1s but output JSON was not found" dopo auto-apply Safe; (2) winget 0x80080005 ancora presente su entrambi i tentativi in Install Core.
+
+### Root cause
+1. `apply-safe-fixes.ps1` usava `Invoke-Expression $cmd 2>&1 | Out-String` per eseguire il comando `winget install ...` del finding PKG-CORE-002. In un worker PS5.1 hidden con stdout redirected, winget scrive il progress spinner con console APIs native, causando crash del worker o uscita silenziosa prima del `WriteAllText` dell'output JSON. Exit code appariva 0, JSON non scritto.
+2. `ensure-powershell-core.ps1`: il servizio `msiserver` (Windows Installer) era probabilmente stopped/crashed, causando il fallimento COM di AppInstaller (0x80080005) su entrambi i tentativi.
+
+### Modifiche
+- `scripts/apply-safe-fixes.ps1`:
+	- Introdotta `Invoke-SolutionCommand` che detecta comandi `winget` e li esegue via `Start-Process -Wait -PassThru -NoNewWindow -RedirectStandardOutput/Error` (evita crash console-API in processi hidden)
+	- Controllo exit code winget: se non-zero, lancia eccezione che viene catturata dal try/catch esistente e registrata come `Failed`
+	- `WriteAllText` wrappato in try/catch con `Write-Error` e `exit 1` su fallimento (prima: eccezione .NET silenziosa)
+- `scripts/ensure-powershell-core.ps1`:
+	- Aggiunto blocco `INSTALL_PRE` che controlla e riavvia `msiserver` prima dei tentativi winget
+	- Se `msiserver` era stopped, viene avviato con 2s di attesa
+
+### Decisioni
+- **Best next decision**: rieseguire Health Audit → auto-apply Safe. PKG-CORE-002 verrà processato con Start-Process (safe) e il JSON verrà scritto correttamente. Per Install Core: msiserver restart dovrebbe risolvere 0x80080005 se il servizio era effettivamente stopped.
+- Non modificato il comando di soluzione in health-audit.ps1 (mantenuto `winget install ...`): fix applicato nel layer executor, non nel dato.
+
+### Check anti-regressione
+- package-suite: OK
+- EXE rebuilt: `dist/WindowsOptimizer/WindowsOptimizer.exe`
+- Smoke test: `AliveAfter6s=True`
+
+---
+
+## 2026-04-22 — Install Core: Fix winget 0x80080005
+### Obiettivo
+Risolvere errore `0x80080005 : Esecuzione del server non riuscito` durante installazione PowerShell 7 via Install Core.
+
+### Task
+- Aggiungere retry multi-tentativo in `ensure-powershell-core.ps1` per aggirare COM/AppX failure
+- Aggiungere fallback browser con download URL
+- Surfacciare messaggi strutturati e actionable nel GUI
+
+### Modifiche
+- `scripts/ensure-powershell-core.ps1`:
+  - Rimosso flag `--silent` dal primo tentativo (tende a triggerare il COM surrogate crash su W10 24H2)
+  - Aggiunto tentativo 2 con `--scope machine` (percorso elevation alternativo)
+  - Fallback: `Start-Process` apre `https://aka.ms/powershell-release?tag=stable` nel browser
+  - Token strutturati emessi: `INSTALL_ATTEMPT_1`, `INSTALL_ATTEMPT_2`, `INSTALL_FALLBACK_URL`, `INSTALL_FAILED`, `INSTALL_OK`
+- `scripts/system-optimizer-gui.ps1` — `Poll-CoreInstall`:
+  - Parsing token `INSTALL_FALLBACK_URL:` da stdout
+  - Messaggio GUI dettagliato con causa 0x80080005, azione aperta, URL download
+  - Parsing token `INSTALL_FAILED:` per errori strutturati generici
+
+### Decisioni
+- Preferito `Start-Process -Wait -PassThru -NoNewWindow` su `& winget ...` per cattura exit code affidabile
+- **Best next decision**: dopo il fix, il retry senza `--silent` puo risolvere direttamente; se fallisce anche tentativo 2, la pagina download e' gia aperta automaticamente
+- Nessun auto-download MSI eseguibile per sicurezza (no MITM risk): solo open browser su URL microsoft ufficiale
+
+### Check anti-regressione
+- `package-suite.ps1` eseguito con successo, dist aggiornato
+- EXE rebuilt: `dist/WindowsOptimizer/WindowsOptimizer.exe`
+- Smoke test: `AliveAfter6s=True`
+
+---
+
+## 2026-04-22 21:58:00
+### Obiettivo
+Ripristinare operativita su questo sistema per Dashboard dist (NVMe Plan, Deep Scan, Health Audit) e rimuovere blocco UI su "Install Core" senza regressioni.
+
+### Task
+Debug runtime dist + patch packaging/GUI per compatibilita host Windows PowerShell e flussi non bloccanti.
+
+### Modifiche
+- Aggiornato `scripts/system-health-audit.ps1`:
+	- sostituiti separatori non ASCII problematici con ASCII (`-`) in punti critici parser-sensitive;
+	- riscritto blocco `PKG-DIAG-001` per eliminare ambiguita di parsing;
+	- hardening `Test-WingetPackageInstalled` con timeout (12s) e kill-safe per evitare hang del check pacchetti.
+- Aggiornato `scripts/package-suite.ps1`:
+	- inclusi script mancanti nel pacchetto dist: `analyze-nvme-readonly-plan.ps1`, `analyze-recovery-partition-legacy.ps1`;
+	- normalizzazione `.ps1` packaged in UTF-8 BOM;
+	- gestione lock file in normalizzazione BOM con warning non bloccante (no abort packaging).
+- Aggiornato `scripts/system-optimizer-gui.ps1`:
+	- `Install Core` convertito in flusso async con worker + polling timer (`Run-CoreInstall`, `Poll-CoreInstall`, `Stop-CoreInstall`);
+	- stato busy/cancel integrato nel gate UI centrale;
+	- log source aggiunti per Core Install (stdout/stderr).
+
+### Decisioni
+- **Best next decision**: usare da GUI dist il nuovo percorso non bloccante `Install Core`, poi eseguire `Health Audit` e verificare output in `dist/WindowsOptimizer/logs/health-audit-live.json`.
+- Packaging reso fault-tolerant su file lock runtime per evitare fallback manuali e ridurre regressioni operative.
+- Check pacchetti vincolato a timeout per mantenere prevedibilita del ciclo audit.
+
+### Esito
+Ripristino confermato su questo host:
+- `NVMe advisor script not found` risolto (script presente in `dist/.../scripts` ed eseguibile).
+- `Deep Scan/Health Audit output JSON not found` risolto lato backend (health audit dist ora scrive JSON deterministicamente).
+- `Install Core` non blocca piu il thread UI (esecuzione background + cancel-safe).
+
+### Check anti-regressione
+- Parser/lint: nessun errore su script toccati.
+- Rebuild EXE: riuscito (`dist/WindowsOptimizer/WindowsOptimizer.exe`).
+- Smoke test GUI: `AliveAfter6s=True`.
+- Test runtime dist:
+	- health audit dist -> JSON creato,
+	- NVMe advisor dist -> JSON creato.
+
+## 2026-04-22 16:20:00
+### Obiettivo
+Allenare il sistema su check prerequisiti pacchetti e introdurre remediation avviabile da GUI, con focus anti-regressione e automazione safe.
+
+### Task
+Estesi Health Audit e Dashboard per rilevare pacchetti necessari (`PKG-*`) e applicare fix safe mirati con un click.
+
+### Modifiche
+- Aggiornato `scripts/system-health-audit.ps1`:
+	- aggiunti helper `Test-CommandAvailable` e `Test-WingetPackageInstalled`;
+	- introdotti finding prerequisiti pacchetti:
+		- `PKG-CORE-001` (winget mancante),
+		- `PKG-CORE-002` (PowerShell 7 mancante),
+		- `PKG-DIAG-001` (CrystalDiskInfo mancante quando disco in warning);
+	- aggiunte positive findings per stato compliant (`PowerShell Core available`, `CrystalDiskInfo installed`).
+- Aggiornato `scripts/system-optimizer-gui.ps1`:
+	- nuovo pulsante dashboard `Pkg Prereq Fix`;
+	- nuovo flusso `Run-HealthAudit -ApplyAfter -ApplyPackagesOnly`;
+	- apply automatico safe solo su finding `PKG-*` rilevati;
+	- esteso `Run-HealthApply` per supportare `-FindingIds` multipli;
+	- mantenuti guardrail single-flight, cancel centralizzato, soft-timeout osservabile.
+
+### Decisioni
+- **Best next decision**: eseguire subito il nuovo flusso GUI `Pkg Prereq Fix` per colmare gap runtime (`pwsh`) e prerequisiti tool-driven, poi rilanciare monitor/cleanup in runtime Core.
+- Scope remediation limitato ai soli finding `PKG-*` in modalità `Safe` per evitare cambi non necessari.
+- Nessuna terminazione aggressiva introdotta: solo osservazione + apply controllato e tracciabile.
+
+### Esito
+Capability aggiunta: controllo prerequisiti pacchetti di sistema + fix safe avviabile direttamente da GUI, coerente con strategia di ottimizzazione continua e anti-regressione.
+
+### Check anti-regressione
+- Parser check: `scripts/system-health-audit.ps1` e `scripts/system-optimizer-gui.ps1` senza errori.
+- Rebuild EXE completato: `dist/WindowsOptimizer/WindowsOptimizer.exe` generato con successo.
+- Smoke test GUI: `AliveAfter6s=True` (stabile oltre 5s).
+
 ## 2026-04-22 15:10:00
 ### Obiettivo
 Pianificare reboot differito per Wave 3 pagefile activation, attendendo completamento robocopy data-volume clone in corso.
