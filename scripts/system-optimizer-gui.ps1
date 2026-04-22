@@ -117,6 +117,7 @@ $script:diagnosticRetentionDays = 7
 $script:diagnosticsDir = Join-Path $script:hubRoot "logs\diagnostics"
 $script:healthAuditScript  = Join-Path $script:scriptRoot "system-health-audit.ps1"
 $script:nvmeAdvisorScript  = Join-Path $script:scriptRoot "analyze-nvme-readonly-plan.ps1"
+$script:partitionLegacyScript = Join-Path $script:scriptRoot "analyze-recovery-partition-legacy.ps1"
 $script:applyFixesScript   = Join-Path $script:scriptRoot "apply-safe-fixes.ps1"
 $script:healthAuditProcess = $null
 $script:healthAuditJson    = Join-Path $script:hubRoot "logs\health-audit-live.json"
@@ -135,6 +136,14 @@ $script:nvmeAdvisorStdErr  = Join-Path $script:hubRoot "logs\nvme-advisor-live.e
 $script:nvmeAdvisorStartedAt = $null
 $script:nvmeAdvisorTimeoutSec = 75
 $script:nvmeAdvisorSoftTimeoutWarned = $false
+$script:partitionLegacyProcess = $null
+$script:partitionLegacyJson    = Join-Path $script:hubRoot "logs\partition-legacy-live.json"
+$script:partitionLegacyStdOut  = Join-Path $script:hubRoot "logs\partition-legacy-live.out.log"
+$script:partitionLegacyStdErr  = Join-Path $script:hubRoot "logs\partition-legacy-live.err.log"
+$script:partitionLegacyStartedAt = $null
+$script:partitionLegacyTimeoutSec = 90
+$script:partitionLegacySoftTimeoutWarned = $false
+$script:partitionLegacyApplyRequested = $false
 
 # ─── Deep Scan state ──────────────────────────────────────────────────────────
 $script:deepScanProcess          = $null
@@ -401,6 +410,7 @@ $btnQuickClean    = New-Btn "Quick Clean"      $clrGreen   118 34
 $btnHealthAudit   = New-Btn "Health Audit"     $clrTeal    118 34
 $btnNvmePlan      = New-Btn "NVMe Plan"        $clrAmber   110 34
 $btnDeepScanJump  = New-Btn "Deep Scan"        $clrPurple  118 34
+$btnPartitionPlan = New-Btn "Partition Plan"   $clrCyan    126 34
 $btnCompute       = New-Btn "Compute"          $clrPurple  110 34
 $btnAudit         = New-Btn "Audit"            $clrCyan     90 34
 $btnExecute       = New-Btn "Execute"          $clrRed      96 34
@@ -429,7 +439,8 @@ $btnHealthAudit.Location   = New-Object System.Drawing.Point(284, 28)
 $btnNvmePlan.Location      = New-Object System.Drawing.Point(410, 28)
 $btnDeepScanJump.Location  = New-Object System.Drawing.Point(528, 28)
 $btnDiagnostics.Location   = New-Object System.Drawing.Point(654, 28)
-$btnCancelAnalyze.Location = New-Object System.Drawing.Point(780, 28)
+$btnPartitionPlan.Location = New-Object System.Drawing.Point(780, 28)
+$btnCancelAnalyze.Location = New-Object System.Drawing.Point(914, 28)
 
 $btnCompute.Location       = New-Object System.Drawing.Point(12, 96)
 $btnAudit.Location         = New-Object System.Drawing.Point(130, 96)
@@ -549,6 +560,7 @@ $pnlActionsBorder.BackColor = $clrBorderC
 $pnlActions.Controls.AddRange(@(
     $lblPrimaryActions, $lblAdvancedActions,
     $btnAnalyze, $btnQuickClean, $btnHealthAudit, $btnNvmePlan, $btnDeepScanJump,
+    $btnPartitionPlan,
     $btnDiagnostics, $btnCancelAnalyze,
     $btnCompute, $btnAudit, $btnExecute,
     $lblDepth, $cmbDepth, $lblAuditLevel, $cmbAuditLevel,
@@ -698,7 +710,8 @@ $cmbLogSource.Items.AddRange(@(
     "Quick Cleanup (stdout)", "Quick Cleanup (stderr)",
     "Quick Cleanup (log)", "Storage Cleanup (log)",
     "Health Audit (stdout)", "Health Audit (stderr)",
-    "NVMe Plan (stdout)", "NVMe Plan (stderr)"
+    "NVMe Plan (stdout)", "NVMe Plan (stderr)",
+    "Partition Plan (stdout)", "Partition Plan (stderr)"
 ))
 $cmbLogSource.SelectedIndex = 0
 
@@ -1295,6 +1308,7 @@ function Test-AnyOperationRunning {
     if ($script:quickCleanupProcess -and (-not $script:quickCleanupProcess.HasExited)) { $busy = $true }
     if ($script:healthAuditProcess -and (-not $script:healthAuditProcess.HasExited)) { $busy = $true }
     if ($script:nvmeAdvisorProcess -and (-not $script:nvmeAdvisorProcess.HasExited)) { $busy = $true }
+    if ($script:partitionLegacyProcess -and (-not $script:partitionLegacyProcess.HasExited)) { $busy = $true }
     if ($script:deepScanProcess -and (-not $script:deepScanProcess.HasExited)) { $busy = $true }
     if ($script:deepScanApplyProcess -and (-not $script:deepScanApplyProcess.HasExited)) { $busy = $true }
 
@@ -1314,6 +1328,7 @@ function Set-AnalysisUiState {
     $btnQuickClean.Enabled = -not $IsBusy
     $btnHealthAudit.Enabled = -not $IsBusy
     $btnNvmePlan.Enabled = -not $IsBusy
+    $btnPartitionPlan.Enabled = -not $IsBusy
     $cmbDepth.Enabled = -not $IsBusy
     $cmbAuditLevel.Enabled = -not $IsBusy
     $cmbCleanupMode.Enabled = -not $IsBusy
@@ -2235,6 +2250,162 @@ function Run-NvmeAdvisor {
     }
 }
 
+function Update-PartitionLegacyProgress {
+    if (-not $script:partitionLegacyStartedAt) { return }
+    $elapsedSec = [math]::Round(((Get-Date) - $script:partitionLegacyStartedAt).TotalSeconds, 0)
+    $timeoutSec = [math]::Max(1, $script:partitionLegacyTimeoutSec)
+    $pct = [math]::Min(95, [int](($elapsedSec / $timeoutSec) * 100))
+    if ($pct -lt $progressAnalysis.Minimum) { $pct = $progressAnalysis.Minimum }
+    if ($pct -gt $progressAnalysis.Maximum) { $pct = $progressAnalysis.Maximum }
+    $progressAnalysis.Value = $pct
+    $script:spinIdx = ($script:spinIdx + 1) % $script:spinFrames.Count
+    $lblAnalysisState.Text = ("Partition Plan{0}  {1}s / {2}s" -f $script:spinFrames[$script:spinIdx], $elapsedSec, $timeoutSec)
+    if (($elapsedSec -gt $timeoutSec) -and (-not $script:partitionLegacySoftTimeoutWarned)) {
+        $script:partitionLegacySoftTimeoutWarned = $true
+        Append-Status ("Partition Plan exceeded expected time ({0}s). No forced stop; cancel manually if needed." -f $timeoutSec)
+    }
+}
+
+function Stop-PartitionLegacy {
+    param([string]$Reason)
+    if ($script:partitionLegacyProcess -and (-not $script:partitionLegacyProcess.HasExited)) {
+        try {
+            Stop-Process -Id $script:partitionLegacyProcess.Id -Force -ErrorAction Stop
+            Append-Status ("Partition Plan stopped. Reason: {0}" -f $Reason)
+        } catch {
+            Append-Status ("Unable to stop Partition Plan cleanly: {0}" -f $_.Exception.Message)
+        }
+    }
+    $partitionLegacyTimer.Stop()
+    $script:partitionLegacyProcess = $null
+    $script:partitionLegacyStartedAt = $null
+    $script:partitionLegacySoftTimeoutWarned = $false
+    $script:partitionLegacyApplyRequested = $false
+    Set-AnalysisUiState -IsBusy:$false -StateText "Partition Plan idle"
+}
+
+function Poll-PartitionLegacy {
+    if (-not $script:partitionLegacyProcess) { return }
+    if (-not $script:partitionLegacyProcess.HasExited) {
+        Update-PartitionLegacyProgress
+        return
+    }
+
+    $partitionLegacyTimer.Stop()
+    $durationSec = 0
+    if ($script:partitionLegacyStartedAt) {
+        $durationSec = [math]::Round(((Get-Date) - $script:partitionLegacyStartedAt).TotalSeconds, 1)
+    }
+    $exitCode = Get-ProcessExitCodeSafe -Process $script:partitionLegacyProcess
+    if ($exitCode -ne 0) {
+        $errTail = Get-WorkerErrorTail -ErrorPath $script:partitionLegacyStdErr
+        if ($errTail) {
+            Append-Status ("Partition Plan ended with exit code {0}. Error: {1}" -f $exitCode, $errTail)
+        } else {
+            Append-Status ("Partition Plan ended with exit code {0}." -f $exitCode)
+        }
+        $script:partitionLegacyProcess = $null
+        $script:partitionLegacyStartedAt = $null
+        $script:partitionLegacySoftTimeoutWarned = $false
+        $script:partitionLegacyApplyRequested = $false
+        Set-AnalysisUiState -IsBusy:$false -StateText "Partition Plan idle"
+        return
+    }
+
+    if (Wait-ForOutputFile -Path $script:partitionLegacyJson -TimeoutMs 4000) {
+        try {
+            $plan = Get-Content -LiteralPath $script:partitionLegacyJson -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
+            $isLegacy = [bool]$plan.Assessment.DeterministicLegacy
+            $class = [string]$plan.Assessment.Classification
+            $decision = [string]$plan.Assessment.BestNextDecision
+            $applied = [bool]$plan.Remediation.Applied
+            Append-Status ("Partition Plan completed in {0}s. Classification={1} DeterministicLegacy={2} Applied={3}" -f $durationSec, $class, $isLegacy, $applied)
+            Append-Status ("  Best next decision: {0}" -f $decision)
+            foreach ($ev in $plan.Assessment.Evidence) {
+                $badge = if ([bool]$ev.Passed) { "OK" } else { "BLOCK" }
+                Append-Status ("  [{0}] {1} - {2}" -f $badge, [string]$ev.Name, [string]$ev.Detail)
+            }
+            if ($plan.Remediation.Actions) {
+                foreach ($action in $plan.Remediation.Actions) {
+                    Append-Status ("  APPLY: {0}" -f [string]$action)
+                }
+            }
+            if ($plan.Remediation.Error) {
+                Append-Status ("  Apply error: {0}" -f [string]$plan.Remediation.Error)
+            }
+            $toastLevel = if ($isLegacy) { "Warning" } else { "Info" }
+            if ($applied) { $toastLevel = "Success" }
+            Show-Toast -Title "Partition Plan Done" -Body ("{0} (Applied={1})" -f $class, $applied) -Level $toastLevel
+        } catch {
+            Append-Status ("Partition Plan completed in {0}s but parse failed: {1}" -f $durationSec, $_.Exception.Message)
+        }
+    } else {
+        Append-Status ("Partition Plan completed in {0}s but output JSON was not found." -f $durationSec)
+    }
+
+    Refresh-Drives
+    $progressAnalysis.Value = 100
+    $lblAnalysisState.Text = ("Partition Plan completed in {0}s." -f $durationSec)
+    $script:partitionLegacyProcess = $null
+    $script:partitionLegacyStartedAt = $null
+    $script:partitionLegacySoftTimeoutWarned = $false
+    $script:partitionLegacyApplyRequested = $false
+    Set-AnalysisUiState -IsBusy:$false -StateText $lblAnalysisState.Text
+}
+
+function Run-PartitionLegacy {
+    param([switch]$ApplyIfLegacy)
+
+    if (-not (Test-Path -LiteralPath $script:partitionLegacyScript)) {
+        Append-Status "Partition plan script not found: $script:partitionLegacyScript"
+        return
+    }
+    if (Test-AnyOperationRunning) {
+        Append-Status "Another operation is already running. Wait for completion."
+        return
+    }
+
+    try {
+        Remove-IfExists -Path $script:partitionLegacyJson
+        Remove-IfExists -Path $script:partitionLegacyStdOut
+        Remove-IfExists -Path $script:partitionLegacyStdErr
+
+        $args = @(
+            "-NoProfile",
+            "-ExecutionPolicy", "Bypass",
+            "-File", $script:partitionLegacyScript,
+            "-DiskNumber", "1",
+            "-CandidatePartitionNumber", "4",
+            "-TargetPartitionNumber", "3",
+            "-OutputJson", $script:partitionLegacyJson
+        )
+        if ($ApplyIfLegacy) {
+            $args += "-ApplyIfLegacy"
+        }
+
+        $script:partitionLegacyStartedAt = Get-Date
+        $script:partitionLegacySoftTimeoutWarned = $false
+        $script:partitionLegacyApplyRequested = [bool]$ApplyIfLegacy
+        $script:partitionLegacyProcess = Start-Process -FilePath $script:psHost -ArgumentList $args -WindowStyle Hidden -RedirectStandardOutput $script:partitionLegacyStdOut -RedirectStandardError $script:partitionLegacyStdErr -PassThru
+        $progressAnalysis.Value = 1
+        $state = if ($ApplyIfLegacy) { "Partition Plan apply starting" } else { "Partition Plan audit starting" }
+        Set-AnalysisUiState -IsBusy:$true -StateText ("{0} (target {1}s)..." -f $state, $script:partitionLegacyTimeoutSec)
+        $partitionLegacyTimer.Start()
+        if ($ApplyIfLegacy) {
+            Append-Status "Partition Plan started in APPLY mode (only if deterministic legacy checks pass)."
+        } else {
+            Append-Status "Partition Plan started in AUDIT mode."
+        }
+    } catch {
+        Append-Status ("Partition Plan error: {0}" -f $_.Exception.Message)
+        $script:partitionLegacyProcess = $null
+        $script:partitionLegacyStartedAt = $null
+        $script:partitionLegacySoftTimeoutWarned = $false
+        $script:partitionLegacyApplyRequested = $false
+        Set-AnalysisUiState -IsBusy:$false -StateText "Partition Plan idle"
+    }
+}
+
 # ═══════════════════════════════════════════════════════════════════════════════
 #  Deep Scan functions
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -2906,6 +3077,14 @@ $btnCancelAnalyze.Add_Click({
         if ($confirm -eq "Yes") {
             Stop-NvmeAdvisor -Reason "Manual cancel requested by user."
         }
+        return
+    }
+
+    if ($script:partitionLegacyProcess -and (-not $script:partitionLegacyProcess.HasExited)) {
+        $confirm = [System.Windows.Forms.MessageBox]::Show("Cancel running Partition Plan?", "Confirm", "YesNo", "Question")
+        if ($confirm -eq "Yes") {
+            Stop-PartitionLegacy -Reason "Manual cancel requested by user."
+        }
     }
 })
 $btnAudit.Add_Click({ Run-Cleanup -ExecuteNow:$false -RunAnalyzeAfter:$false })
@@ -2935,6 +3114,20 @@ $btnNvmePlan.Add_Click({
     $confirm = [System.Windows.Forms.MessageBox]::Show("Run NVMe risk advisory and write-offload plan?`n`nThis is read-only and does not change system settings.", "NVMe Plan", "YesNo", "Question")
     if ($confirm -eq "Yes") {
         Run-NvmeAdvisor
+    }
+})
+$btnPartitionPlan.Add_Click({
+    $msg = "Partition Plan mode:`nYes = Audit only (deterministic checks).`nNo = Audit + apply (delete partition 4 and extend C only if all checks pass).`nCancel = abort."
+    $choice = [System.Windows.Forms.MessageBox]::Show($msg, "Partition Plan", "YesNoCancel", "Warning")
+    if ($choice -eq "Yes") {
+        Run-PartitionLegacy
+        return
+    }
+    if ($choice -eq "No") {
+        $confirm = [System.Windows.Forms.MessageBox]::Show("Apply mode requires Administrator rights and changes partition layout. Continue?", "Confirm Apply", "YesNo", "Warning")
+        if ($confirm -eq "Yes") {
+            Run-PartitionLegacy -ApplyIfLegacy
+        }
     }
 })
 $btnReloadTasks.Add_Click({ Reload-Tasks })
@@ -2972,6 +3165,8 @@ $btnLoadLogs.Add_Click({
         "Health Audit (stderr)"     = $script:healthAuditStdErr
         "NVMe Plan (stdout)"        = $script:nvmeAdvisorStdOut
         "NVMe Plan (stderr)"        = $script:nvmeAdvisorStdErr
+        "Partition Plan (stdout)"   = $script:partitionLegacyStdOut
+        "Partition Plan (stderr)"   = $script:partitionLegacyStdErr
     }
     $selected = [string]$cmbLogSource.SelectedItem
     $logPath = $logMap[$selected]
@@ -3081,6 +3276,10 @@ $healthApplyTimer.Add_Tick({ Poll-HealthApply })
 $nvmeAdvisorTimer = New-Object System.Windows.Forms.Timer
 $nvmeAdvisorTimer.Interval = 1000
 $nvmeAdvisorTimer.Add_Tick({ Poll-NvmeAdvisor })
+
+$partitionLegacyTimer = New-Object System.Windows.Forms.Timer
+$partitionLegacyTimer.Interval = 1000
+$partitionLegacyTimer.Add_Tick({ Poll-PartitionLegacy })
 
 $deepScanTimer = New-Object System.Windows.Forms.Timer
 $deepScanTimer.Interval = 1000
