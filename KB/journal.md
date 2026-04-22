@@ -1,5 +1,39 @@
 # Journal Decisionale
 
+## 2026-04-22 15:10:00
+### Obiettivo
+Pianificare reboot differito per Wave 3 pagefile activation, attendendo completamento robocopy data-volume clone in corso.
+
+### Task
+Creati script verify post-reboot e monitor robocopy per tracciare timing reboot e auto-validazione Wave 3 post-riavvio.
+
+### Modifiche
+- Creato `scripts/verify-nvme-writeoffload-postboot.ps1`: post-reboot validation che verifica pagefile.sys in DataHub, integrità mounts/symlink, TEMP relocation, e KPI C: free space.
+- Creato `scripts/monitor-robocopy-pending-reboot.ps1`: tracker robocopy status e auto-schedule di verify task post-boot.
+- Eseguito monitor: robocopy running=True (1 process), pagefile config ready=True, post-boot task scheduled=True.
+
+### Decisioni
+- **Defer Reboot**: non ribootare finché robocopy completa (attualmente in progress).
+- **Rationale**: zero risk di interrupt durante clone data-volume; Wave 1-2 già funzionanti; pagefile config already saved in registry e attiva automaticamente post-reboot.
+- **Timing**: Reboot dopo robocopy completo (monitora con `Get-Process robocopy`).
+- **Automation**: Post-boot verification task auto-scheduled per validare pagefile relocation attivo e Wave 3 success.
+
+### Esito
+Reboot deferred in modo controllato; pagefile registry config pronto; post-boot verification workflow in place.
+
+### Prossimi Step
+1. Monitorare robocopy con: `Get-Process robocopy | Select-Object Id,StartTime,Name` (ogni 30 min o su demand).
+2. Quando robocopy complete, eseguire: `shutdown /s /t 300 /c "NVMe write-offload Wave 3 reboot"`.
+3. Post-reboot: verify script auto-runs e salva risultati in logs/writeoffload-verify-postboot.json.
+4. Controllare report post-reboot per validare pagefile.sys in DataHub.
+
+### Consolidamento stato attuale
+- Wave 1-2: ✅ Active (TEMP/TMP relocated, browser/app cache symlinked)
+- Wave 3 Registry: ✅ Config (pagefile path registered, fallback C: configured)
+- Wave 3 Activation: ⏳ Pending reboot (atteso robocopy completion)
+- Robocopy Status: 🔄 In progress (1 active process)
+- Post-reboot Automation: ✅ Scheduled (verification task ready)
+
 ## 2026-04-22 15:00:00
 ### Obiettivo
 Eseguire Wave 3 della strategia write-offload: audit e configurare relocation di package manager caches e pagefile, completando la riduzione scritture NVMe pre-reboot.
