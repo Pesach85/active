@@ -1,5 +1,37 @@
 # Journal Decisionale
 
+## 2026-04-24 17:10:00
+### Obiettivo
+Concludere Wave 3 con validazione deterministica post-reboot e pulizia anti-regressione della working tree.
+
+### Task
+- Verificata attivazione pagefile relocation dopo reboot.
+- Eseguita validazione `verify-nvme-writeoffload-postboot.ps1` con esito deterministic pass.
+- Ripristinati artifact dist scripts alterati da encoding non funzionale.
+
+### Modifiche
+- Verifica sistema:
+	- `Win32_OperatingSystem.LastBootUpTime = 2026-04-24 09:19:06`
+	- `PagingFiles` configurato su `C:\DataHub\Pagefile\pagefile.sys 2048 4096` + fallback `C:\pagefile.sys 512 1024`.
+	- `Win32_PageFileUsage` mostra pagefile attivo su DataHub (`CurrentUsage=640MB`) e fallback C: (`CurrentUsage=704MB`).
+- Eseguito `scripts/verify-nvme-writeoffload-postboot.ps1 -OutputJson logs/writeoffload-verify-postboot.json`.
+- Report postboot: `Status=Completed`, `DeterministicPass=True`, `FailedChecks=none`, `CFreeGB=15.58`, `CUsedPct=93.03`.
+- Ripristinati file in `dist/WindowsOptimizer/scripts/*` (diff non funzionali da corruption encoding/BOM).
+- Aggiornato `.gitignore` con `/logs/writeoffload-verify-*.json`.
+
+### Decisioni
+- **Best next decision**: Wave 3 chiusa; avviare ora fase di osservazione KPI 7 giorni (trend scritture NVMe + stabilita operativa), senza ulteriori cambi infrastrutturali immediati.
+- Mantenuto fallback pagefile su C: per resilienza crash-dump/boot.
+
+### Check anti-regressione
+- Reboot avvenuto dopo robocopy completato: OK.
+- Config pagefile primaria/fallback in uso: OK.
+- Validazione postboot automatica/manuale: PASS.
+- Artifact dist corrotti rimossi dalla working tree: OK.
+
+### Esito
+Wave 3 completata e operativa in produzione locale.
+
 ## 2026-04-24 16:58:00
 ### Obiettivo
 Attivare Wave 3 dopo completamento robocopy, mantenendo approccio anti-regressione con reboot controllato e verifica post-boot automatica.
