@@ -8,6 +8,7 @@
 /logs/health-audit-live.json
 /logs/*-live.json
 /logs/writeoffload-step-*.json
+/logs/writeoffload-verify-*.json
 /logs/robocopy-reboot-status.json
 /logs/diagnostics/
 
