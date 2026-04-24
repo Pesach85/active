@@ -1,5 +1,31 @@
 # Journal Decisionale
 
+## 2026-04-24 16:58:00
+### Obiettivo
+Attivare Wave 3 dopo completamento robocopy, mantenendo approccio anti-regressione con reboot controllato e verifica post-boot automatica.
+
+### Task
+- Verificato stato robocopy: nessun processo attivo.
+- Confermata readiness pagefile config in registry.
+- Avviato reboot controllato con countdown 300 secondi.
+
+### Modifiche
+- Aggiornato tracker runtime con `scripts/monitor-robocopy-pending-reboot.ps1 -StatusJsonPath logs/robocopy-reboot-status.json`.
+- Conferma stato: `RobocopyRunning=False`, `PagefileConfigReady=True`, `RebootPending=True`.
+- Eseguito comando di attivazione: `shutdown /r /t 300 /c "NVMe write-offload Wave 3 activation after robocopy completion"`.
+
+### Decisioni
+- **Best next decision**: completare reboot schedulato e lasciare eseguire il task startup `NVMe-WriteOffload-PostBootVerify` per validazione automatica post-riavvio.
+- Nessuna modifica aggiuntiva pre-reboot per evitare regressioni durante la finestra di attivazione.
+
+### Check anti-regressione
+- Robocopy terminato prima del reboot: OK.
+- Config pagefile primaria/fallback gia registrata: OK.
+- Task di verifica post-boot presente: OK.
+
+### Esito
+Reboot schedulato; attivazione Wave 3 in corso (pending riavvio).
+
 ## 2026-04-22 — Store/AppInstaller cronico rotto: strategia external-installer-first
 ### Obiettivo
 Riallineare remediation pacchetti al vincolo reale host: Microsoft Store/App Installer non affidabili; usare installatori esterni come percorso primario.
