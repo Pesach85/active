@@ -1,5 +1,132 @@
 # Journal Decisionale
 
+## 2026-05-04 — One-click USB Capture Mode (USBPcap)
+
+### Obiettivo
+Ridurre attrito operativo quando serve cattura USB con Wireshark, mantenendo baseline ottimizzata senza spam eventi in idle.
+
+### Task
+- Creazione script one-click per gestione USBPcap con modalita Enable/Disable/Status.
+- Logging JSON deterministico per audit e troubleshooting.
+- Guardrail anti-regressione con rollback esplicito.
+
+### Modifiche
+- Aggiunto script: `scripts/set-usbpcap-capture-mode.ps1`
+  - `-Mode EnableUsbCapture`: set start demand + start driver
+  - `-Mode DisableUsbCapture`: set start disabled + tentativo stop
+  - `-Mode Status`: sola lettura stato
+  - output default: `logs/usbpcap-toggle-live.json`
+
+### Decisione
+Best next decision: tenere USBPcap disabilitato come default e abilitarlo solo durante finestre di analisi USB.
+
+### Check anti-regressione
+- Nessun impatto sulle catture rete standard (Ethernet/Wi-Fi via Npcap).
+- Rollback immediato:
+  - `sc.exe config USBPcap start= demand`
+  - `sc.exe start USBPcap`
+- In caso di stop non accettato a caldo, reboot per unload completo del driver.
+
+### Esito
+Completato. Disponibile workflow one-click per alternare ottimizzazione continua e sessioni USB capture.
+
+## 2026-05-04 — Prevenzione rate alto Registro Eventi/System (hcmon + USBPcap)
+
+### Obiettivo
+Identificare la sorgente del rate elevato nel canale System e prevenire la recidiva con una modifica persistente, idempotente e a basso rischio.
+
+### Task
+- Diagnosi live su finestre 10/30/60 minuti con top Provider/EventID nel log System.
+- Analisi root-cause su provider dominante con campioni messaggio.
+- Mitigazione preventiva sul componente che generava spam eventi.
+- Verifica post-fix a finestra breve con metriche comparabili.
+
+### Metriche e root-cause
+- System events 10 minuti al momento della diagnosi: 3.
+- Coppie dominanti recenti: `hcmon/ID0` e `disk/ID52`.
+- Trend 24h:
+  - hcmon: 53 eventi
+  - disk ID52: 2 eventi
+  - WHEA: 0 eventi
+- Messaggio hcmon ripetuto: `Detected unrecognized USB driver (\\Driver\\USBPcap).`
+
+### Modifiche
+- Verificato stato USBPcap:
+  - Driver in esecuzione
+  - Start mode pre-fix: `0x3` (manual)
+- Applicata mitigazione persistente:
+  - `sc.exe config USBPcap start= disabled`
+  - Start mode post-fix: `0x4` (disabled)
+- Nota runtime:
+  - stop immediato non accettato dal driver (`ControlService 1052`), quindi effetto completo dopo reboot.
+
+### Decisione
+Best next decision: mantenere USBPcap disabilitato per eliminare la fonte di spam hcmon; non disabilitare canali System né servizio Event Log.
+
+### Check anti-regressione
+- Nessun intervento distruttivo su EventLog/System.
+- Rollback immediato disponibile:
+  - `sc.exe config USBPcap start= demand`
+  - `sc.exe start USBPcap`
+- Verifica post-mitigazione (5 minuti):
+  - Total events: 1
+  - hcmon: 0
+  - disk52: 0
+
+### Evidenze
+- `logs/system-event-rate-diagnosis-live.json`
+- `logs/system-event-spam-rootcause-live.json`
+- `logs/usbpcap-driver-audit-live.json`
+- `logs/usbpcap-mitigation-apply-live.json`
+- `logs/system-event-rate-post-mitigation-live.json`
+
+### Esito
+Completato. Sorgente principale del rumore System identificata e prevenuta in modo persistente; richiesto reboot per scaricare completamente il driver USBPcap già in memoria.
+
+## 2026-05-04 — Contenimento definitivo I/O disco da Registro Eventi + cleanup memoria safe
+
+### Obiettivo
+Identificare il processo associato al Registro Eventi che causava alta pressione disco, applicare una mitigazione persistente anti-recrescita e ridurre pressione memoria da processi non essenziali senza regressioni.
+
+### Task
+- Verifica stato mitigazione root-cause (WHEA -> Event Log I/O): controllo badmemorylist/truncatememory + rate WHEA live.
+- Misura provider eventi recenti per escludere spam residuo.
+- Hardening policy Event Log (System/Application) con retention circolare e cap dimensione.
+- Cleanup memoria non distruttivo su processi non essenziali (working set trim).
+
+### Metriche pre/post
+- Stato boot mitigation: BadMemoryActive=True, TruncateActive=False.
+- WHEA live: 0 eventi/10 min, 0 eventi/30 min.
+- Provider System (finestra recente): 20 eventi totali, WHEA provider events=0.
+- Event Log cap (post anti-regressione):
+  - System: maxSize = 20 MB, retention=false, autoBackup=false
+  - Application: maxSize = 20 MB, retention=false, autoBackup=false
+- Cleanup memoria non essenziale: 1 processo candidato, FreedWSMB=0 (nessun processo invasivo attivo al momento).
+
+### Modifiche
+- Validato hardening Event Log e applicato rollback anti-regressione (cap invariato e minimo):
+  - `wevtutil sl System /ms:20971520 /rt:false /ab:false`
+  - `wevtutil sl Application /ms:20971520 /rt:false /ab:false`
+- Eseguito trim working set per processi non essenziali candidati.
+- Salvate evidenze:
+  - `logs/eventlog-retention-hardening-live.json`
+  - `logs/nonessential-memory-cleanup-live.json`
+  - `logs/eventlog-stability-final-live.json`
+
+### Decisione
+Best next decision: mantenere badmemorylist attiva (root-cause già contenuta) e preservare policy circolare dei log core al cap minimo operativo (20 MB), evitando stop/disabilitazione del servizio Windows Event Log.
+
+### Check anti-regressione
+- Nessuna disattivazione di servizi critici OS (eventlog intatto).
+- Nessuna terminazione aggressiva automatica di processi.
+- Fallback immediato:
+  - Ripristino policy attuale (già applicato): `wevtutil sl System /ms:20971520 /rt:false /ab:false`
+  - Ripristino policy attuale (già applicato): `wevtutil sl Application /ms:20971520 /rt:false /ab:false`
+  - (se necessario) rollback badmemory/truncate tramite `scripts/mitigate-memory-path-degradation.ps1 -Mode Rollback`.
+
+### Esito
+Completato. Pressione eventi WHEA attualmente azzerata e rischio bloat disco del Registro Eventi ridotto in modo persistente.
+
 ## 2026-05-04 — Validazione post-reboot dopo badmemorylist estesa
 
 ### Obiettivo
