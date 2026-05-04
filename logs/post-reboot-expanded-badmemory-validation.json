@@ -1,0 +1,17 @@
+{
+  "Timestamp": "2026-05-04T15:36:57",
+  "Scenario": "Post-reboot validation after expanded badmemorylist",
+  "BootTime": "2026-05-04T15:32:26",
+  "WHEA_10min": 136,
+  "WHEA_30min": 136,
+  "WHEA_since_boot": 136,
+  "System_WHEA_since_boot": 0,
+  "WHEA_EventId_Dominant": 20,
+  "BadmemoryEntries": 721,
+  "RAMVisibleGB": 15.865,
+  "WinSAT_MBps": 20724.06,
+  "PreChange_WHEA_10min": 790,
+  "ImprovementPct": 82.8,
+  "Decision": "Keep expanded badmemorylist; do not apply further expansion now",
+  "ExitCriteria": "If WHEA_10min > 300 for 3 consecutive checks, consider larger expansion or BIOS secure-boot-off truncatememory"
+}

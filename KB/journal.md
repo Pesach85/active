@@ -1,5 +1,115 @@
 # Journal Decisionale
 
+## 2026-05-04 — Validazione post-reboot dopo badmemorylist estesa
+
+### Obiettivo
+Validare con metriche oggettive l'efficacia del workaround esteso dopo reboot e definire la prossima decisione operativa senza regressioni.
+
+### Metriche post-reboot
+- BootTime: 2026-05-04 15:32:26
+- WHEA ultimi 10 min: 136
+- WHEA ultimi 30 min: 136
+- WHEA dal boot: 136
+- Event ID dominante: 20 (136/136)
+- WHEA-Logger System dal boot: 0
+- badmemorylist post-reboot: 721 entry attive
+- RAM visibile: 15.865 GB
+- WinSAT memoria: 20724.06 MB/s
+
+### Confronto pre/post workaround esteso
+- Pre-change WHEA 10 min: 790
+- Post-reboot WHEA 10 min: 136
+- Miglioramento: -82.8%
+- Throughput memoria: 20.7 GB/s (rientrato vicino al baseline stabile)
+
+### Decisione
+Best next decision: mantenere l'attuale badmemorylist estesa e passare a fase di osservazione controllata (no ulteriori espansioni ora).
+
+### Passi operativi immediati
+1. Eseguire 3 check nelle prossime 24h (10 min ciascuno) su WHEA/10min.
+2. Se WHEA <= 300 in tutti i check: congelare configurazione fino a replacement DIMM.
+3. Se WHEA > 300 in 3 check consecutivi: valutare espansione ulteriore o percorso truncatememory con Secure Boot disattivato da BIOS.
+
+### Check anti-regressione
+- Nessun errore uncorrected (System log = 0) -> stabilita confermata.
+- RAM e performance rimaste in range operativo.
+- Rollback disponibile via restore lista badmemory precedente.
+
+### Evidenze
+- `logs/post-reboot-expanded-badmemory-validation.json`
+- `logs/bcd-badmemory-postreboot.txt`
+
+## 2026-05-04 — Workaround senza replacement DIMM: badmemorylist estesa
+
+### Obiettivo
+Applicare il miglior workaround disponibile senza sostituzione hardware della DIMM, mantenendo no-regressioni e rollback immediato.
+
+### Dati pre-change
+- WHEA errors ultimi 10 min: 790
+- Truncatememory: non applicabile con Secure Boot attivo su questo sistema
+- badmemorylist pre-change: 33 entry rilevate da dump locale
+
+### Azione applicata
+- Script: `scripts/mitigate-memory-path-degradation.ps1`
+- Modalita: `ApplyBadPages`
+- Input PFN noti: `0x2a96a3`, `0x2a9a63`
+- Espansione: `IncludeNeighbors` con `NeighborWindow=180`
+- Risultato: `Status=Completed`
+- Copertura nuova: 722 PFN
+- Range: `0x2a95ef` -> `0x2a9b17`
+- Overhead RAM riservata: ~2.82 MB (trascurabile)
+
+### Decisione
+Best next decision: mantenere questo workaround esteso e riavviare per validare la riduzione WHEA con carico reale 30-60 minuti.
+
+### Check anti-regressione
+- Backup badmemorylist pre-change salvato: `logs/bcd-badmemory-before-expand.txt`
+- Esito apply log: `logs/memory-path-mitigation-apply-badpages-w180.json`
+- Summary operativa: `logs/workaround-expanded-badmemory-summary.json`
+- Rollback rapido disponibile con ripristino lista precedente (script o set esplicito)
+
+### Esito
+Workaround applicato correttamente. Reboot richiesto per effetto completo. Dopo reboot misurare: WHEA/10min, WHEA since boot, EventID mix, WinSAT mem.
+
+## 2026-05-04 — Post-RAM Swap Validation (Data-Driven)
+
+### Obiettivo
+Validare in modo deterministico se lo swap fisico del modulo RAM riduce il fault WHEA e migliorare la performance reale.
+
+### Metriche raccolte
+- BootTime: 2026-05-04 13:22:41
+- WHEA errors ultimi 10 min: 460
+- WHEA errors dal boot: 729 poi 973 (burst singolo minuto)
+- Event ID dominante: 20 (973/973)
+- WHEA-Logger System dal boot: 0
+- Slot attivo modulo: DIMM B
+- RAM visibile: 15.868 GB
+- WinSAT mem: 17007.10 MB/s
+
+### Confronto con pre-swap
+- WHEA 10 min pre-swap: 469
+- WHEA 10 min post-swap: 460
+- Delta WHEA: circa -1.9% (non significativo, comportamento sostanzialmente invariato)
+- WinSAT pre-swap: 21257 MB/s
+- WinSAT post-swap: 17007 MB/s
+- Delta WinSAT: -20% (peggioramento osservato)
+
+### Decisione
+Best next decision: il guasto segue il modulo DIMM, non lo slot. Lo swap A->B non ha ridotto il rate di errore in modo materialmente utile.
+
+Applicare ora:
+1. Sostituzione modulo RAM (stesso profilo DDR4-2400 SODIMM 16GB).
+2. Mantenere badmemorylist attivo fino a verifica post-replacement.
+3. Verificare target di uscita: WHEA <= 50/10 min per 24h e WinSAT >= 20 GB/s stabile.
+
+### Check anti-regressione
+- Non rimuovere `badmemorylist` prima del passaggio target.
+- Fallback: se instabile dopo replacement, ripristinare modulo precedente e mantenere configurazione attuale.
+- Nessun segnale di errore non-corrected (System WHEA=0), quindi operazione immediata prioritaria e sicura.
+
+### Evidenza
+- `logs/post-swap-deterministic-decision.json`
+
 ## 2026-05-04 — Post-Reboot #2: truncatememory bloccato da Secure Boot + Dell BIP
 
 ### Obiettivo
@@ -81,33 +191,33 @@ Raccogliere dati deterministici post-reboot per decidere tra expand-badmemorylis
 
 **truncatememory @10.625 GB SCELTA** — razionale:
 - Esclude fisicamente tutto il range >10.625 GB dall'allocatore Windows
-- Failing region inizia a 10.647 GB → safety margin 22 MB
-- Perde solo 5.375 GB di RAM vs 16 GB installata (10.625 usabili)
-- Reversibile: `bcdedit /store BCD /deletevalue {default} truncatememory`
-- Diagnostico: se storm → 0 dopo reboot = DRAM page fault confermato; se persiste = IMC path issue
+BootTime: 2026-05-04 15:32:26
+WHEA ultimi 10 min: 136
+WHEA ultimi 30 min: 136
+WHEA dal boot: 136
+Event ID dominante: 20 (136/136)
+WHEA-Logger System dal boot: 0
+badmemorylist post-reboot: 721 entry attive
+RAM visibile: 15.865 GB
+WinSAT memoria: 20724.06 MB/s
 
-**Secure Boot workaround documentato**: su Dell Inspiron 7577 + Win10 24H2 con Secure Boot:
-- `bcdedit /set {current}` e `{default}` → bloccati (ERROR: protected by secure boot policy)
-- `{badmemory}` rimane scrivibile (oggetto standalone, non protetto)
-- Soluzione: `mountvol X: /S` + `bcdedit /store X:\EFI\Microsoft\Boot\BCD /set {default}` → OK
-
-### Check anti-regressione
-- BCD backup salvato in `logs/bcd-current-before-truncate.txt` prima di ogni modifica
-- Rollback disponibile: `mountvol X: /S && bcdedit /store X:\EFI\Microsoft\Boot\BCD /deletevalue {default} truncatememory && mountvol X: /D`
-- badmemorylist: 34 PFN ancora attivi (complementare a truncatememory)
+Pre-change WHEA 10 min: 790
+Post-reboot WHEA 10 min: 136
+Miglioramento: -82.8%
+Throughput memoria: 20.7 GB/s (rientrato vicino al baseline stabile)
 - WHEA-Logger System events = 0 (nessun uncorrected error → sistema stabile)
-
+Best next decision: mantenere l'attuale badmemorylist estesa e passare a fase di osservazione controllata (no ulteriori espansioni ora).
 ### Esito
-truncatememory=0x2A8000000 scritto nel BCD EFI. Riavvio necessario per attivazione. Prossima misura: WHEA rate post-reboot (atteso: vicino a 0 se DRAM page-specific; invariato se IMC path).
-
-### Nota KB — Pattern Riusabili per questo sistema
+1. Eseguire 3 check nelle prossime 24h (10 min ciascuno) su WHEA/10min.
+2. Se WHEA <= 300 in tutti i check: congelare configurazione fino a replacement DIMM.
+3. Se WHEA > 300 in 3 check consecutivi: valutare espansione ulteriore o percorso truncatememory con Secure Boot disattivato da BIOS.
 ```
-SISTEMA: Dell Inspiron 7577, i7-7700HQ, DDR4-2400 single-channel DIMM A only
-BCDEDIT SECURE BOOT CONSTRAINT:
-  - {current}, {default}: protetti → usare mountvol X: /S + bcdedit /store X:\EFI\Microsoft\Boot\BCD
+Nessun errore uncorrected (System log = 0) -> stabilita confermata.
+RAM e performance rimaste in range operativo.
+Rollback disponibile via restore lista badmemory precedente.
   - {badmemory}: non protetto → bcdedit /set {badmemory} funziona normalmente
-CPER MCE INTEL DECODING:
-  - SectionCount=4 per MCE storm eventi
+`logs/post-reboot-expanded-badmemory-validation.json`
+`logs/bcd-badmemory-postreboot.txt`
   - PhysAddr NON in campo standard 64-bit allineato (non decodificabile con scan UINT64)
   - Struttura: Processor Generic (192 B) + Processor Specific (128 B) + XPF context (1192 B) + trailer (39 B)
   - Per estrarre physaddr da MCE Intel: necessario decodificare MCA bank registers nel Processor Specific section

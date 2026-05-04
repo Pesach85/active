@@ -1,0 +1,12 @@
+{
+  "Timestamp": "2026-05-04T15:27:05",
+  "Workaround": "Expanded badmemorylist",
+  "NeighborWindow": 180,
+  "ExpandedPfnCount": 722,
+  "Range": "0x2a95ef..0x2a9b17",
+  "QuarantineMB": 2.82,
+  "RebootRequired": true,
+  "Rollback": "bcdedit /import logs\\bcd-badmemory-before-expand.txt (manual restore) OR rerun script with previous PFNs",
+  "PreChange_WHEA10": 790,
+  "Notes": "Secure Boot blocks truncatememory path; badmemorylist remains writable and active."
+}

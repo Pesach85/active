@@ -1,0 +1,20 @@
+{
+  "Timestamp": "2026-05-04T13:26:29",
+  "Scenario": "Post-RAM-swap validation",
+  "BootTime": "2026-05-04T13:22:41",
+  "WHEA_10min": 786,
+  "WHEA_since_boot": 977,
+  "WHEA_ID20_since_boot": 977,
+  "WHEA_System_since_boot": 0,
+  "ActiveModuleSlot": "DIMM B",
+  "TotalRAM_GB": 15.868,
+  "WinSAT_MBps": 17007.1,
+  "Baseline_PreSwap_WHEA10": 469,
+  "Baseline_PreSwap_WinSAT_MBps": 21257,
+  "Delta_WHEA10_vs_preSwap": "-1.9% (~same)",
+  "Delta_WinSAT_vs_preSwap": "-20.0%",
+  "DeterministicConclusion": "Fault follows DIMM module (not slot): swap did not reduce WHEA storm materially",
+  "BestNextDecision": "Replace DIMM module immediately; keep badmemorylist active until replacement verification",
+  "AntiRegression": "Do not disable badmemorylist until post-replacement WHEA <= 50/10min for 24h",
+  "Rollback": "If instability after replacement, restore old module and keep current badmemorylist"
+}
