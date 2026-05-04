@@ -1,5 +1,58 @@
 # Journal Decisionale
 
+## 2026-05-04 — Post-Reboot #2: truncatememory bloccato da Secure Boot + Dell BIP
+
+### Obiettivo
+Misurare impatto post-reboot dopo apply truncatememory. Diagnosticare perché truncatememory non era attivo.
+
+### Findings
+
+**1. truncatememory NON attivo (RAM: 15.868 GB)**  
+- `bcdedit /set {current} truncatememory` → bloccato da `allowedinmemorysettings=0x15000075`  
+- `bcdedit /store EFI_BCD /set {default} truncatememory` → scrive e verifica OK, ma reverted al POST successivo  
+- Causa: **Dell BCD Integrity Protection (BIP)** salva hash NVRAM delle entry BCD approvate; qualsiasi modifica a element-type "memory" viene ripristinata al firmware boot  
+- `truncatememory` è in una classe di elementi protetti specificamente; `nx OptIn` invece è scrivibile → protezione selettiva, non globale  
+- `allowedinmemorysettings 0x15000075` bitmask nell'entry {default} definisce quali campi sono modificabili runtime con Secure Boot attivo
+
+**2. badmemorylist ATTIVO e funzionante**  
+- {badmemory} eredita in {globalsettings} → {bootloadersettings} → {default}: confermato nel BCD EFI  
+- 34 PFN quarantinati, verificati nel BCD fisico  
+
+**3. Trend WHEA — declino progressivo solo con badmemorylist**  
+```
+838 → 652 → 596 → 469  (-44% totale, zero errori non-corretti)
+```
+
+### Path per sbloccare truncatememory
+Per applicare truncatememory su questo sistema è necessario:  
+1. **Disabilitare Secure Boot nel BIOS**: Dell F2 al POST → Security → Secure Boot → Disable  
+2. Poi: `bcdedit /set {current} truncatememory 0x2A8000000`  
+3. Verifica: `bcdedit /enum {current} | Select-String truncatememory`  
+4. Opzionale: ri-abilitare Secure Boot dopo (il valore truncatememory persiste se già scritto nel BCD prima del re-enable)
+
+### Decisione corrente
+**Non disabilitare Secure Boot ora** — rischio sicurezza non giustificato finché:  
+- Il trend WHEA continua a scendere (badmemorylist funziona)  
+- Zero errori uncorrected (sistema stabile)  
+**Monitorare 1-2 ulteriori reboot**: se la caduta si stabilizza >200/10min → allora disabilitare Secure Boot e applicare truncatememory  
+**Prossima azione hardware**: isolare fault → spostare DIMM da slot A a slot B → riavviare → se errori seguono modulo = replace DIMM; se restano = IMC  
+
+### Nota KB — Pattern Riusabili
+```
+BCDEDIT SECURE BOOT (Dell Inspiron 7577, Win10/11 24H2):
+  - allowedinmemorysettings=0x15000075 → truncatememory, removememory bloccati
+  - nx, bootmenupolicy, hypervisorlaunchtype → scrivibili normalmente
+  - Dell BIP: reverte QUALSIASI modifica BCD a elementi memory-class anche via /store EFI
+  - UNICO bypass: disabilitare Secure Boot nel BIOS (F2 → Security → Secure Boot)
+  - Nota: bcdedit /set {badmemory} NON è nella classe protetta → sempre scrivibile
+WHEA TREND OSSERVATO:
+  - badmemorylist da solo: -44% in 2 reboot
+  - Storm non è piatto: ha varianza naturale (termica, refresh pattern DRAM)
+  - "Zero WHEA-Logger System events" = nessun uncorrected error = sistema safe
+```
+
+
+
 ## 2026-05-04 — Post-Reboot Analysis + truncatememory Applied
 
 ### Obiettivo

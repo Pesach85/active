@@ -1,0 +1,30 @@
+[
+  {
+    "Step": "Baseline (no mitigation)",
+    "WHEAper10min": 838,
+    "Delta": "—",
+    "TruncateActive": false,
+    "BadmemActive": false
+  },
+  {
+    "Step": "Post-badmemorylist reboot1",
+    "WHEAper10min": 652,
+    "Delta": "-22%",
+    "TruncateActive": false,
+    "BadmemActive": true
+  },
+  {
+    "Step": "Pre-truncate measure",
+    "WHEAper10min": 596,
+    "Delta": "-29%",
+    "TruncateActive": false,
+    "BadmemActive": true
+  },
+  {
+    "Step": "Post-reboot (truncate BLOCKED)",
+    "WHEAper10min": 469,
+    "Delta": "-44%",
+    "TruncateActive": false,
+    "BadmemActive": true
+  }
+]

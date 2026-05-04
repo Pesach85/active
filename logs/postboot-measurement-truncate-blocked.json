@@ -1,0 +1,14 @@
+{
+  "AllowedInMemorySettings": "0x15000075",
+  "Finding": "truncatememory element-type is on Secure Boot protected list; Dell BIP also reverts EFI BCD store modifications at each boot; {default} inherits {badmemory} via {globalsettings} therefore badmemorylist IS active",
+  "TruncatememoryBlockReason": "allowedinmemorysettings=0x15000075 (truncatememory not in allowed set) + Dell BCD Integrity Protection reverts /store changes at POST",
+  "Trend": "838->652->596->469 (declining, -44% total, zero uncorrected errors)",
+  "Timestamp": "2026-05-04T13:15:57",
+  "BadmemorylistActive": true,
+  "SecureBootEnabled": true,
+  "TruncatememoryActive": false,
+  "RAMVisibleGB": 15.868,
+  "WHEARate_10min": 469,
+  "PathToTruncatememory": "Disable Secure Boot in BIOS (Dell: F2 -> Security -> Secure Boot -> Disable) then: bcdedit /set {current} truncatememory 0x2A8000000",
+  "BadmemorylistPFNs": 34
+}
