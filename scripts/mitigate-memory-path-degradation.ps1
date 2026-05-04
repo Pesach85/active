@@ -8,7 +8,7 @@ param(
 
     [int]$NeighborWindow = 4,
 
-    [double]$SafetyGapGB = 0.5,
+    [double]$SafetyGapGB = 0.01,
 
     [string]$OutputJson = "logs/memory-path-mitigation-live.json"
 )
@@ -115,7 +115,9 @@ try {
         $minBytes = Convert-PfnToBytes -Pfn $minPfn
         $maxBytes = Convert-PfnToBytes -Pfn $maxPfn
 
-        $suggestedTruncateGB = [Math]::Max(4.0, ([Math]::Floor((Format-BytesGb -Bytes $minBytes) - $SafetyGapGB)))
+        # Align down to nearest 0.125 GB boundary below (minGB - SafetyGapGB)
+        # SafetyGapGB default = 0.01 (10 MB); keeps max good RAM while safely below fault region
+        $suggestedTruncateGB = [Math]::Max(4.0, ([Math]::Floor(((Format-BytesGb -Bytes $minBytes) - $SafetyGapGB) / 0.125) * 0.125))
         $suggestedTruncateBytes = [UInt64]([Math]::Floor($suggestedTruncateGB * 1GB))
 
         $report.Analysis.BadPageModel = [ordered]@{
@@ -145,18 +147,48 @@ try {
                 $report.BestNextDecision = 'Riavviare, monitorare frequenza WHEA per 30-60 minuti reali di carico.'
             }
             'ApplyTruncate' {
-                $cmd = 'bcdedit /set {{current}} truncatememory {0}' -f $suggestedTruncateBytes
-                $out = Invoke-Cmd $cmd
-                $report.Actions += @("Eseguito: $cmd", ($out -join "`n"), 'Richiesto riavvio per effetto completo.')
+                # NOTE: on Dell Inspiron 7577 with Secure Boot enabled, bcdedit /set {current} is blocked.
+                # Workaround: mount EFI System Partition and modify the physical BCD file via /store.
+                $truncateHex = '0x{0:x}' -f $suggestedTruncateBytes
+                $efiMounted = $false
+                try {
+                    $mountOut = Invoke-Cmd 'mountvol X: /S'
+                    $efiMounted = $true
+                    $bcdPath = 'X:\EFI\Microsoft\Boot\BCD'
+                    if (-not (Test-Path $bcdPath)) {
+                        throw "BCD non trovato in $bcdPath dopo mountvol"
+                    }
+                    $cmd = "bcdedit /store `"$bcdPath`" /set `"{default}`" truncatememory $truncateHex"
+                    $out = Invoke-Cmd $cmd
+                    $verify = Invoke-Cmd "bcdedit /store `"$bcdPath`" /enum {default}"
+                    $ok = ($verify -join "`n") -match 'truncatememory'
+                    $report.Actions += @("Eseguito (via EFI store): $cmd", ($out -join "`n"), ($verify -join "`n"), 'Richiesto riavvio per effetto completo.')
+                    if (-not $ok) {
+                        throw 'Applicazione truncatememory non confermata da bcdedit /enum {default}.'
+                    }
+                } finally {
+                    if ($efiMounted) { Invoke-Cmd 'mountvol X: /D' | Out-Null }
+                }
                 $report.BestNextDecision = 'Riavviare e verificare se il rate WHEA crolla; se positivo, confermare workaround fino a sostituzione hardware.'
             }
             'Rollback' {
                 $out1 = Invoke-Cmd 'bcdedit /deletevalue {badmemory} badmemorylist'
-                $out2 = Invoke-Cmd 'bcdedit /deletevalue {current} truncatememory'
+                # truncatememory rollback: use EFI store (Secure Boot blocks {current} on this system)
+                $efiMounted = $false
+                try {
+                    Invoke-Cmd 'mountvol X: /S' | Out-Null
+                    $efiMounted = $true
+                    $bcdPath = 'X:\EFI\Microsoft\Boot\BCD'
+                    $out2 = Invoke-Cmd "bcdedit /store `"$bcdPath`" /deletevalue `"{default}`" truncatememory"
+                } catch {
+                    $out2 = @("Rollback truncatememory non necessario o gia rimosso: $($_.Exception.Message)")
+                } finally {
+                    if ($efiMounted) { Invoke-Cmd 'mountvol X: /D' | Out-Null }
+                }
                 $report.Actions += @(
                     'Eseguito rollback badmemorylist.',
                     ($out1 -join "`n"),
-                    'Eseguito rollback truncatememory.',
+                    'Eseguito rollback truncatememory (via EFI store).',
                     ($out2 -join "`n"),
                     'Richiesto riavvio per effetto completo.'
                 )

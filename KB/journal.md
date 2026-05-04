@@ -1,5 +1,71 @@
 # Journal Decisionale
 
+## 2026-05-04 — Post-Reboot Analysis + truncatememory Applied
+
+### Obiettivo
+Raccogliere dati deterministici post-reboot per decidere tra expand-badmemorylist vs truncatememory, applicare la scelta ottimale, documentare pattern riusabili.
+
+### Task
+- Misurazione WHEA rate post-reboot (badmemorylist attivo): 652/10 min (−22% vs baseline 838)
+- Tentativo decodifica CPER per estrarre PFN live → FALLITO: MCE Intel CPER non espone physaddr in campi standard
+- CPER structure analysis: SectionCount=4 (Processor Generic + Processor Specific + XPF + context), physaddr codificato in MCA bank registers nel formato IA32/X64 specifico Intel, non accessible con slide UINT64 naïve
+- Decisione deterministica: truncatememory @10.625 GB (0x2A8000000)
+- Blocco inatteso: `bcdedit /set {current}` bloccato da Secure Boot policy su {current} e {default}
+- Workaround: `bcdedit /store X:\EFI\Microsoft\Boot\BCD /set {default} truncatememory 0x2A8000000` → OK via mountvol EFI
+
+### Modifiche
+- `scripts/mitigate-memory-path-degradation.ps1`: 
+  - Fixato ApplyTruncate: ora usa mountvol EFI + bcdedit /store (Secure Boot workaround)
+  - Fixato Rollback: stessa rotta EFI per deletevalue truncatememory
+  - SuggestedTruncateGB formula: allineamento a 0.125 GB (non floor intero) con safety 10 MB
+  - SafetyGapGB default: 0.5 → 0.01 (10 MB; meno RAM persa a parità di sicurezza)
+- `logs/truncate-decision-audit.json`: audit pre-apply
+- `logs/bcd-current-before-truncate.txt`: backup BCD pre-apply
+- `logs/truncate-apply-result.json`: risultato apply
+
+### Decisioni
+**Expand PFN list SCARTATA** — non deterministica: MCE CPER Intel non espone physaddr leggibile via scan UINT64. PFN "trovati" (5 con 2 hits ciascuno) sono artefatti (timestamp FILETIME, costanti) non indirizzi reali di pagine.
+
+**truncatememory @10.625 GB SCELTA** — razionale:
+- Esclude fisicamente tutto il range >10.625 GB dall'allocatore Windows
+- Failing region inizia a 10.647 GB → safety margin 22 MB
+- Perde solo 5.375 GB di RAM vs 16 GB installata (10.625 usabili)
+- Reversibile: `bcdedit /store BCD /deletevalue {default} truncatememory`
+- Diagnostico: se storm → 0 dopo reboot = DRAM page fault confermato; se persiste = IMC path issue
+
+**Secure Boot workaround documentato**: su Dell Inspiron 7577 + Win10 24H2 con Secure Boot:
+- `bcdedit /set {current}` e `{default}` → bloccati (ERROR: protected by secure boot policy)
+- `{badmemory}` rimane scrivibile (oggetto standalone, non protetto)
+- Soluzione: `mountvol X: /S` + `bcdedit /store X:\EFI\Microsoft\Boot\BCD /set {default}` → OK
+
+### Check anti-regressione
+- BCD backup salvato in `logs/bcd-current-before-truncate.txt` prima di ogni modifica
+- Rollback disponibile: `mountvol X: /S && bcdedit /store X:\EFI\Microsoft\Boot\BCD /deletevalue {default} truncatememory && mountvol X: /D`
+- badmemorylist: 34 PFN ancora attivi (complementare a truncatememory)
+- WHEA-Logger System events = 0 (nessun uncorrected error → sistema stabile)
+
+### Esito
+truncatememory=0x2A8000000 scritto nel BCD EFI. Riavvio necessario per attivazione. Prossima misura: WHEA rate post-reboot (atteso: vicino a 0 se DRAM page-specific; invariato se IMC path).
+
+### Nota KB — Pattern Riusabili per questo sistema
+```
+SISTEMA: Dell Inspiron 7577, i7-7700HQ, DDR4-2400 single-channel DIMM A only
+BCDEDIT SECURE BOOT CONSTRAINT:
+  - {current}, {default}: protetti → usare mountvol X: /S + bcdedit /store X:\EFI\Microsoft\Boot\BCD
+  - {badmemory}: non protetto → bcdedit /set {badmemory} funziona normalmente
+CPER MCE INTEL DECODING:
+  - SectionCount=4 per MCE storm eventi
+  - PhysAddr NON in campo standard 64-bit allineato (non decodificabile con scan UINT64)
+  - Struttura: Processor Generic (192 B) + Processor Specific (128 B) + XPF context (1192 B) + trailer (39 B)
+  - Per estrarre physaddr da MCE Intel: necessario decodificare MCA bank registers nel Processor Specific section
+STRATEGIE MITIGATION (ordine di preferenza):
+  1. badmemorylist: safe, no RAM loss, efficace se physaddr noti; bloccato da DRAM refresh
+  2. truncatememory via EFI store: deterministica, diagnostica, leggero RAM loss
+  3. truncatememory NON applicabile via {current}/{default} diretti (Secure Boot)
+```
+
+
+
 ## 2026-05-04 09:58:00
 ### Obiettivo
 Implementare Wave 4: Package Manager Cache Relocation (S90-S120). Audit + apply package manager redirects.
