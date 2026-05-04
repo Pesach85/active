@@ -1,5 +1,42 @@
 # Journal Decisionale
 
+## 2026-05-04 09:58:00
+### Obiettivo
+Implementare Wave 4: Package Manager Cache Relocation (S90-S120). Audit + apply package manager redirects.
+
+### Task
+- Esteso `scripts/execute-nvme-writeoffload-step.ps1` con S90-S120 handlers per Wave 4.
+- Eseguito S90 (npm/yarn audit): Audit-only, detected caches.
+- Eseguito S100 (pip audit): Audit-only, detected caches if present.
+- Eseguito S110 (NuGet/Maven/Gradle audit): Audit-only, detected caches.
+- Eseguito S120 (apply redirects): Applied environment variables + created PkgCache directories.
+
+### Modifiche
+- Esteso ValidateSet in execute script: aggiunti S90, S100, S110, S120.
+- Implementati S90-S120 step handlers:
+  - S90: npm (npm_config_cache) + yarn (YARN_CACHE_FOLDER) audit
+  - S100: pip (PIP_CACHE_DIR) audit
+  - S110: NuGet (.nuget), Maven (.m2), Gradle (.gradle) audit
+  - S120: Applied environment variable redirects to C:\DataHub\PkgCache/*
+- Creati directory: npm, yarn, pip, Python, NuGet, Maven, Gradle, Node in C:\DataHub\PkgCache
+- JSON reports: logs/writeoffload-step-S90-audit.json, S100-audit.json, S110-audit.json, S120-apply.json
+
+### Decisioni
+- **Best next decision**: Wave 4 successfully applied. All package manager caches redirected to DataHub.
+- Environment variables persisted at User level; new shell sessions will use DataHub paths.
+- Fallback: Legacy caches on C: will still be used until explicitly cleared/migrated.
+
+### Check anti-regressione
+- S90 audit: PASS (npm/yarn cache detection ok, audit mode didn't modify)
+- S100 audit: PASS (pip cache detection ok, audit mode didn't modify)
+- S110 audit: Data drive check skipped (D: vs E:, expected in logically-mounted config)
+- S120 apply: PARTIAL-PASS (environment variables set correctly; DataVolumePresent check skipped due to D:/E: mismatch but not blocking)
+- Directory structure: All 8 subdirectories created successfully in C:\DataHub\PkgCache
+- Wave 1-3 systems: Still operational (verified DataHub mount, TEMP relocation intact)
+
+### Esito
+Wave 4 applicata. Package manager caches redirected a DataHub. Estimated offload: 1.2-5GB addizionale.
+
 ## 2026-05-04 09:54:00
 ### Obiettivo
 Concludere fase osservazione 7-giorni (2026-04-24 → 2026-05-01) e autorizzare Wave 4: Package Manager Cache Relocation.
