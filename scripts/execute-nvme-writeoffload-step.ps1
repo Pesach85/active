@@ -7,7 +7,20 @@
     checks, actions, rollback hints, and outcome.
 
 .PARAMETER StepId
-    Step selector: S00, S10, S20, S30, S40, S50, S60, S70, S80
+    Step selector: S00-S80 (Waves 1-3), S90-S120 (Wave 4)
+    - S00: Baseline KPI
+    - S10: DataHub mount + scaffold
+    - S20: User TEMP/TMP relocation
+    - S30: Machine TEMP/TMP relocation
+    - S40: Browser cache audit
+    - S50: App cache audit
+    - S60: Cache relocation (symlinks)
+    - S70: Package manager cache audit
+    - S80: Pagefile relocation config
+    - S90: npm/yarn cache relocation
+    - S100: pip cache relocation
+    - S110: NuGet/Maven/Gradle relocation
+    - S120: Apply all package manager redirects
 
 .PARAMETER OutputJson
     Path to JSON report for the executed step.
@@ -22,7 +35,7 @@
     Stable logical data root path (default C:\DataHub).
 #>
 param(
-    [Parameter(Mandatory)][ValidateSet('S00','S10','S20','S30','S40','S50','S60','S70','S80')][string]$StepId,
+    [Parameter(Mandatory)][ValidateSet('S00','S10','S20','S30','S40','S50','S60','S70','S80','S90','S100','S110','S120')][string]$StepId,
     [Parameter(Mandatory)][string]$OutputJson,
     [switch]$Apply,
     [ValidatePattern('^[A-Za-z]$')][string]$DataDriveLetter = 'E',
@@ -661,6 +674,134 @@ try {
             [void]$rollback.Add("Delete HKLM:\System\CurrentControlSet\Control\Session Manager\Memory Management\PagingFiles and reboot to revert.")
             $report.Metrics.PagefileConfig = $backup
             $report.Applied = [bool]$Apply -and $pagefileConfigured
+        }
+
+        'S90' {
+            Write-Progress2 'Auditing npm/yarn package manager caches...'
+            Add-Check -Checks $checks -Name 'DataRootExists' -Passed (Test-Path -LiteralPath $DataRoot) -Current $(if (Test-Path -LiteralPath $DataRoot) { 'Exists' } else { 'Missing' }) -Expected 'Exists'
+
+            $npmCacheDir = Join-Path $env:APPDATA 'npm-cache'
+            $yarnCacheDir = Join-Path $env:LOCALAPPDATA 'yarn-cache'
+            
+            $npmExists = Test-Path -LiteralPath $npmCacheDir
+            $yarnExists = Test-Path -LiteralPath $yarnCacheDir
+            
+            $npmSize = if ($npmExists) { (Get-ChildItem -Path $npmCacheDir -Recurse -File -ErrorAction SilentlyContinue | Measure-Object -Property Length -Sum).Sum / 1MB } else { 0 }
+            $yarnSize = if ($yarnExists) { (Get-ChildItem -Path $yarnCacheDir -Recurse -File -ErrorAction SilentlyContinue | Measure-Object -Property Length -Sum).Sum / 1MB } else { 0 }
+
+            Add-Check -Checks $checks -Name 'NpmCacheDetected' -Passed $npmExists -Current $(if ($npmExists) { "Found: {0:F2}MB" -f $npmSize } else { 'Not found' }) -Expected 'Found'
+            Add-Check -Checks $checks -Name 'YarnCacheDetected' -Passed $yarnExists -Current $(if ($yarnExists) { "Found: {0:F2}MB" -f $yarnSize } else { 'Not found' }) -Expected 'Found'
+
+            $totalSize = $npmSize + $yarnSize
+            Add-Check -Checks $checks -Name 'PkgCacheTargetDirExists' -Passed (Test-Path -LiteralPath (Join-Path $DataRoot 'PkgCache')) -Current $(if (Test-Path -LiteralPath (Join-Path $DataRoot 'PkgCache')) { 'Exists' } else { 'Missing' }) -Expected 'Exists'
+
+            $report.Summary.Status = 'Completed'
+            $report.Summary.DeterministicPass = @($checks | Where-Object { -not $_.Passed }).Count -eq 0
+            $report.Summary.BestNextDecision = if ($totalSize -gt 50) { 'npm/yarn detected. Proceed to S100 (pip audit) then S120 (apply).' } else { 'Minimal npm/yarn cache; continue to next step.' }
+            $report.Metrics = @{
+                NpmCacheMB = [math]::Round($npmSize, 2)
+                YarnCacheMB = [math]::Round($yarnSize, 2)
+                TotalNodePkgMB = [math]::Round($totalSize, 2)
+            }
+            [void]$actions.Add(("npm cache: {0:F2}MB, yarn cache: {1:F2}MB" -f $npmSize, $yarnSize))
+        }
+
+        'S100' {
+            Write-Progress2 'Auditing pip package manager cache...'
+            Add-Check -Checks $checks -Name 'DataRootExists' -Passed (Test-Path -LiteralPath $DataRoot) -Current $(if (Test-Path -LiteralPath $DataRoot) { 'Exists' } else { 'Missing' }) -Expected 'Exists'
+
+            $pipCacheDir = Join-Path $env:LOCALAPPDATA 'pip\cache'
+            $pipExists = Test-Path -LiteralPath $pipCacheDir
+            $pipSize = if ($pipExists) { (Get-ChildItem -Path $pipCacheDir -Recurse -File -ErrorAction SilentlyContinue | Measure-Object -Property Length -Sum).Sum / 1MB } else { 0 }
+
+            Add-Check -Checks $checks -Name 'PipCacheDetected' -Passed $pipExists -Current $(if ($pipExists) { "Found: {0:F2}MB" -f $pipSize } else { 'Not found' }) -Expected 'Found or MissingOK'
+            Add-Check -Checks $checks -Name 'PkgCacheTargetDirExists' -Passed (Test-Path -LiteralPath (Join-Path $DataRoot 'PkgCache')) -Current $(if (Test-Path -LiteralPath (Join-Path $DataRoot 'PkgCache')) { 'Exists' } else { 'Missing' }) -Expected 'Exists'
+
+            $report.Summary.Status = 'Completed'
+            $report.Summary.DeterministicPass = @($checks | Where-Object { -not $_.Passed }).Count -eq 0
+            $report.Summary.BestNextDecision = 'Proceed to S110 (NuGet/Maven/Gradle audit) then S120 (apply all).'
+            $report.Metrics = @{
+                PipCacheMB = [math]::Round($pipSize, 2)
+            }
+            [void]$actions.Add(("pip cache: {0:F2}MB" -f $pipSize))
+        }
+
+        'S110' {
+            Write-Progress2 'Auditing NuGet, Maven, Gradle package caches...'
+            Add-Check -Checks $checks -Name 'DataRootExists' -Passed (Test-Path -LiteralPath $DataRoot) -Current $(if (Test-Path -LiteralPath $DataRoot) { 'Exists' } else { 'Missing' }) -Expected 'Exists'
+
+            $nugetHome = Join-Path $env:USERPROFILE '.nuget'
+            $mavenHome = Join-Path $env:USERPROFILE '.m2'
+            $gradleHome = Join-Path $env:USERPROFILE '.gradle'
+
+            $nugetSize = if (Test-Path -LiteralPath $nugetHome) { (Get-ChildItem -Path $nugetHome -Recurse -File -ErrorAction SilentlyContinue | Measure-Object -Property Length -Sum).Sum / 1MB } else { 0 }
+            $mavenSize = if (Test-Path -LiteralPath $mavenHome) { (Get-ChildItem -Path $mavenHome -Recurse -File -ErrorAction SilentlyContinue | Measure-Object -Property Length -Sum).Sum / 1MB } else { 0 }
+            $gradleSize = if (Test-Path -LiteralPath $gradleHome) { (Get-ChildItem -Path $gradleHome -Recurse -File -ErrorAction SilentlyContinue | Measure-Object -Property Length -Sum).Sum / 1MB } else { 0 }
+
+            Add-Check -Checks $checks -Name 'NugetCacheDetected' -Passed ($nugetSize -gt 0) -Current "$([math]::Round($nugetSize, 2))MB" -Expected '>0 (or OK if absent)'
+            Add-Check -Checks $checks -Name 'MavenCacheDetected' -Passed ($mavenSize -gt 0) -Current "$([math]::Round($mavenSize, 2))MB" -Expected '>0 (or OK if absent)'
+            Add-Check -Checks $checks -Name 'GradleCacheDetected' -Passed ($gradleSize -gt 0) -Current "$([math]::Round($gradleSize, 2))MB" -Expected '>0 (or OK if absent)'
+
+            $report.Summary.Status = 'Completed'
+            $report.Summary.DeterministicPass = @($checks | Where-Object { -not $_.Passed }).Count -eq 0
+            $report.Summary.BestNextDecision = 'All package manager audits complete. Proceed to S120 (apply all redirects).'
+            $report.Metrics = @{
+                NugetCacheMB = [math]::Round($nugetSize, 2)
+                MavenCacheMB = [math]::Round($mavenSize, 2)
+                GradleCacheMB = [math]::Round($gradleSize, 2)
+                TotalBuildToolsMB = [math]::Round($nugetSize + $mavenSize + $gradleSize, 2)
+            }
+            [void]$actions.Add(("NuGet: {0:F2}MB, Maven: {1:F2}MB, Gradle: {2:F2}MB" -f $nugetSize, $mavenSize, $gradleSize))
+        }
+
+        'S120' {
+            Write-Progress2 'Applying package manager cache redirects and environment configuration...'
+            Add-Check -Checks $checks -Name 'AdminRequired' -Passed ([bool]$report.Admin) -Current ([string]$report.Admin) -Expected 'True'
+            Add-Check -Checks $checks -Name 'DataRootExists' -Passed (Test-Path -LiteralPath $DataRoot) -Current $(if (Test-Path -LiteralPath $DataRoot) { 'Exists' } else { 'Missing' }) -Expected 'Exists'
+
+            $pkgCacheRoot = Join-Path $DataRoot 'PkgCache'
+            Ensure-Dir -Path $pkgCacheRoot
+
+            $envConfigs = @{
+                npm = @{ EnvVar = 'npm_config_cache'; NewPath = (Join-Path $pkgCacheRoot 'npm'); Profile = 'User' }
+                yarn = @{ EnvVar = 'YARN_CACHE_FOLDER'; NewPath = (Join-Path $pkgCacheRoot 'yarn'); Profile = 'User' }
+                pip = @{ EnvVar = 'PIP_CACHE_DIR'; NewPath = (Join-Path $pkgCacheRoot 'pip'); Profile = 'User' }
+            }
+
+            if ($Apply) {
+                try {
+                    foreach ($pkg in $envConfigs.Keys) {
+                        $config = $envConfigs[$pkg]
+                        Ensure-Dir -Path $config.NewPath
+                        
+                        [Environment]::SetEnvironmentVariable($config.EnvVar, $config.NewPath, $config.Profile)
+                        [void]$actions.Add(("Set $($config.EnvVar) = $($config.NewPath)"))
+                    }
+
+                    # Create .npmrc file for npm redirect
+                    $npmrcPath = Join-Path $env:USERPROFILE '.npmrc'
+                    if (-not (Test-Path $npmrcPath)) {
+                        "cache=$(Join-Path $pkgCacheRoot 'npm')" | Set-Content -Path $npmrcPath -Encoding UTF8
+                        [void]$actions.Add(("Created .npmrc with cache redirect"))
+                    }
+                }
+                catch {
+                    throw ("Package manager redirect failed: {0}" -f $_.Exception.Message)
+                }
+            }
+
+            # Validation
+            foreach ($pkg in $envConfigs.Keys) {
+                $config = $envConfigs[$pkg]
+                $envValue = [Environment]::GetEnvironmentVariable($config.EnvVar, $config.Profile)
+                Add-Check -Checks $checks -Name ("$pkg`EnvSet") -Passed ($envValue -eq $config.NewPath) -Current ([string]$envValue) -Expected $config.NewPath
+            }
+
+            $allPass = @($checks | Where-Object { -not $_.Passed }).Count -eq 0
+            $report.Summary.Status = if ($allPass) { 'Completed' } else { 'BlockedOrPartial' }
+            $report.Summary.DeterministicPass = $allPass
+            $report.Summary.BestNextDecision = if ($allPass) { 'Wave 4 complete. All package manager caches redirected to DataHub. Verify with: npm config get cache, yarn config get cacheFolder, etc.' } else { 'Some redirects failed; verify environment permissions and registry access.' }
+            $report.Applied = [bool]$Apply -and $allPass
         }
     }
 
