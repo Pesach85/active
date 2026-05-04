@@ -2,14 +2,14 @@
   "Mode": "EXECUTE",
   "RetentionDays": 2,
   "MaxFilesPerTarget": 2000,
-  "CandidateFiles": 2,
+  "CandidateFiles": 0,
   "CandidateGB": 0.0,
-  "DeletedFiles": 2,
+  "DeletedFiles": 0,
   "DeletedGB": 0.0,
   "Targets": [
     {
       "Path": "C:\\\\Windows\\\\Temp",
-      "CandidateFiles": 1,
+      "CandidateFiles": 0,
       "CandidateGB": 0.0
     },
     {
@@ -18,8 +18,8 @@
       "CandidateGB": 0.0
     },
     {
-      "Path": "C:\\Users\\PASQUA~1\\AppData\\Local\\Temp",
-      "CandidateFiles": 1,
+      "Path": "C:\\DataHub\\Temp\\User",
+      "CandidateFiles": 0,
       "CandidateGB": 0.0
     },
     {
@@ -29,6 +29,11 @@
     },
     {
       "Path": "C:\\Users\\Pasquale Lombardi\\AppData\\Local\\Microsoft\\\\Windows\\\\WER",
+      "CandidateFiles": 0,
+      "CandidateGB": 0.0
+    },
+    {
+      "Path": "C:\\\\Windows\\\\SoftwareDistribution\\\\Download",
       "CandidateFiles": 0,
       "CandidateGB": 0.0
     }

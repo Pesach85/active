@@ -17,6 +17,22 @@
 
 [32;1mScore              : [0m68
 [32;1mRecommendation     : [0mMedium
+[32;1mDrive              : [0mC
+[32;1mPath               : [0mC:\$Recycle.Bin
+[32;1mCategory           : [0mRecycle
+[32;1mProvenance         : [0mApplication
+[32;1mDominantType       : [0mMixed
+[32;1mFilesScanned       : [0m6
+[32;1mStaleFiles         : [0m6
+[32;1mStalePct           : [0m100
+[32;1mEstimatedReclaimGB : [0m0
+[32;1mTotalScannedGB     : [0m0
+[32;1mDepth              : [0mQuick
+[32;1mAuditLevel         : [0mFileLevel
+[32;1mCleanupMode        : [0mSafe
+
+[32;1mScore              : [0m68
+[32;1mRecommendation     : [0mMedium
 [32;1mDrive              : [0mD
 [32;1mPath               : [0mD:\\$Recycle.Bin
 [32;1mCategory           : [0mRecycle
@@ -47,15 +63,15 @@
 [32;1mAuditLevel         : [0mFileLevel
 [32;1mCleanupMode        : [0mSafe
 
-[32;1mScore              : [0m68
+[32;1mScore              : [0m66
 [32;1mRecommendation     : [0mMedium
 [32;1mDrive              : [0mC
-[32;1mPath               : [0mC:\$Recycle.Bin
-[32;1mCategory           : [0mRecycle
+[32;1mPath               : [0mC:\Dell
+[32;1mCategory           : [0mOther
 [32;1mProvenance         : [0mApplication
-[32;1mDominantType       : [0mMixed
-[32;1mFilesScanned       : [0m6
-[32;1mStaleFiles         : [0m6
+[32;1mDominantType       : [0mTransient
+[32;1mFilesScanned       : [0m2
+[32;1mStaleFiles         : [0m2
 [32;1mStalePct           : [0m100
 [32;1mEstimatedReclaimGB : [0m0
 [32;1mTotalScannedGB     : [0m0
@@ -63,34 +79,34 @@
 [32;1mAuditLevel         : [0mFileLevel
 [32;1mCleanupMode        : [0mSafe
 
-[32;1mScore              : [0m64,8
-[32;1mRecommendation     : [0mMedium
-[32;1mDrive              : [0mD
-[32;1mPath               : [0mD:\Condivisa_con_Macchine_Virtuali
-[32;1mCategory           : [0mVirtualization
-[32;1mProvenance         : [0mVirtualization
-[32;1mDominantType       : [0mInstallerBinary
-[32;1mFilesScanned       : [0m6000
-[32;1mStaleFiles         : [0m6000
-[32;1mStalePct           : [0m100
-[32;1mEstimatedReclaimGB : [0m15,72
-[32;1mTotalScannedGB     : [0m15,72
-[32;1mDepth              : [0mQuick
-[32;1mAuditLevel         : [0mFileLevel
-[32;1mCleanupMode        : [0mSafe
-
-[32;1mScore              : [0m64,2
+[32;1mScore              : [0m64
 [32;1mRecommendation     : [0mMedium
 [32;1mDrive              : [0mC
 [32;1mPath               : [0mC:\Users\Pasquale Lombardi\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Cache
 [32;1mCategory           : [0mBrowser
 [32;1mProvenance         : [0mUserProfile
 [32;1mDominantType       : [0mMixed
-[32;1mFilesScanned       : [0m623
-[32;1mStaleFiles         : [0m623
+[32;1mFilesScanned       : [0m1
+[32;1mStaleFiles         : [0m1
 [32;1mStalePct           : [0m100
-[32;1mEstimatedReclaimGB : [0m0,095
-[32;1mTotalScannedGB     : [0m0,095
+[32;1mEstimatedReclaimGB : [0m0
+[32;1mTotalScannedGB     : [0m0
+[32;1mDepth              : [0mQuick
+[32;1mAuditLevel         : [0mFileLevel
+[32;1mCleanupMode        : [0mSafe
+
+[32;1mScore              : [0m64
+[32;1mRecommendation     : [0mMedium
+[32;1mDrive              : [0mC
+[32;1mPath               : [0mC:\Users\Pasquale Lombardi\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Cache
+[32;1mCategory           : [0mBrowser
+[32;1mProvenance         : [0mUserProfile
+[32;1mDominantType       : [0mMixed
+[32;1mFilesScanned       : [0m1
+[32;1mStaleFiles         : [0m1
+[32;1mStalePct           : [0m100
+[32;1mEstimatedReclaimGB : [0m0
+[32;1mTotalScannedGB     : [0m0
 [32;1mDepth              : [0mQuick
 [32;1mAuditLevel         : [0mFileLevel
 [32;1mCleanupMode        : [0mSafe
@@ -107,6 +123,22 @@
 [32;1mStalePct           : [0m100
 [32;1mEstimatedReclaimGB : [0m0,007
 [32;1mTotalScannedGB     : [0m0,007
+[32;1mDepth              : [0mQuick
+[32;1mAuditLevel         : [0mFileLevel
+[32;1mCleanupMode        : [0mSafe
+
+[32;1mScore              : [0m57,3
+[32;1mRecommendation     : [0mMedium
+[32;1mDrive              : [0mC
+[32;1mPath               : [0mC:\DataHub
+[32;1mCategory           : [0mOther
+[32;1mProvenance         : [0mApplication
+[32;1mDominantType       : [0mMixed
+[32;1mFilesScanned       : [0m6000
+[32;1mStaleFiles         : [0m5995
+[32;1mStalePct           : [0m99,9
+[32;1mEstimatedReclaimGB : [0m5,13
+[32;1mTotalScannedGB     : [0m5,35
 [32;1mDepth              : [0mQuick
 [32;1mAuditLevel         : [0mFileLevel
 [32;1mCleanupMode        : [0mSafe
@@ -175,48 +207,16 @@
 [32;1mAuditLevel         : [0mFileLevel
 [32;1mCleanupMode        : [0mSafe
 
-[32;1mScore              : [0m49,6
-[32;1mRecommendation     : [0mMedium
-[32;1mDrive              : [0mD
-[32;1mPath               : [0mD:\CsharpSW_test
-[32;1mCategory           : [0mOther
-[32;1mProvenance         : [0mApplication
-[32;1mDominantType       : [0mMixed
-[32;1mFilesScanned       : [0m185
-[32;1mStaleFiles         : [0m185
-[32;1mStalePct           : [0m100
-[32;1mEstimatedReclaimGB : [0m0,006
-[32;1mTotalScannedGB     : [0m0,006
-[32;1mDepth              : [0mQuick
-[32;1mAuditLevel         : [0mFileLevel
-[32;1mCleanupMode        : [0mSafe
-
-[32;1mScore              : [0m49,3
-[32;1mRecommendation     : [0mMedium
-[32;1mDrive              : [0mC
-[32;1mPath               : [0mC:\iso_xubuntu
-[32;1mCategory           : [0mOther
-[32;1mProvenance         : [0mApplication
-[32;1mDominantType       : [0mArchive
-[32;1mFilesScanned       : [0m1
-[32;1mStaleFiles         : [0m1
-[32;1mStalePct           : [0m100
-[32;1mEstimatedReclaimGB : [0m0,736
-[32;1mTotalScannedGB     : [0m0,736
-[32;1mDepth              : [0mQuick
-[32;1mAuditLevel         : [0mFileLevel
-[32;1mCleanupMode        : [0mSafe
-
-[32;1mScore              : [0m49,2
+[32;1mScore              : [0m48,9
 [32;1mRecommendation     : [0mMedium
 [32;1mDrive              : [0mC
 [32;1mPath               : [0mC:\inetpub
 [32;1mCategory           : [0mOther
 [32;1mProvenance         : [0mIIS
 [32;1mDominantType       : [0mMixed
-[32;1mFilesScanned       : [0m98
+[32;1mFilesScanned       : [0m97
 [32;1mStaleFiles         : [0m97
-[32;1mStalePct           : [0m99
+[32;1mStalePct           : [0m100
 [32;1mEstimatedReclaimGB : [0m0,001
 [32;1mTotalScannedGB     : [0m0,001
 [32;1mDepth              : [0mQuick

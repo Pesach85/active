@@ -1,0 +1,53 @@
+{
+  "TimestampUTC": "2026-05-04T07:52:31.0435351Z",
+  "PagefileMetrics": {
+    "ConfiguredPageFiles": [],
+    "ActivePageFileUsage": []
+  },
+  "SystemPerformance": {
+    "FreeMemoryMB": 1925.46,
+    "CPULoadPercent": 65.0,
+    "NVMeHealthStatus": "Operational",
+    "TotalMemoryGB": 15.87,
+    "MemoryUsedPercent": 88.15
+  },
+  "Phase": "Wave3-Observation",
+  "Verdict": {
+    "RecommendedAction": "Wave4-Ready",
+    "AllChecksPass": true,
+    "RegressionDetected": false
+  },
+  "WriteOffloadValidation": {
+    "UserTempRelocated": true,
+    "DataHubSubdirectoriesExist": {
+      "TempUser": true,
+      "CacheBrowsers": true,
+      "TempSystem": true,
+      "CacheApps": true,
+      "PkgCache": true
+    },
+    "BrowserCacheSymlinks": {
+      "ChromeIntact": true,
+      "FirefoxIntact": false,
+      "EdgeIntact": true
+    },
+    "MachineTemp": "C:\\DataHub\\Temp\\System",
+    "MachineTempRelocated": true,
+    "UserTempPath": "C:\\DataHub\\Temp\\User",
+    "DataHubMountExists": true
+  },
+  "Timestamp": "2026-05-04 09:52:31.042",
+  "ApplicationStability": {
+    "LastHourCrashes": 0,
+    "LastHourWarnings": 0,
+    "Last24hCrashes": 0
+  },
+  "NVMeMetrics": {
+    "TimestampUTC": "2026-05-04T07:52:33.3551541Z",
+    "CUsedPct": 90.87,
+    "CTotalGB": 223.42,
+    "CFreePct": 9.13,
+    "CFreeBytes": 21896744960,
+    "CUsedGB": 203.03
+  }
+}

@@ -1,14 +1,14 @@
 
-[32;1mMode           : [0mAUDIT
+[32;1mMode           : [0mEXECUTE
 [32;1mCleanupMode    : [0mSafe
-[32;1mAuditDepth     : [0mStandard
-[32;1mAuditLevel     : [0mBitLevel
+[32;1mAuditDepth     : [0mQuick
+[32;1mAuditLevel     : [0mFileLevel
 [32;1mCandidateFiles : [0m0
 [32;1mCandidateGB    : [0m0
 [32;1mDeletedFiles   : [0m0
 [32;1mDeletedGB      : [0m0
-[32;1mPre            : [0m{@{Name=C; FreeGB=10,88; UsedGB=211,22; TotalGB=222,1}, @{Name=D; FreeGB=3,29; UsedGB=928,22; 
-                 TotalGB=931,51}}
-[32;1mPost           : [0m{@{Name=C; FreeGB=10,88; UsedGB=211,22; TotalGB=222,1}, @{Name=D; FreeGB=3,29; UsedGB=928,22; 
-                 TotalGB=931,51}}
+[32;1mPre            : [0m{@{Name=C; FreeGB=13,31; UsedGB=210,11; TotalGB=223,42}, @{Name=D; FreeGB=784,18; UsedGB=1078,82; 
+                 TotalGB=1863}}
+[32;1mPost           : [0m{@{Name=C; FreeGB=13,31; UsedGB=210,11; TotalGB=223,42}, @{Name=D; FreeGB=784,18; UsedGB=1078,82; 
+                 TotalGB=1863}}
 

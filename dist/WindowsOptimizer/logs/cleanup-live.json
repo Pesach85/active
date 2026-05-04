@@ -1,8 +1,8 @@
 {
-  "Mode": "AUDIT",
+  "Mode": "EXECUTE",
   "CleanupMode": "Safe",
-  "AuditDepth": "Standard",
-  "AuditLevel": "BitLevel",
+  "AuditDepth": "Quick",
+  "AuditLevel": "FileLevel",
   "CandidateFiles": 0,
   "CandidateGB": 0.0,
   "DeletedFiles": 0,
@@ -10,29 +10,29 @@
   "Pre": [
     {
       "Name": "C",
-      "FreeGB": 10.88,
-      "UsedGB": 211.22,
-      "TotalGB": 222.1
+      "FreeGB": 13.31,
+      "UsedGB": 210.11,
+      "TotalGB": 223.42
     },
     {
       "Name": "D",
-      "FreeGB": 3.29,
-      "UsedGB": 928.22,
-      "TotalGB": 931.51
+      "FreeGB": 784.18,
+      "UsedGB": 1078.82,
+      "TotalGB": 1863.0
     }
   ],
   "Post": [
     {
       "Name": "C",
-      "FreeGB": 10.88,
-      "UsedGB": 211.22,
-      "TotalGB": 222.1
+      "FreeGB": 13.31,
+      "UsedGB": 210.11,
+      "TotalGB": 223.42
     },
     {
       "Name": "D",
-      "FreeGB": 3.29,
-      "UsedGB": 928.22,
-      "TotalGB": 931.51
+      "FreeGB": 784.18,
+      "UsedGB": 1078.82,
+      "TotalGB": 1863.0
     }
   ]
 }

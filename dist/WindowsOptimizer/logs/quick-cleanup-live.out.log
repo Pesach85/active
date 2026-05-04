@@ -2,12 +2,12 @@
 [32;1mMode              : [0mEXECUTE
 [32;1mRetentionDays     : [0m2
 [32;1mMaxFilesPerTarget : [0m2000
-[32;1mCandidateFiles    : [0m2
+[32;1mCandidateFiles    : [0m0
 [32;1mCandidateGB       : [0m0
-[32;1mDeletedFiles      : [0m2
+[32;1mDeletedFiles      : [0m0
 [32;1mDeletedGB         : [0m0
-[32;1mTargets           : [0m{@{Path=C:\\Windows\\Temp; CandidateFiles=1; CandidateGB=0}, @{Path=C:\\logs; CandidateFiles=0; 
-                    CandidateGB=0}, @{Path=C:\Users\PASQUA~1\AppData\Local\Temp; CandidateFiles=1; CandidateGB=0}, 
+[32;1mTargets           : [0m{@{Path=C:\\Windows\\Temp; CandidateFiles=0; CandidateGB=0}, @{Path=C:\\logs; CandidateFiles=0; 
+                    CandidateGB=0}, @{Path=C:\DataHub\Temp\User; CandidateFiles=0; CandidateGB=0}, 
                     @{Path=C:\Users\Pasquale Lombardi\AppData\Local\Microsoft\\Windows\\INetCache; CandidateFiles=0; 
                     CandidateGB=0}.}
 
