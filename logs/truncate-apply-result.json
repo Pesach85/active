@@ -1,0 +1,16 @@
+{
+  "WHEARate_Baseline_PreBadmem": 838,
+  "BlockedMethod": "bcdedit /set {current} - blocked by Secure Boot policy",
+  "FailingRegionGB": 10.6471,
+  "TruncateGB": 10.625,
+  "SafetyMarginMB": 22.6,
+  "WHEARate_PreApply": 596,
+  "ExpectedOutcome": "If WHEA storm -> 0 after reboot: DRAM page fault confirmed, hardware fix needed. If storm persists: IMC path issue.",
+  "RebootRequired": true,
+  "BadmemoryListPFNs": 34,
+  "TruncateValue": "0x2A8000000",
+  "Timestamp": "2026-05-04T13:03:58",
+  "Status": "Applied",
+  "Rollback": "mountvol X: /S && bcdedit /store X:\\EFI\\Microsoft\\Boot\\BCD /deletevalue {default} truncatememory && mountvol X: /D",
+  "Method": "bcdedit /store EFI_BCD_file"
+}
