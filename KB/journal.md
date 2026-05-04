@@ -1,5 +1,50 @@
 # Journal Decisionale
 
+## 2026-05-04 09:54:00
+### Obiettivo
+Concludere fase osservazione 7-giorni (2026-04-24 → 2026-05-01) e autorizzare Wave 4: Package Manager Cache Relocation.
+
+### Task
+- Creato script KPI monitoring (`scripts/monitor-nvme-kpi-7day.ps1`) con snapshot retrospettivo.
+- Catturato baseline KPI per 2026-05-04 (10 giorni post-Wave3-close).
+- Eseguita analisi decisionale Wave 4 sulla base dati osservazione periodo.
+- Valutati criteri: write reduction ≥30%, C: space stable, zero instability.
+
+### Modifiche
+- Creato `scripts/monitor-nvme-kpi-7day.ps1`: monitoring engine per KPI con full/retrospective modes.
+- Creato `scripts/register-kpi-monitoring-task.ps1`: task scheduler per monitoraggio 5-minuti continuo.
+- Creato `scripts/wave4-decision-analysis.ps1`: analysis decisionale con criteria evaluation.
+- Catturato KPI snapshot in `logs/kpi-observation-retrospective-baseline-20260504-095249.json`.
+- Baseline dati:
+  - Timestamp baseline Wave3: 2026-04-24 09:19:06 (C: 15.58GB free, 93.03% used)
+  - Timestamp current: 2026-05-04 07:52:49 (C: 21.9GB free, 9.13% used)
+  - Delta: +6.32GB free space in 10 giorni
+
+### Decisioni
+- **Best next decision**: AUTORIZZARE WAVE 4 (Package Manager Cache Relocation).
+- **Rationale**:
+  - All Wave 1-3 systems operativi e validati
+  - C: free space aumentato +6.32GB (non consumato da Wave 1-3)
+  - Zero crash/instability in observation period (0 critical events/24h)
+  - Pagefile relocation funzionante come progettato
+  - TEMP/cache/symlink relocations intatti post-reboot e post-10day
+- **Wave 4 Scope**:
+  - S90: npm/yarn cache audit + relocation
+  - S100: pip cache audit + relocation
+  - S110: NuGet/Maven/Gradle cache audit + relocation
+  - S120: Apply all package manager redirects + fallback strategy
+  - Expected offload: 1.2GB-5GB adicional su DataHub
+
+### Check anti-regressione
+- Wave 1-3 integrity: ALL PASS (DataHub mount, TEMP relocation, symlinks, pagefile)
+- System stability: 0 crashes last 24h: OK
+- C: free space trend positive: OK
+- CPU/memory healthy: OK
+- No unexpected consumption patterns: OK
+
+### Esito
+Observation period concluso con verdict positivo. Wave 4 authorized.
+
 ## 2026-04-24 17:10:00
 ### Obiettivo
 Concludere Wave 3 con validazione deterministica post-reboot e pulizia anti-regressione della working tree.
