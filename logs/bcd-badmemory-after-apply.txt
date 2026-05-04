@@ -1,0 +1,4 @@
+
+Problemi RAM
+-----------
+identificatore          {badmemory}

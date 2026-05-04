@@ -1,0 +1,11 @@
+{
+  "CapturedAt": "2026-05-04 12:38:16",
+  "WindowMinutes": 10,
+  "TotalEvents": 838,
+  "ByMinute": [
+    {
+      "Minute": "2026-05-04 12:38",
+      "Count": 838
+    }
+  ]
+}

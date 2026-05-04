@@ -831,3 +831,108 @@ Eseguiti step S00,S10,S20,S30 con audit/apply e check pass/fail
 
 ### Esito
 Completato
+
+## 2026-05-04 12:21:50
+### Obiettivo
+Diagnosi deterministica problema CPU-RAM e verifica possibilità di fix no-regressione
+
+### Task
+Raccolta evidenze hardware live (RAM topology, bandwidth, WHEA), ripristino telemetria EventLog, classificazione causa
+
+### Modifiche
+- Rilevato EventLog disabilitato: Status=Stopped, StartType=Disabled
+- Applicato fix osservabilità: EventLog impostato Automatic e avviato (Running)
+- Misurata banda memoria con winsat mem: 21257.37 MB/s
+- Confermato hardware RAM: 1 modulo DDR4-2400 da 16GB su DIMM A, slot totali 2 (single-channel)
+- Query WHEA 30 giorni: nessun evento Microsoft-Windows-WHEA-Logger
+
+### Decisioni
+- Best next decision: classificare il problema come limite architetturale single-channel, non errore corretto CPU↔RAM attualmente osservabile
+- Soluzione deterministica primaria: upgrade hardware a dual-channel con modulo matching 16ATF2G64HZ-2G3B1 (o equivalente DDR4-2400 SODIMM)
+- No-regressione: nessuna modifica BIOS/voltaggi/timings in questa fase; mantenere interventi software minimi e reversibili
+
+### Esito
+Diagnosi completata con evidenze oggettive; fix software non risolutivo per bandwidth, fix hardware richiesto.
+
+## 2026-05-04 12:31:30
+### Obiettivo
+Identificazione sorgente evento WHEA nonostante log storici eliminati
+
+### Task
+Forensics su canali WHEA dedicati, CPER raw, WER kernel reports e stato badmemory BCD
+
+### Modifiche
+- Confermata presenza errori correnti su Microsoft-Windows-Kernel-WHEA/Errors (Event ID 20 ripetuti)
+- Decodifica XML/RawData CPER: presenti GUID di sezioni processor generic/specific/context/bus (sorgente lato CPU/MCE, non storage)
+- Correlazione storica con Linux RAS soft-offlining + Memory failure uncorrectable page: pattern compatibile con fault memory-path
+- Verifica BCD badmemory: oggetto presente ma senza lista pagine persistita
+
+### Decisioni
+- Best next decision: trattare incidente come hardware memory-path (DIMM/slot/IMC) con priorità diagnostica offline e sostituzione componente difettoso
+- No-regressione: evitare disattivazione EventLog; preferire canali WHEA con retention minima e overwrite per contenere spazio senza perdere diagnosi
+- Soluzione deterministica root-cause: isolamento componente (test modulo/slot) e sostituzione modulo RAM; workaround deterministico opzionale: quarantena PFN noti in badmemorylist
+
+### Esito
+Sorgente evento identificata deterministicamente a livello WHEA/CPER; definita strategia di remediation a rischio controllato.
+
+## 2026-05-04 12:31:59
+### Obiettivo
+Ridurre scritture log mantenendo visibilità guasti hardware
+
+### Task
+Applicata policy WHEA circular logging con max size ridotto e overwrite
+
+### Modifiche
+- Canale Microsoft-Windows-Kernel-WHEA/Errors impostato a maxSize=1052672, retention=false, autoBackup=false
+- Canale Microsoft-Windows-Kernel-WHEA/Operational impostato a maxSize=2097152, retention=false, autoBackup=false
+- EventLog mantenuto attivo per non perdere diagnosi critica
+
+### Decisioni
+- Best next decision: mantenere logging WHEA minimale circolare invece di disattivare EventLog
+- Se il rate resta alto, passare a isolamento hardware DIMM/slot senza ulteriori tweak software
+
+### Esito
+Mitigazione no-regressione applicata: scritture e spazio log contenuti, diagnostica preservata.
+
+## 2026-05-04 12:35:34
+### Obiettivo
+Definire workaround deterministico per ridurre perdita prestazioni con errori WHEA memory-path attivi
+
+### Task
+Creazione script di mitigazione audit/apply/rollback con modello PFN->badmemory/truncate e test audit con PFN noti
+
+### Modifiche
+- Creato scripts/mitigate-memory-path-degradation.ps1 con modalita Audit, ApplyBadPages, ApplyTruncate, Rollback
+- Parser PFN robusto (input esadecimale e decimale)
+- Eseguito audit con PFN 0x2a96a3 e 0x2a9a63: regione difettosa ~10.647-10.651 GB
+- Suggerito ordine no-regressione: prima badmemorylist, poi truncatememory solo se storm persiste
+
+### Decisioni
+- Best next decision: applicare quarantena bad pages come primo workaround a impatto minimo sulla RAM disponibile
+- Fallback deterministico: rollback completo via deletevalue su badmemorylist/truncatememory
+- Soluzione definitiva resta sostituzione componente hardware difettoso
+
+### Esito
+Workaround operativo pronto e validato in audit; nessuna modifica boot applicata in automatico.
+
+## 2026-05-04 12:39:40
+### Obiettivo
+Esecuzione automatica mitigazione perdita prestazioni con errore WHEA attivo
+
+### Task
+Eseguiti baseline, audit, apply badmemorylist e verifica configurazione con output salvati
+
+### Modifiche
+- Baseline pre-apply: logs/whea-errors-rate-preapply.json (838 eventi/10 min)
+- Audit mitigazione: logs/memory-path-mitigation-audit.json
+- Apply bad pages completato: logs/memory-path-mitigation-apply-badpages.json
+- Conferma BCD badmemorylist attivo: logs/bcd-badmemory-after-apply.txt
+- Stato post-apply salvato: logs/memory-path-mitigation-postapply-status.json
+
+### Decisioni
+- Best next decision: riavvio controllato e misurazione post-boot del rate WHEA per validare riduzione effettiva
+- TruncateMemory non applicato ora: step condizionale solo se storm persiste dopo reboot
+- Rollback pronto e deterministico via script Mode Rollback
+
+### Esito
+Mitigazione primaria applicata con successo; verifica prestazionale finale pendente al reboot.

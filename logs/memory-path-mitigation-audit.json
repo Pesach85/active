@@ -1,0 +1,44 @@
+﻿{
+  "GeneratedAt": "2026-05-04 12:38:19",
+  "Mode": "Audit",
+  "Inputs": {
+    "BadPfnsHex": [
+      "0x2a96a3",
+      "0x2a9a63"
+    ],
+    "IncludeNeighbors": true,
+    "NeighborWindow": 8,
+    "SafetyGapGB": 0.5
+  },
+  "System": {
+    "ComputerName": "DESKTOP-86L04OV",
+    "OsVersion": "10.0.26100",
+    "TotalPhysicalMemoryGB": 15.87
+  },
+  "Analysis": {
+    "CurrentBootConfig": {
+      "BadMemoryObjectPresent": true,
+      "BadMemoryListConfigured": false,
+      "TruncateMemoryConfigured": false
+    },
+    "BadPageModel": {
+      "InputPfns": [
+        "0x2a96a3",
+        "0x2a9a63"
+      ],
+      "ExpandedPfnCount": 34,
+      "MinPfn": "0x2a969b",
+      "MaxPfn": "0x2a9a6b",
+      "MinAddressGB": 10.647,
+      "MaxAddressGB": 10.651,
+      "SuggestedTruncateMemoryGB": 10.0
+    }
+  },
+  "Actions": [],
+  "Rollback": [
+    "cmd /c \"bcdedit /deletevalue {badmemory} badmemorylist\"",
+    "cmd /c \"bcdedit /deletevalue {current} truncatememory\""
+  ],
+  "BestNextDecision": "Applicare prima quarantena bad pages; se lo storm continua, applicare truncate memory e testare stabilita/performance.",
+  "Status": "Completed"
+}

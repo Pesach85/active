@@ -1,0 +1,7 @@
+{
+  "CapturedAt": "2026-05-04 12:39:38",
+  "BadMemoryListConfigured": true,
+  "TruncateMemoryConfigured": false,
+  "RebootRequired": true,
+  "NextStep": "Reboot and measure WHEA errors/min for 30-60 min workload"
+}
