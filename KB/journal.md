@@ -198,6 +198,137 @@ Best next decision: mantenere questo workaround esteso e riavviare per validare 
 ### Esito
 Workaround applicato correttamente. Reboot richiesto per effetto completo. Dopo reboot misurare: WHEA/10min, WHEA since boot, EventID mix, WinSAT mem.
 
+## 2026-05-06 — Monitoring e Analisi GUI per WHEA post-mitigazione
+
+### Obiettivo
+Creare framework di monitoraggio continuo per tracciare il tasso WHEA durante la fase di osservazione 24h (Wave 5) e fornire dashboard interattivo per l'analisi operativa della situazione post-mitigazione.
+
+### Task
+1. Script di monitoraggio continuo per conteggio WHEA ogni 10 minuti
+2. GUI interattivo per visualizzazione trend, breakdown by Event ID, e stabilità del sistema
+3. Pattern riusabile per altre installazioni con WHEA issues
+
+### Pattern di Monitoraggio WHEA (Reusable)
+
+#### 1. Script: `scripts/monitor-whea-rate.ps1`
+**Funzionalità:**
+- Conta errori WHEA (corrected + uncorrected) in finestra di 10 minuti
+- Legge da canali Windows:
+  - `Microsoft-Windows-Kernel-WHEA/Errors` (corrected errors)
+  - `System` log con filter `ProviderName=Microsoft-Windows-WHEA-Logger` (uncorrected errors)
+- Registra snapshot JSON con timestamp, conteggio totale, breakdown per Event ID
+- Mantiene cronologia rolling 24h (144 snapshots * 10min)
+- Calcola media mobile 24h e trend (up/stable/down)
+
+**Invocazione:**
+```powershell
+# Monitoraggio immediato (output console)
+pwsh scripts/monitor-whea-rate.ps1
+
+# Mode Retrospective: capture baseline
+pwsh scripts/monitor-whea-rate.ps1 -Retrospective
+
+# Quiet mode per task scheduler
+pwsh scripts/monitor-whea-rate.ps1 -Quiet
+```
+
+**Output JSON** (`logs/whea-monitoring-continuous.json`):
+```json
+{
+  "RowVersion": 1,
+  "CreatedUTC": "2026-05-06T15:32:26Z",
+  "MitigationApplied": true,
+  "MitigationScope": "badmemorylist (721 PFN, NeighborWindow=180)",
+  "Measurements": [
+    {
+      "TimestampUTC": "2026-05-06T15:32:26Z",
+      "CorrectedCount": 136,
+      "UncorrectedCount": 0,
+      "TotalCount": 136,
+      "CorrectedByID": { "20": 136 },
+      "UncorrectedByID": {}
+    }
+  ],
+  "LastUpdate": "2026-05-06T15:42:26Z",
+  "RollingAverage24h": 245.5,
+  "Trend": "stable",
+  "LatestTotal": 136
+}
+```
+
+**Decision Criteria (post-Wave 4 mitigation):**
+- **Green (<300/10min):** Mitigazione efficace, proceed with observation
+- **Yellow (300-600/10min):** Continue observation, monitor for patterns
+- **Red (>600/10min):** Escalate: consider truncatememory + Secure Boot disable, or further expansion
+
+#### 2. GUI: `scripts/analyze-whea-gui.ps1`
+**Componenti:**
+1. **Live Gauge Panel** (left side):
+   - Current 10-min WHEA rate con color-coded status (green/yellow/red)
+   - Display: corrected vs uncorrected count
+   - 24h rolling average
+   - Trend indicator (↑/→/↓)
+   - Last update timestamp
+
+2. **24-Hour Trend Chart** (top right):
+   - Line chart showing historical trend last 144 measurements (24h)
+   - Axis: time (X) vs WHEA count (Y)
+   - Reference bands: 0-300 (green), 300-600 (yellow), 600+ (red)
+   - Visualization of mitigation effectiveness over time
+
+3. **Event ID Histogram** (bottom right):
+   - Side-by-side bar chart: Event ID vs Count
+   - Two series: Corrected (green) vs Uncorrected (red)
+   - Helps identify error patterns (e.g., ID 20 dominance indicates memory-path issues)
+
+4. **Controls:**
+   - `🔄 Refresh` button: reload data from JSON and update all charts
+   - `📊 Export CSV` button: export measurements to desktop as timestamped CSV
+
+**Invocazione:**
+```powershell
+# Launch GUI
+pwsh scripts/analyze-whea-gui.ps1
+```
+
+**Data Source:** Reads `logs/whea-monitoring-continuous.json` (populated by monitor script)
+
+#### 3. WinForms Anti-Pattern Guards Applied
+Per `KB/powershell-winforms-patterns.md`:
+- ✅ **Dock z-order**: Fill control (rightPanel) added before edge controls (leftPanel, topPanel)
+- ✅ **Event handler scoping**: All `.Add_Click()` handlers use `$sender` parameter, no closure over locals
+- ✅ **Arithmetic safety**: All canvas dimension calculations cast to `[int]` before operations
+- ✅ **Layout guard**: Form layout wrapped in `SuspendLayout()/ResumeLayout($false)`
+- ✅ **Transient forms**: N/A (modal dialog only on export/error)
+
+### Configurazione Scheduled Task (Automated Monitoring)
+
+Per eseguire monitoraggio automatico ogni 10 minuti:
+```powershell
+$trigger = New-ScheduledTaskTrigger -RepetitionInterval 00:10:00 -RepeatIndefinitely
+$action = New-ScheduledTaskAction -Execute "pwsh" -Argument "-NoProfile -NonInteractive -File C:\SystemOptimizerHub\active\scripts\monitor-whea-rate.ps1 -Quiet"
+$principal = New-ScheduledTaskPrincipal -UserID "SYSTEM" -RunLevel Highest
+Register-ScheduledTask -TaskName "WHEA-Monitor-Continuous" -Trigger $trigger -Action $action -Principal $principal -Force
+```
+
+### Metriche per Prossima Decisione (24h Observation Phase)
+
+**Checkpoints richiesti:**
+1. ✅ Checkpoint 1 (post-reboot immediato): 136/10min (validazione baseline post-mitigation estesa)
+2. ⏳ Checkpoint 2 (8-12h dopo): trend osservazione
+3. ⏳ Checkpoint 3 (20-24h dopo): conferma stabilità
+
+**Regola decisionale finale:**
+- **Se tutti ≤300/10min:** Congelare badmemorylist, schedule DIMM replacement, passare Wave 5
+- **Se ≥1 >300/10min ma <600:** Continue observation, gather more data
+- **Se ≥1 >600/10min:** Escalate via truncatememory con Secure Boot disable, oppure espansione ulteriore
+
+### Evidenze e Esito
+- ✅ `scripts/monitor-whea-rate.ps1` creato e testato
+- ✅ `scripts/analyze-whea-gui.ps1` creato e testato
+- ✅ Pattern WinForms anti-regression verificato
+- ⏳ Monitoring attivo durante Wave 5 (24h observation window)
+
 ## 2026-05-04 — Post-RAM Swap Validation (Data-Driven)
 
 ### Obiettivo
