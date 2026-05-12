@@ -1,3 +1,61 @@
+## 2026-05-12 — Mitigazione MCE L1 Cache CPU (HWiNFO WHEA counter)
+
+### Obiettivo
+Ridurre drasticamente gli errori "Errori L1 della cache della CPU" visibili in HWiNFO (349.253 totali, 12.493 sessione corrente).
+
+### Analisi
+- Fonte errori: **Correctable Machine Check Exceptions (CMCE)** lette da HWiNFO direttamente dai registri MSR della CPU — NON eventi nel Windows Event Log (WHEA-Logger = 0 eventi).
+- Tipo: L1 cache correctable errors (MCA Bank 0/1 Intel), corretti automaticamente dall'hardware ma il counter MSR si accumula.
+- **Causa radice identificata**: Power plan "Prestazioni elevate" + ThrottleStop con SpeedShift EPP attivo (TSOptions1=0x00302040, LimitTurbo=FALSE) → CPU boosta costantemente al massimo Turbo → stress termico/voltaggio sulla L1 cache → MCE accumulation.
+- ThrottleStop confermato in esecuzione; FIVR undervolting NON attivo; Turbo Boost completamente libero.
+- Windows Event Log: 0 WHEA events (i CMCE non vengono loggati, solo uncorrectable/fatal errors).
+
+### Task
+Creato `scripts/mitigate-cpu-l1-mce.ps1` con modalità Audit/Apply/Rollback.
+
+### Modifiche
+- **Level 1 (applicato)**: Switch power plan → Bilanciato + MaxProcessorState=99% (AC+DC) → Turbo Boost disabilitato via P-state driver.
+- **Level 2 (applicato)**: ThrottleStop.ini patch: Options1-4 bit 1 (LimitTurbo) settato su tutti e 4 i profili (0x00302040→0x00302042, 0x00302160→0x00302162); ThrottleStop riavviato.
+- Backup rollback salvato: `logs/cpu-l1-mce-rollback-state.json`
+- Backup ThrottleStop.ini: `ThrottleStop.backup-20260512-100014.ini`
+
+### Decisioni
+- Non necessario FIVR undervolting: non era attivo, non è la causa.
+- Approccio incrementale: Level 1 è sufficiente per la maggior parte dei sistemi; Level 2 aggiunge ridondanza per garantire che ThrottleStop non re-abiliti Turbo al prossimo riavvio.
+- Rollback completo disponibile: `pwsh -File scripts\mitigate-cpu-l1-mce.ps1 -Mode Rollback`.
+
+### Check anti-regressione
+- Il counter HWiNFO è cumulativo dal boot — NON si azzera. Osservare la **velocità di aumento** del counter per 10-15 minuti.
+- Riduzione attesa: 60-80% del rate di accumulo MCE.
+- Se prestazioni insufficienti: Rollback ripristina Prestazioni elevate + valori ThrottleStop originali.
+
+### Esito
+Mitigazione applicata (Level 1+2). Validazione in attesa: osservare HWiNFO nel corso della sessione.
+
+---
+
+## 2026-05-06 17:05:00
+### Obiettivo
+Valutare se espandere ulteriormente `badmemorylist` con ricerca volontaria di PFN attive e consolidare stato WHEA con handoff operativo.
+
+### Task
+Analisi di KB e log WHEA recenti, verifica script `mitigate-memory-path-degradation.ps1`, controllo live di configurazione `bcdedit {badmemory}` e tentativo misura eventi correnti.
+
+### Modifiche
+- Raccolte e confrontate le misure WHEA/10min principali: `838 -> 652 -> 596 -> 469 -> 136` nel percorso mitigazione.
+- Verificato che `badmemorylist` risulta attiva con lista PFN estesa (~721/722 PFN).
+- Verificato che il path `truncatememory` resta condizionato/bloccato da vincoli Secure Boot nel contesto attuale.
+- Validata la capacità dello script: accetta PFN in input ed espande con vicini; non include discovery affidabile di nuove PFN "attive" da runtime Windows.
+- Eseguito tentativo misura live eventi WHEA: comando eseguito ma con errore RPC su `Get-WinEvent`, quindi conteggio live non considerato conclusivo.
+
+### Decisioni
+- Non necessario oggi implementare espansione automatica aggressiva "PFN attive" senza nuova evidenza diagnostica, per evitare over-quarantine RAM e falsi positivi.
+- Mantenere configurazione corrente `badmemorylist` e proseguire con validazione conservativa.
+- Priorità hardware invariata: sostituzione modulo DIMM sospetto; mantenere mitigazione fino a verifica post-sostituzione.
+- Aprire follow-up operativo su canale EventLog/RPC per ripristinare telemetria live affidabile.
+
+### Esito
+Parziale (diagnosi e handoff completati; resta aperta verifica telemetria live RPC e ciclo post-sostituzione DIMM).
 # Journal Decisionale
 
 ## 2026-05-04 — One-click USB Capture Mode (USBPcap)
