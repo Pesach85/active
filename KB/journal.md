@@ -1,3 +1,58 @@
+## 2026-05-12 — Event Log Noise Reduction (disk I/O)
+
+### Obiettivo
+Eliminare il disk I/O continuo causato da canali Event Log verbose inutili su laptop standalone (non server, non dominio).
+
+### Analisi pre-intervento
+Totale file .evtx: **381 MB**. Rate eventi/h per canale:
+- `Kernel-WHEA/Errors`: 500/h, ID20 (MCE correctable, già in corso di riduzione)
+- `Hyper-V-VmSwitch-Operational`: 294/h (vEthernet WSL2 adapter noise)
+- `TaskScheduler/Operational`: 195/h (ogni task loggato per intero)
+- `Security`: 192/h (ID5379 = Credential Manager reads = 77/h)
+- `SMBServer/Operational`: 94/h (C:\Users share attiva — security risk)
+- `PowerShell/Operational` + `PowerShellCore/Operational`: 15MB ciascuno
+
+Security finding: `C:\Users` condivisa via SMB su laptop personale → HIGH risk.
+
+### Task
+Creato `scripts/tune-eventlog-noise.ps1` (Audit/Apply/Rollback).
+
+### Modifiche
+**DISABLE (8 canali — solo operational/debug noise):**
+- `Store/Operational`, `StorageManagement/Operational`, `Hyper-V-VmSwitch-Operational`
+- `StateRepository/Operational`, `Ntfs/Operational`, `AppXDeploymentServer/Operational`
+- `AppReadiness/Admin`, `GroupPolicy/Operational`
+
+**CAP circular (7 canali — mantieni utili, limita footprint):**
+- `Kernel-WHEA/Errors`: 1→8MB | `TaskScheduler`: 10→2MB
+- `PowerShell/Operational`: 15→4MB | `PowerShellCore/Operational`: 15→4MB
+- `Storage-Storport`: 32→4MB | `SMBServer`: 8→2MB | `SmbClient/Connectivity`: 8→2MB
+
+**AuditPol:**
+- `Altri eventi di gestione account` success=disable → elimina Event 5379 (77/h)
+
+**Clear immediato** dei file .evtx dei log disabilitati: **87.9 MB liberati** istantaneamente.
+
+### Risultato
+- Disco .evtx: 381.3 MB → 293.4 MB (-87.9 MB immediati, -~70 MB aggiuntivi con wrap)
+- Rate scrittura Event Log: attesa riduzione >70% del numero eventi/h
+- Backup rollback disponibile: `logs/eventlog-noise-rollback.json` + CSV auditpol
+
+### Decisioni
+- NON disabilitato il log WHEA principale (`Microsoft-Windows-WHEA-Logger`) — necessario per sicurezza hardware
+- NON rimossa la share C:\Users automaticamente — richiedeva conferma utente (flagged come security alert)
+- WSL2 (Kali Linux) funziona normalmente con `Hyper-V-VmSwitch-Operational` disabilitato (sono canali separati)
+
+### Check anti-regressione
+- Rollback completo: `pwsh -File scripts\tune-eventlog-noise.ps1 -Mode Rollback`
+- WSL2: testare `wsl --status` per confermare funzionamento (invariato)
+- File .evtx esistenti: non cancellati, solo svuotati via `wevtutil cl`
+
+### Esito
+Completato. Riduzione I/O immediata, spazio disco recuperato, log critici mantenuti.
+
+---
+
 ## 2026-05-12 — Mitigazione MCE L1 Cache CPU (HWiNFO WHEA counter)
 
 ### Obiettivo
