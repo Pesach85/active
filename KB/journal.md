@@ -1,3 +1,39 @@
+## 2026-05-12 — Event Log Round 2 + BSOD Post-Mortem
+
+### BSOD CRITICAL_PROCESS_DIED (0xEF) — Lesson Learned
+Script precedente (`tune-bloatware-services.ps1`) ha forzato lo stop di un servizio Dell con componenti kernel-mode. `Stop-Service -Force` su servizi con driver ring-0 = kernel integrity violation = BSOD istantaneo. Nessun minidump salvato (crash troppo veloce). **Regola permanente: MAI usare `Stop-Service -Force` su servizi di hardware vendor (Dell, Intel, BIOS-adjacent). Usare solo `Set-Service -StartupType Disabled` + reboot.**
+
+### Analisi post-BSOD (fonti disk I/O residue)
+Dopo reboot e disinstallazione manuale Dell SupportAssist (3 pacchetti), nuovo profilo eventi:
+- **MsiInstaller storm** (298 eventi/5min): TEMPORANEO — era la disinstallazione Dell in corso, completata alle 10:36:59
+- **TerminalServices LocalSessionManager ID59** (100 eventi/5min): `vmware-vmx.exe` chiama `RpcGetCurrentSessionCapabilities` ogni secondo mentre la VM è attiva = **strutturale finché VM in esecuzione**
+- **Application log**: 8 MB saturo di eventi MSI → cleanup immediato
+
+### Intervento
+- `TerminalServices-LocalSessionManager/Operational` + `/Admin`: **DISABLED** + svuotati
+- Application log: **CLEARED** (MsiInstaller storm finito)
+- Security log: capped **16MB** circular
+- WMI-Activity/Operational: capped **2MB** circular
+
+### Risultato post-intervento (rate 2 minuti)
+| Log | Prima | Dopo |
+|-----|-------|------|
+| TerminalServices | 100/5min | **0** (disabled) |
+| Application | 298/5min (MSI) | **0** |
+| Security | 22/5min | **0** |
+| TaskScheduler | 33/5min | 29/2min (normale, cap 2MB) |
+
+### Causa residua strutturale identificata
+Il disk I/O residuo da `System` (8-15 MB/s) è causato da:
+1. **VMware VMX con VM attiva**: I/O VM passa per driver vmware-vmx → System process
+2. **RAM al 83-94%**: pagefile in uso attivo (VMware Workstation occupa 55-60 MB + VM ocupa 8-9 GB)
+→ **Soluzione definitiva: sospendere la VM quando non in uso** (`vmrun suspend` o dal menu VMware)
+
+### Esito
+Event Log disk I/O strutturale azzerato. Disk I/O residuo da VMware/pagefile non è Event Log — è attività legittima della VM attiva.
+
+---
+
 ## 2026-05-12 — Event Log Noise Reduction (disk I/O)
 
 ### Obiettivo
