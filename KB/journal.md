@@ -1674,3 +1674,42 @@ Eseguiti baseline, audit, apply badmemorylist e verifica configurazione con outp
 
 ### Esito
 Mitigazione primaria applicata con successo; verifica prestazionale finale pendente al reboot.
+
+
+---
+
+## 2026-05-12 — Disk I/O 50 MB/s Causa Trovata e Risolta
+
+### Diagnosi
+- **EventLog svchost (PID 3376): 43 MB/s write** — sorgente principale identificata via WMI PerfFormattedData
+- Causa: 6 canali in overflow (superavano il loro cap, scrittura circolare continua):
+  | Canale | Dimensione | Cap |
+  |--------|-----------|-----|
+  | SMBServer/Operational | 8 MB | 2 MB |
+  | SmbClient/Connectivity | 8 MB | 2 MB |
+  | TaskScheduler/Operational | 9.1 MB | 2 MB |
+  | Kernel-WHEA/Errors | 32 MB | 8 MB |
+  | PowerShellCore/Operational | 15 MB | 4 MB |
+  | PowerShell/Operational | 15 MB | 4 MB |
+- VMware VMDK su D:\ già escluso da Defender — non contribuisce al picco
+
+### Fix applicati
+1. Svuotati e ricappati tutti i canali overflow → I/O EventLog da 43 MB/s → **<1 MB/s**
+2. `RicohDeviceSoftwareManager` (rorchcdk.exe, 56.8% CPU accumulato) → **Disabled** — nessun device Ricoh presente
+3. `DSAService` (Intel Driver Assistant, 113 MB RAM) → **Disabled** — non critico per funzionamento
+
+### Anti-regressione
+- I canali SMB torneranno a riempirsi se il C:\Users SMB share rimane attivo (attività SMB genera eventi continui)
+- **Raccomandazione SMB share**: rimuovere con `Remove-SmbShare -Name Users -Force` (richiede conferma utente)
+
+### Conclusione sistema — Limiti hardware fissi
+| Voce | Stato | Azione disponibile |
+|------|-------|-------------------|
+| VMware VMX 25.9% CPU | Normale (VM TIA Portal attiva) | Sospendi VM se non in uso |
+| RAM 82% | VM alloca 9.9 GB | Riduci RAM VM a 6-7 GB se TIA Portal lo tollera |
+| FIVR L1 | Locked BIOS (Plundervolt CVE-2019-11157) | Nessuna |
+| MCE ~1.5/h | C-State max C3 applicato, meglio di prima | PL1/PL2 throttling via TS (next step) |
+| EventLog I/O | **RISOLTO** da 43 MB/s a <1 MB/s | Monitorare SMBServer crescita |
+| Windows System Protection | RPSessionInterval=1, triggered da installer | Normale, non fonte del picco |
+| swprv (shadow copy) | StartType=Manual, si avvia/stoppa da solo | Nessuna azione necessaria |
+
