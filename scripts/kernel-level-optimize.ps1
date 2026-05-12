@@ -90,14 +90,21 @@ $BALANCED_GUID = '381b4222-f694-41f0-9685-ff5bb260df2e'
 $RST_PARAM_KEY = 'HKLM:\SYSTEM\CurrentControlSet\Services\iaStorAC\Parameters'
 $RST_PARAM_KEY2= 'HKLM:\SYSTEM\CurrentControlSet\Services\storahci\Parameters\Device'
 
+# GUID IDLESTATEMAX = Massimo stato di inattività del processore (C-State max depth)
+# Valori: 0 = nessun limite (default), 1=C1, 2=C3, 3=C6, 4=C8
+$IDLESTATEMAX_GUID = '9943e905-9a30-4ec1-9b99-44dd3b76f7a2'
+$SUBPROC_GUID      = '54533251-82be-4824-96c1-47b60b740d00'
+
 # ── Helper: legge C-State max depth attuale ───────────────────────────────────
 function Get-CStateDepth {
-    $raw = powercfg /query $BALANCED_GUID SUB_PROCESSOR IDLESCALING 2>&1 | Out-String
-    # cerca "Indice impostazione alimentazione CA corrente: 0x..."
-    if ($raw -match 'CA corrente:\s*(0x[0-9a-fA-F]+)') {
-        return [int]([Convert]::ToInt32($Matches[1], 16))
+    # Legge da User\PowerSchemes (override esplicito) — più affidabile di powercfg /query
+    $userPath = "HKLM:\SYSTEM\CurrentControlSet\Control\Power\User\PowerSchemes\$BALANCED_GUID\$SUBPROC_GUID\$IDLESTATEMAX_GUID"
+    $reg = Get-ItemProperty $userPath -ErrorAction SilentlyContinue
+    if ($reg -and $null -ne $reg.ACSettingIndex) {
+        return [int]$reg.ACSettingIndex
     }
-    return -1
+    # Nessun override = valore default 0 (nessun limite C-State = tutti i C-state abilitati)
+    return 0
 }
 
 # ── Helper: legge NumberOfRequests NVMe ───────────────────────────────────────
@@ -166,16 +173,17 @@ function Invoke-Audit {
     Write-Host "[L2] C-State Depth limit..." -ForegroundColor Yellow
     $cstateDepth = Get-CStateDepth
     $cstateLabel = switch ($cstateDepth) {
-        0 { "0 = C-state disabilitate" }
-        1 { "1 = max C1 (sleep leggero)" }
-        2 { "2 = max C3 (TARGET)" }
-        3 { "3 = max C6/C8 (default — transitorio tensione)" }
-        4 { "4 = max C10 (power-gate totale)" }
-        default { "$cstateDepth = sconosciuto" }
+        0 { "0 = nessun limite (DEFAULT - C6/C8/C10 attivi)" }
+        1 { "1 = max C1E" }
+        2 { "2 = max C3 (TARGET ottimale)" }
+        3 { "3 = max C6" }
+        5 { "5 = max C8" }
+        default { "$cstateDepth = stato sconosciuto" }
     }
-    $cstateOk = $cstateDepth -le 2 -and $cstateDepth -ge 0
-    Write-Host "    IDLESCALING corrente: $cstateLabel" -ForegroundColor $(if ($cstateOk) {'Green'} else {'Red'})
-    Write-Host "    Azione: $(if ($cstateOk) {'SKIP (già ottimizzato)'} else {'APPLY → imposta a 2 (max C3)'})"
+    # 0 = no limit (default), 2 = max C3 (target)
+    $cstateOk = $cstateDepth -eq 2
+    Write-Host "    IDLESTATEMAX corrente: $cstateLabel" -ForegroundColor $(if ($cstateOk) {'Green'} else {'Yellow'})
+    Write-Host "    Azione: $(if ($cstateOk) {'SKIP (già ottimizzato)'} else {'APPLY → imposta a 2 (max C3, blocca C6/C8 power-gate)'})"
     $report.Layers.L2_CState = [ordered]@{
         CurrentIndex  = $cstateDepth
         CurrentLabel  = $cstateLabel
@@ -211,7 +219,7 @@ function Invoke-Audit {
 
     # Controlla se FIVR è già undervolted (valori negativi in TS INI)
     $fivrAlreadySet = $false
-    if ($fivrValues -and $fivrValues.ContainsKey('Undervolt_0')) {
+    if ($fivrValues -and $fivrValues.Contains('Undervolt_0')) {
         $v = [int]$fivrValues['Undervolt_0']
         $fivrAlreadySet = $v -lt -20
         Write-Host "    Core offset attuale: $v mV $(if ($fivrAlreadySet) {'(già undervolted)'} else {'(non undervolted)'})" -ForegroundColor $(if ($fivrAlreadySet) {'Green'} else {'Yellow'})
@@ -295,17 +303,15 @@ function Invoke-Apply {
     $results = [ordered]@{ Timestamp = (Get-Date -Format 'o'); Applied = @() ; Skipped = @() ; Failed = @() }
 
     # ── Layer 2: C-State Depth ────────────────────────────────────────────────
-    Write-Host "`n[L2] C-State Depth → imposta max C3 (IDLESCALING=2)..." -ForegroundColor Yellow
+    Write-Host "`n[L2] C-State Depth → imposta max C3 (IDLESTATEMAX=2)..." -ForegroundColor Yellow
     $currentCS = Get-CStateDepth
-    if ($currentCS -le 2 -and $currentCS -ge 0) {
-        Write-Host "    SKIP — già ottimizzato (indice $currentCS)" -ForegroundColor Green
+    if ($currentCS -eq 2) {
+        Write-Host "    SKIP — già ottimizzato (max C3)" -ForegroundColor Green
         $results.Skipped += 'L2_CState'
     } else {
         try {
-            # AC power
-            powercfg /setacvalueindex $BALANCED_GUID SUB_PROCESSOR IDLESCALING 2 2>&1 | Out-Null
-            # DC (batteria) - lasciamo più conservativo (index 1 = C1) per risparmio batteria
-            powercfg /setdcvalueindex $BALANCED_GUID SUB_PROCESSOR IDLESCALING 1 2>&1 | Out-Null
+            powercfg /setacvalueindex $BALANCED_GUID SUB_PROCESSOR IDLESTATEMAX 2 2>&1 | Out-Null
+            powercfg /setdcvalueindex $BALANCED_GUID SUB_PROCESSOR IDLESTATEMAX 2 2>&1 | Out-Null
             powercfg /setactive $BALANCED_GUID 2>&1 | Out-Null
             $after = Get-CStateDepth
             if ($after -eq 2) {
@@ -319,17 +325,6 @@ function Invoke-Apply {
             Write-Host "    ERRORE: $_" -ForegroundColor Red
             $results.Failed += "L2_CState: $_"
         }
-    }
-
-    # Applica anche il subkey specifico via registro (powercfg può ignorare su alcune versioni)
-    Write-Host "    Verifica via registro..." -ForegroundColor Gray
-    try {
-        $csRegPath = 'HKLM:\SYSTEM\CurrentControlSet\Control\Power\PowerSettings\54533251-82be-4824-96c1-47b60b740d00\0cc5b647-c1df-4637-891a-dec35c318583'
-        # ACSettingIndex = 2, DCSettingIndex = 1
-        Set-ItemProperty -Path $csRegPath -Name 'ACSettingIndex' -Value 2 -Type DWord -ErrorAction SilentlyContinue
-        Write-Host "    Registry ACSettingIndex = 2 ✓" -ForegroundColor Gray
-    } catch {
-        Write-Host "    Registry path non trovato (normale su alcune versioni Windows)" -ForegroundColor Gray
     }
 
     # ── Layer 3: NVMe Queue Depth ─────────────────────────────────────────────
@@ -461,14 +456,14 @@ function Invoke-Validate {
     # ── Check L1: FIVR ────────────────────────────────────────────────────────
     $fivrNow = Get-FIVRCurrentValues
     $fivrOk  = $false
-    if ($fivrNow -and $fivrNow.ContainsKey('Undervolt_0')) {
+    if ($fivrNow -and $fivrNow.Contains('Undervolt_0')) {
         $v = [int]$fivrNow['Undervolt_0']
         $fivrOk = $v -le -20
         Write-Host "[L1] FIVR Core offset: $v mV $(if ($fivrOk) {'✓ Undervolted'} else {'○ Non ancora applicato (normale)'})" -ForegroundColor $(if ($fivrOk) {'Green'} else {'Yellow'})
     } else {
         Write-Host "[L1] FIVR: TS INI non disponibile o senza valori Undervolt" -ForegroundColor Yellow
     }
-    $val.Checks.L1_FIVR = [ordered]@{ CoreOffsetMV = if ($fivrNow -and $fivrNow['Undervolt_0']) { [int]$fivrNow['Undervolt_0'] } else { 0 }; Pass = $fivrOk }
+    $val.Checks.L1_FIVR = [ordered]@{ CoreOffsetMV = if ($fivrNow -and $fivrNow.Contains('Undervolt_0')) { [int]$fivrNow['Undervolt_0'] } else { 0 }; Pass = $fivrOk }
 
     # ── WHEA MCE rate post ────────────────────────────────────────────────────
     Write-Host "`n[CHECK] WHEA MCE ultimi 30 min..."
@@ -511,7 +506,8 @@ function Invoke-Rollback {
     try {
         $orig = [int]$backup.CStateDepth
         if ($orig -ge 0) {
-            powercfg /setacvalueindex $BALANCED_GUID SUB_PROCESSOR IDLESCALING $orig 2>&1 | Out-Null
+            powercfg /setacvalueindex $BALANCED_GUID SUB_PROCESSOR IDLESTATEMAX $orig 2>&1 | Out-Null
+            powercfg /setdcvalueindex $BALANCED_GUID SUB_PROCESSOR IDLESTATEMAX $orig 2>&1 | Out-Null
             powercfg /setactive $BALANCED_GUID 2>&1 | Out-Null
             Write-Host "    OK — C-State ripristinato a indice $orig" -ForegroundColor Green
         } else {
