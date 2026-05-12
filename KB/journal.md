@@ -1,3 +1,60 @@
+## 2026-05-12 — Sessione Chiusura: SMB Share Rimosso + Concetti Riusabili
+
+### Operazioni finali
+| Azione | Comando | Esito |
+|--------|---------|-------|
+| Rimozione SMB share C:\Users | `Remove-SmbShare -Name Users -Force` | ✓ Rimosso |
+| Verifica share residui | `Get-SmbShare` | Solo share di sistema ($-share) + stampanti |
+| Share printer RICOH PCL6 + HP PCL6 | condivisi ma non esposti su rete esterna | Accettabile |
+
+### Concetti riusabili (pattern appreso in questa sessione)
+
+**Pattern 1 — EventLog overflow = disk I/O nascosto**
+- Diagnosi: `Get-WmiObject Win32_PerfFormattedData_PerfProc_Process` filtra per `IOWriteBytesPersec > 1MB`
+- Se `svchost (EventLog)` → causa sono canali sopra cap in scrittura circolare
+- Fix: `wevtutil cl <channel>` + `wevtutil sl <channel> /ms:<bytes> /rt:true`
+- Monitoraggio: `Get-WinEvent -ListLog * | Sort-Object FileSize -Descending | Select-Object -First 15`
+
+**Pattern 2 — ThrottleStop greyed = non-admin o driver mancante**
+- Diagnosi: check `Win32_SystemDriver | Where PathName -match NTIOLib`
+- Se driver assente → ThrottleStop.sys non caricato → tutti MSR inaccessibili
+- Se driver presente ma FIVR locked → BIOS Plundervolt patch (MSR 0x150 bit20=1)
+- Su Dell 7577 BIOS ≥1.12.0 (2020): FIVR è hardware-locked, nessun workaround software sicuro
+
+**Pattern 3 — RUNASADMIN flag inefficace se UAC disabilitato**
+- `HKCU:\AppCompatFlags\Layers` → `RUNASADMIN` richiede `EnableLUA=1` per funzionare
+- Se `EnableLUA=0`: il flag è silently ignorato, il processo gira senza elevazione
+- Diagnosi admin: Add-Type C# con OpenProcessToken → WindowsPrincipal.IsInRole(Administrator)
+
+**Pattern 4 — Identificare servizi con CPU cumulativa alta ma non visibili in Task Manager**
+- `Get-Process | Sort-Object CPU -Descending` → CPU è cumulativa (totale secondi), non %
+- Per % istantanea: `Get-WmiObject Win32_PerfFormattedData_PerfProc_Process`
+- Per I/O per processo: stesso oggetto, campi `IOReadBytesPersec` + `IOWriteBytesPersec`
+
+**Pattern 5 — SMB share su laptop = EventLog storm strutturale**
+- C:\Users condiviso → ogni accesso file genera `SMBServer/Operational` + `SmbClient/Connectivity` events
+- Rate: ~100 eventi/h anche a riposo
+- Soluzione definitiva: `Remove-SmbShare` non `wevtutil disable` (che maschera il problema)
+
+### Stato sistema fine sessione 2026-05-12
+```
+CPU:      ~50% (VM TIA Portal attiva — baseline macchina carica)
+RAM:      ~82% (9.9 GB VM + OS)
+Disk I/O: <2 MB/s (da 43+ MB/s pre-fix)
+MCE:      ~1.5/h (da baseline molto più alto, C-State fix applicato)
+EventLog: tutti canali cappati, nessuno in overflow
+SMB:      share C:\Users rimosso
+FIVR:     hardware-locked (Plundervolt BIOS)
+```
+
+### Pendenze aperte
+1. **PL1/PL2 in ThrottleStop**: PL1 45W→35W, PL2 89W→55W (prossima sessione)
+2. **Reboot**: necessario per NVMe queue depth 1024 (iaStorAC legge a boot)
+3. **ACPI DSDT dump**: analisi DPTF limiti termici (weekend, bassa priorità)
+4. **UAC**: valutare `EnableLUA=1` per sicurezza (conferma utente richiesta)
+
+---
+
 ## 2026-05-12 — L1 FIVR Closure: Plundervolt Lock Confermato + Next Step PL1/PL2
 
 ### Obiettivo
