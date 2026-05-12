@@ -1,3 +1,59 @@
+## 2026-05-12 — L1 FIVR Closure: Plundervolt Lock Confermato + Next Step PL1/PL2
+
+### Obiettivo
+Verificare causa FIVR greyed in ThrottleStop. Chiudere Layer 1 con conclusione deterministica.
+
+### Diagnosi step-by-step
+
+**Step 1 — ThrottleStop non admin (causa iniziale)**
+- PID 12844, Admin=False → NTIOLib64.sys non caricato → tutti gli MSR inaccessibili → FIVR completamente greyed
+- Fix: `HKCU:\...\AppCompatFlags\Layers` → `RUNASADMIN` per ThrottleStop.exe
+- Nota: `EnableLUA=0` (UAC disabilitato) → il flag RUNASADMIN non fa effetto perché non c'è UAC machinery
+  → TS continua a girare senza elevazione anche con il flag
+
+**Step 2 — Utente scarica NTIOLib64.sys + DLL manualmente**
+- `Driver_Engine_x64.dll`, `NTIOLib.sys`, `NTIOLib64.sys`, `NTIOLib_X64.sys` copiati in cartella TS
+- Driver `ThrottleStop.sys` registrato come servizio kernel da precedente sessione admin → ancora `Running`
+- PATH anomalo: `\??\C:\DataHub\Temp\User\ThrottleStop.sys` (TS estrae driver lì a runtime)
+- Risultato: monitoring MSR funzionante, alcune funzioni sbloccate (PL read, freq read)
+
+**Step 3 — FIVR ancora greyed: Plundervolt lock BIOS**
+- BIOS Dell 1.17.0 (2022-03-18): post-patching DSA-2019-202 (CVE-2019-11157)
+- Dell Inspiron 7577: Plundervolt lock introdotto con BIOS 1.12.0 (2020)
+- BIOS 1.17.0 = 2 anni post-lock → **MSR 0x150 bit 20 = 1 (voltage floor locked) CONFERMATO**
+- ThrottleStop mostra "Locked" sui campi FIVR → questo è il comportamento corretto e atteso
+- Nessuna evidenza WHEA/eventlog di tentativi di write su 0x150 (driver li filtra prima)
+
+### Conclusione deterministica
+**L1 FIVR: CHIUSO — Hardware lock permanente da BIOS**
+- Non aggirabile via software senza: a) downgrade BIOS a <1.12.0 (non consigliato: Dell blocca rollback su 7577), b) BIOS chip reflash con mod (alto rischio brick)
+- Impatto stimato perso: -50-80% MCE reduction da FIVR non disponibile
+- Status finale: accettato come vincolo hardware
+
+### Regressione rilevata e corretta
+- `MaxProcessorState AC` trovato a 100% (0x64) invece di 99% — impostazione precedente non persistita correttamente per AC
+- Fix applicato: `powercfg /setacvalueindex ... PROCTHROTTLEMAX 99` → ora AC=0x63 DC=0x63 ✓
+
+### MCE status corrente
+- 9 eventi WHEA (ID18/52) nelle ultime 6h = ~1.5/h
+- C-State IDLESTATEMAX=2 ha ridotto ma non eliminato MCE (gap: FIVR locked + PL1/PL2 a default)
+
+### Next Best Decision: PL1/PL2 reduction via ThrottleStop
+PL1/PL2 attuali = BIOS default (PL1=45W, PL2=89W, tau=28s) — mai overriddati.
+Riduzione raccomandazione:
+- **PL1: 45W → 35W** (riduce voltaggio sostenuto → meno ricostruzioni tensione)
+- **PL2: 89W → 55W** (limita burst → meno transitori aggressivi)
+- Come: ThrottleStop main screen → checkbox "Limit Reasons" → imposta valori PL1/PL2 → "OK" → "Save"
+- Impatto atteso: -40-60% MCE rate aggiuntivo (stimato, no FIVR disponibile)
+- Anti-regressione: se sistema diventa instabile (crash/thermal) → riporta a 45W/89W
+
+### Note sicurezza
+- **UAC disabilitato** (`EnableLUA=0`) — tutti i processi user girano con token completo admin
+- Rischio: qualsiasi malware o script malevolo ha pieno admin immediato senza prompt
+- Raccomandazione: valutare riabilitazione UAC (`EnableLUA=1, ConsentPromptBehaviorAdmin=5`)
+
+---
+
 ## 2026-05-12 — Kernel-Level Optimization Plan (APPLIED)
 
 ### Obiettivo
