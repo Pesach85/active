@@ -1,3 +1,49 @@
+## 2026-05-12 — Kernel-Level Optimization Plan (APPLIED)
+
+### Obiettivo
+Ridurre WHEA MCE a livello kernel: FIVR undervolting (MSR 0x150), C-State depth limit, NVMe queue depth.
+
+### Analisi pre-intervento
+
+**Layer 1 — FIVR undervolting (ThrottleStop MSR 0x150)**
+- i7-7700HQ usa Intel FIVR (Fully Integrated Voltage Regulator)
+- I CMCE L1 sono trigger da ripple VRM durante transizioni P-state e re-entry da C6/C8
+- Undervolting riduce ripple → riduce trigger MCE stimato -50-80%
+- BIOS Dell 1.17.0 (2022-03-18): stato lock Plundervolt CVE-2019-11157 da verificare con TS
+- Tool: ThrottleStop → FIVR → CPU Core/Cache offset -50mV → valida 10min → scendi a -80mV
+
+**Layer 2 — C-State Depth Limit (powercfg IDLESCALING)**
+- BIOS espone 6 C-state (NtNumber: 0,1,2,4,6) incluso C8/power-gate
+- FadtC3Latency=57µs anomalia Dell: kernel sceglie C6/C8 con latenza bassa → transitorio tensione MCE
+- Fix: IDLESCALING=2 (max C3 su AC) → elimina power-gate ramp-up
+- Stima riduzione MCE aggiuntiva: 15-25%
+
+**Layer 3 — NVMe Queue Depth (iaStorAC registry)**
+- NVMe KXG50ZNV256G sotto Intel RST (iaStorAC RAID mode)
+- Default NumberOfRequests=254 → bottleneck su I/O intenso
+- Fix: 1024 → riduce CPU interrupt overhead storage
+
+**Intel DPTF trovato attivo**: `Intel(R) Dynamic Platform and Thermal Framework Manager` presente. Opera sotto Windows power policy, può imporre throttling via KernelThermalConstraintChange indipendentemente da ThrottleStop. Analisi DSDT pendente (Priority 3).
+
+**BCD timers**: nessuna modifica — TSC + dynamic tick corretti su Kaby Lake.
+
+### Script realizzato
+`scripts/kernel-level-optimize.ps1` — Audit/Apply/Rollback/Validate
+- Layer 2+3: completamente automatici
+- Layer 1 (FIVR): guida con `-IncludeFIVR` o manuale via TS UI
+
+### Esito Apply
+- **L2 C-State**: IDLESCALING AC=2 (max C3), DC=1 (max C1 su batteria)
+- **L3 NVMe**: NumberOfRequests=1024 (richiede reboot)
+- **L1 FIVR**: manuale via ThrottleStop — da eseguire e validare
+
+### Anti-regressione
+- Rollback: `pwsh -File scripts\kernel-level-optimize.ps1 -Mode Rollback`
+- FIVR è non-permanente finché non si salva in ThrottleStop (sicuro: auto-ripristina a reboot)
+- Non toccare DellInstrumentation (BSOD risk — lezione già registrata)
+
+---
+
 ## 2026-05-12 — Event Log Round 2 + BSOD Post-Mortem
 
 ### BSOD CRITICAL_PROCESS_DIED (0xEF) — Lesson Learned
