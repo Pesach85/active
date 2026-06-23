@@ -50,6 +50,24 @@ $winget = & winget list --id CrystalDewWorld.CrystalDiskInfo 2>&1
 $report.CrystalDiskInfoInstalled = [bool]($winget -match 'CrystalDiskInfo')
 $report.CrystalDiskInfoRaw = ($winget -join "`n")
 
+$repairWslScript = 'C:\SystemOptimizerHub\active\scripts\repair-wsl-config.ps1'
+if (Test-Path -LiteralPath $repairWslScript) {
+    try {
+        $wslRaw = & pwsh -NoProfile -ExecutionPolicy Bypass -File $repairWslScript 2>$null
+        if ($wslRaw) {
+            $wsl = $wslRaw | ConvertFrom-Json
+            $report.Wsl = [ordered]@{
+                Status = [string]$wsl.Status
+                DistributionName = [string]$wsl.DistributionName
+                ZombieWslCount = [int]$wsl.ZombieWslCount
+                WslService = [string]$wsl.WslService.Status
+            }
+        }
+    } catch {
+        $report.Wsl = [ordered]@{ Status = 'AssessmentFailed' }
+    }
+}
+
 $auditPath = 'C:\SystemOptimizerHub\active\logs\health-audit-postreboot.json'
 if (Test-Path $auditPath) {
     $audit = Get-Content -Raw $auditPath | ConvertFrom-Json

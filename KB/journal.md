@@ -1770,3 +1770,62 @@ Mitigazione primaria applicata con successo; verifica prestazionale finale pende
 | Windows System Protection | RPSessionInterval=1, triggered da installer | Normale, non fonte del picco |
 | swprv (shadow copy) | StartType=Manual, si avvia/stoppa da solo | Nessuna azione necessaria |
 
+
+## 2026-06-23 13:21:03
+### Obiettivo
+Ripristinare WSL bloccato con auto-check permanente
+
+### Task
+Diagnosi desync HKLM/HKCU, fix registry, cleanup zombie, script repair e Health Audit
+
+### Modifiche
+- scripts/repair-wsl-config.ps1
+- system-health-audit.ps1
+- package-suite.ps1
+- KB/bugs-fixed.md
+
+### Decisioni
+- Non modificare hypervisorlaunchtype
+- Recovery WslService via kill piu sc start
+- Validazione wsl -l -v con timeout
+
+### Esito
+Completato
+
+## 2026-06-23 13:46:25
+### Obiettivo
+Far avviare WSL2: causa deterministica boot distro bloccato + autofix
+
+### Task
+Diagnosi hypervisorlaunchtype=Off come causa del boot distro in hang; fix bcdedit Auto con marker reboot e rollback; estensione repair-wsl-config.ps1 e Health Audit
+
+### Modifiche
+- scripts/repair-wsl-config.ps1 (hypervisor detect/fix, marker ticks, probe gating)
+- KB/bugs-fixed.md Bug 24
+- bcdedit hypervisorlaunchtype Off->Auto applicato
+
+### Decisioni
+- VMware 17.0.2 usa WHP: coesiste con Hyper-V senza regressioni
+- Reboot obbligatorio per attivare hypervisor
+- Marker boot-time in ticks Int64 invece di CIM HypervisorPresent (che va in hang)
+
+### Esito
+Fix applicato - richiede riavvio; assessment PendingReboot in <2s
+
+## 2026-06-23 13:53:12
+### Obiettivo
+Validazione post-reboot WSL2 dopo fix hypervisor
+
+### Task
+Eseguito repair-wsl-config.ps1 -ValidateLaunch dopo reboot; confermato WSL_OK su kali-linux
+
+### Modifiche
+- logs/diagnostics/wsl-post-reboot-validation.json
+- KB/bugs-fixed.md Bug 24 validazione
+
+### Decisioni
+- Nessuna ulteriore azione richiesta
+- Marker reboot auto-cleared dopo boot
+
+### Esito
+Completato - Status Ready, LaunchProbe WSL_OK

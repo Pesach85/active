@@ -115,6 +115,50 @@ function New-OfficeM365ChannelFinding {
         -Solutions $solutions
 }
 
+function New-WslConfigFinding {
+    param(
+        [string]$Status,
+        [string]$DistributionName,
+        [string]$DefaultGuid,
+        [int]$ZombieWslCount,
+        [string]$WslServiceStatus,
+        [string[]]$Issues,
+        [string]$RepairScriptPath
+    )
+
+    $issueText = if ($Issues -and $Issues.Count -gt 0) { ($Issues -join '; ') } else { 'n/a' }
+    $inspectCommand = "& '$RepairScriptPath'"
+    $repairCommand = "& '$RepairScriptPath' -Apply"
+    $validateCommand = "& '$RepairScriptPath' -Apply -ValidateLaunch"
+    $rollbackCommand = "& '$RepairScriptPath' -RestoreLatest"
+
+    $solutions = @(
+        (New-Solution -Level 'Safe' -Label 'Inspect WSL registry/service health (read-only JSON assessment)' `
+            -Command $inspectCommand `
+            -Rollback 'N/A (read-only)' `
+            -RiskNote 'Uses bounded timeouts; does not unregister distros or change hypervisor settings.'),
+        (New-Solution -Level 'Safe' -Label 'Repair HKLM/HKCU WSL registry desync and recover WslService' `
+            -Command $repairCommand `
+            -Rollback $rollbackCommand `
+            -RiskNote 'Mirrors HKCU distro metadata into HKLM, clears zombie wsl.exe clients, and restarts WslService safely.'),
+        (New-Solution -Level 'Safe' -Label 'Validate default distro launch after repair (optional)' `
+            -Command $validateCommand `
+            -Rollback $rollbackCommand `
+            -RiskNote 'Runs only after registry repair. If launch is slow, reboot once and rerun assessment.')
+    )
+
+    return New-Finding `
+        -Id 'WSL-CONFIG-001' `
+        -Severity 'Critical' `
+        -Category 'OS' `
+        -Title 'WSL configuration broken (HKLM/HKCU desync or hung clients)' `
+        -Description 'WSL commands hang when HKCU DefaultDistribution is missing from HKLM, when WslService is STOP_PENDING, or when zombie wsl.exe clients accumulate. This blocks terminals, dev tools, and automation that call wsl.exe.' `
+        -CurrentValue "Status=$Status; Distro=$DistributionName; Guid=$DefaultGuid; Zombies=$ZombieWslCount; WslService=$WslServiceStatus; Issues=$issueText" `
+        -RecommendedValue 'HKLM distro registration aligned with HKCU; WslService Running; wsl -l -v responds within timeout' `
+        -Impact 'Every wsl.exe invocation can block indefinitely until registry/service state is repaired.' `
+        -Solutions $solutions
+}
+
 function Test-CommandAvailable {
     param([string]$Name)
 
@@ -672,7 +716,38 @@ if (-not $isHighPerf) {
 Write-Progress2 "Collecting positive findings..."
 $positives = [System.Collections.ArrayList]::new()
 $repairOfficeChannelScript = Join-Path $PSScriptRoot 'repair-office-m365-channel.ps1'
+$repairWslConfigScript = Join-Path $PSScriptRoot 'repair-wsl-config.ps1'
 $recommendedM365Channels = 'Current Channel, Monthly Enterprise Channel, Semi-Annual Enterprise Channel'
+
+# ── WSL CONFIGURATION ─────────────────────────────────────────────────────────
+Write-Progress2 "Checking WSL configuration..."
+if (Test-Path -LiteralPath $repairWslConfigScript) {
+    try {
+        $wslAssessmentRaw = & pwsh -NoProfile -ExecutionPolicy Bypass -File $repairWslConfigScript 2>$null
+        if ($wslAssessmentRaw) {
+            $wslAssessment = $wslAssessmentRaw | ConvertFrom-Json
+            if ($wslAssessment.Status -ne 'Ready') {
+                [void]$findings.Add((New-WslConfigFinding `
+                    -Status ([string]$wslAssessment.Status) `
+                    -DistributionName ([string]$wslAssessment.DistributionName) `
+                    -DefaultGuid ([string]$wslAssessment.DefaultGuid) `
+                    -ZombieWslCount ([int]$wslAssessment.ZombieWslCount) `
+                    -WslServiceStatus ([string]$wslAssessment.WslService.Status) `
+                    -Issues @([string[]]$wslAssessment.Issues) `
+                    -RepairScriptPath $repairWslConfigScript))
+            } else {
+                $wslDistro = [string]$wslAssessment.DistributionName
+                if (-not [string]::IsNullOrWhiteSpace($wslDistro)) {
+                    [void]$positives.Add(("WSL healthy (distro={0}, service=Running)" -f $wslDistro))
+                } else {
+                    [void]$positives.Add('WSL healthy (service=Running)')
+                }
+            }
+        }
+    } catch {
+        Write-Progress2 "WSL assessment skipped: $($_.Exception.Message)"
+    }
+}
 
 # ── OFFICE UPDATE CHANNEL ─────────────────────────────────────────────────────
 Write-Progress2 "Checking Office update channel compatibility..."
