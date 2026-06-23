@@ -21,6 +21,7 @@ $items = @(
     (Join-Path $scriptDir "system-health-audit.ps1"),
     (Join-Path $scriptDir "apply-safe-fixes.ps1"),
     (Join-Path $scriptDir "repair-office-m365-channel.ps1"),
+    (Join-Path $scriptDir "repair-wsl-config.ps1"),
     (Join-Path $scriptDir "install-monitor-task.ps1"),
     (Join-Path $scriptDir "install-cleanup-task.ps1"),
     (Join-Path $scriptDir "ensure-powershell-core.ps1"),

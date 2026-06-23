@@ -1,5 +1,60 @@
 # Bugs Fixed
 
+## 2026-06-23 - WSL bloccato: comandi wsl.exe in hang con 100+ processi zombie
+
+### Bug 23
+- **Sintomo**: `wsl --status`, `wsl -l -v` e qualsiasi invocazione `wsl.exe` restavano appesi a tempo indefinito; si accumulavano decine/centinaia di processi `wsl.exe` zombie (rilevati 110+).
+- **Causa radice deterministica**: `HKCU\Software\Microsoft\Windows\CurrentVersion\Lxss\DefaultDistribution` puntava al GUID `{c2e180ed-6669-4deb-8bdb-df1bf5db2188}` (kali-linux) con metadati completi in HKCU, ma la stessa chiave distro era **assente** in `HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Lxss`. `WslService` enumera le distro da HKLM → IPC bloccata → ogni client `wsl.exe` resta in attesa.
+- **Fattore aggravante**: tentativi di `Restart-Service WslService` con client appesi lasciavano il servizio in `STOP_PENDING`; recovery corretto = terminare `wslservice.exe` + `sc start WslService` (mai `Restart-Service` con client zombie attivi).
+- **Fix applicato**:
+	- aggiunto `scripts/repair-wsl-config.ps1` con assessment JSON, apply safe (mirror HKCU→HKLM, cleanup zombie, recovery servizio), backup/rollback `-RestoreLatest`, probe con timeout;
+	- esteso `scripts/system-health-audit.ps1` con finding `WSL-CONFIG-001`;
+	- aggiornato `scripts/package-suite.ps1` per distribuire il nuovo script in `dist/WindowsOptimizer/scripts`.
+- **Check anti-regressione**:
+	- pre-fix: `wsl -l -v` timeout >30s, 110 processi `wsl.exe`, GUID default assente in HKLM;
+	- post-fix manuale+script: `Status=Ready`, `HklmDistroExists=true`, `ZombieWslCount=0`, `wsl -l -v` exit 0 in <2s, distro `kali-linux` visibile;
+	- apply idempotente: nessuna modifica distruttiva (no unregister, no hypervisor/bcdedit).
+- **Criteri riusabili**:
+	- se `wsl.exe` hang + molti processi `wsl` in Task Manager, verificare prima desync HKCU/HKLM prima di reinstallare WSL;
+	- non usare `Restart-Service WslService` con client zombie: kill `wsl`/`wslservice` + `sc start`;
+	- validazione health con probe bounded (`wsl -l -v`), launch test (`-ValidateLaunch`) solo opzionale post-reboot;
+	- non disinstallare distro store come prima mossa.
+- **Esito**: WSL torna responsivo per listing/comandi base; rollback in `logs/diagnostics/wsl-config-backup-latest.json`. NB: il fix registry sblocca il listing ma NON l'avvio della distro — vedi Bug 24 per la causa del boot bloccato.
+
+## 2026-06-23 - WSL2: listing OK ma boot distro (`wsl -d`) in hang infinito
+
+### Bug 24
+- **Sintomo**: dopo il fix registry (Bug 23) `wsl -l -v` rispondeva in <2s, ma `wsl -d kali-linux -- echo` e `wsl --status` restavano appesi a tempo indefinito (timeout 30-60s ripetuti), lasciando `vmwp` attivo. La GUI Health Audit andava in stall.
+- **Causa radice deterministica**: `bcdedit /enum {current}` → `hypervisorlaunchtype = Off`. WSL2 richiede l'**hypervisor Hyper-V avviato al boot** per la sua utility VM. Con `Off`:
+	- `wsl -l -v` funziona (legge solo registry via WslService);
+	- `wsl -d <distro>` (che deve avviare la VM WSL2) si blocca all'infinito perché l'hypervisor non è caricato.
+	- Aggravante: settare `Auto` senza riavvio mette WSL in stato half-broken (anche il listing va in timeout) finché non si riavvia.
+- **Contesto/no-regressione**: `Microsoft-Windows-Subsystem-Linux=Disabled` (OK, è WSL Store 2.6.3.0 che usa solo `VirtualMachinePlatform=Enabled`); VMware Workstation **17.0.2** supporta Windows Hypervisor Platform (WHP) → coesiste con Hyper-V abilitato senza regressioni; Secure Boot **False** → `bcdedit /set` consentito (il vecchio blocco Secure Boot per `truncatememory` non si applica qui).
+- **Fix applicato**:
+	- esteso `scripts/repair-wsl-config.ps1`: rileva `hypervisorlaunchtype`, in `-Apply` esegue `bcdedit /set hypervisorlaunchtype Auto` con backup del valore precedente per `-RestoreLatest`;
+	- marker reboot deterministico (`logs/diagnostics/wsl-hypervisor-reboot-pending.json`) basato su boot time in **ticks Int64** (immune a coercizione data di `ConvertFrom-Json` e culture it-IT); lo stato passa a `PendingReboot` finché non si riavvia;
+	- probe `wsl` gated: saltate quando hypervisor `Off` o reboot pending → l'assessment resta **<2s** e non va mai in hang;
+	- finding `WSL-CONFIG-001` aggiornato per coprire la causa hypervisor.
+- **Bug minore risolto**: il marker iniziale salvava il boot time come stringa ISO; `ConvertFrom-Json` la convertiva in `[datetime]` e il re-parse in cultura it-IT falliva (`06/23/2026` → mese 23 invalido), facendo fallire silenziosamente il rilevamento reboot. Risolto salvando `BootTimeTicks` (Int64).
+- **Check anti-regressione**:
+	- pre-fix: `hypervisorlaunchtype=Off`, `wsl -d` timeout, audit stall ~320s;
+	- assessment hypervisor `Off`: `Status=Broken` in ~2s (no hang), issue chiara;
+	- apply: `bcdedit hypervisorlaunchtype Off -> Auto`, marker scritto, `Status=PendingReboot`, `RebootRecommended=True` in ~2.4s;
+	- assessment idempotente post-apply: `PendingReboot` in ~1.7s; subprocess Health Audit WSL in **0.9s** (stall eliminato);
+	- VMware 17.0.2 + WHP: nessuna regressione attesa (coesistenza supportata).
+- **Criteri riusabili**:
+	- se `wsl -l -v` funziona ma `wsl -d`/`--status` si bloccano → controllare SEMPRE `bcdedit /enum {current}` per `hypervisorlaunchtype`; se `Off`, WSL2 non può bootare la VM;
+	- `hypervisorlaunchtype` è un setting di boot: la modifica richiede **riavvio obbligatorio** (non attivabile a caldo);
+	- prima di abilitare l'hypervisor su un PC con VMware, verificare la versione: VMware ≥15.5.5/17 usa WHP e coesiste; versioni vecchie no;
+	- non usare `Get-CimInstance Win32_ComputerSystem` per rilevare l'hypervisor in script (può andare in hang su sistemi degradati): usare il marker boot-time in ticks;
+	- nei marker JSON persistenti evitare stringhe data ISO (coercizione `ConvertFrom-Json` + culture): usare ticks Int64 o numeri.
+- **Esito**: causa deterministica del boot bloccato risolta; `hypervisorlaunchtype=Auto` applicato con rollback disponibile.
+- **Validazione post-reboot (2026-06-23)**:
+	- `hypervisorlaunchtype=Auto` attivo dopo reboot;
+	- `repair-wsl-config.ps1 -ValidateLaunch`: `Status=Ready`, `ListProbe exit=0`, `LaunchProbe exit=0` output `WSL_OK`, `ZombieWslCount=0`, `HypervisorRebootPending=false`;
+	- tempo assessment completo: ~7.6s (listing + boot distro kali-linux WSL2);
+	- report: `logs/diagnostics/wsl-post-reboot-validation.json`.
+
 ## 2026-04-20 - Office bloccato da canale perpetuo incompatibile
 
 ### Bug 22
