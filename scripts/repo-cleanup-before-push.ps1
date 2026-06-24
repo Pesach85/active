@@ -26,6 +26,14 @@ function Test-IsRuntimeArtifact {
     if ($p -match '^logs/health-audit-postreboot\.json$') { return $true }
     if ($p -match '^logs/post-reboot-verification\.json$') { return $true }
     if ($p -match '^logs/deepscan-.+\.json$') { return $true }
+    if ($p -match '^logs/ddwrt-') { return $true }
+    if ($p -match '^logs/ssh-') { return $true }
+    if ($p -match '^logs/run-tuning-') { return $true }
+    if ($p -match '^logs/.+nvram.+\.bat$') { return $true }
+    if ($p -match '^\.head-journal-snippet\.txt$') { return $true }
+    if ($p -match '^\.journal-insert-.+\.md$') { return $true }
+    if ($p -match '^(commit|push)-.+\.txt$') { return $true }
+    if ($p -match '^tmpmsg\.txt$') { return $true }
 
     return $false
 }

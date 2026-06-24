@@ -32,8 +32,17 @@ MANIFEST.txt
 
 # Router credentials and session artifacts
 /ddwrtkey/
-/logs/ddwrt-cookie.txt
-/logs/ddwrt-login.html
+/logs/ddwrt-*
+/logs/ssh-*
+/logs/run-tuning-*.bat
+/logs/*nvram*.bat
+
+# Git agent / journal merge temp (repo root)
+/.head-journal-snippet.txt
+/.journal-insert-*.md
+/commit-*.txt
+/push-*.txt
+/tmpmsg.txt
 
 # OS noise
 Thumbs.db
