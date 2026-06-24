@@ -1,3 +1,42 @@
+## 2026-05-14 18:50:00
+### Obiettivo
+Eseguire valutazione data-based su CPU/RAM/I/O e causa rumore disco in avvio, con tuning safe e ripetibile senza regressioni.
+
+### Task
+- Raccolta baseline multi-risorsa (processi, startup inventory, dischi, diagnostica boot)
+- Classificazione processi per priorita/necessita (Keep/Tune/Review)
+- Apply minimo non critico su autostart browser con backup/rollback
+- Verifica post-change con stessa metrica
+
+### Modifiche
+- Creato `scripts/analyze-resource-pressure-startup.ps1`:
+	- ranking processi per score composito CPU/RAM/I/O;
+	- classificazione `Necessity/Priority/SafeAction`;
+	- inventory startup (`Win32_StartupCommand` + task Boot/Logon);
+	- inventory storage + rilevazione ambiente misto HDD/SSD;
+	- gestione robusta accesso log `Diagnostics-Performance` (fallback `DeniedOrMissing`).
+- Creato `scripts/apply-startup-io-safe-tuning.ps1`:
+	- modalita `AUDIT`/`EXECUTE`;
+	- disabilitazione mirata solo voci browser non critiche (`MicrosoftEdgeAutoLaunch_*`, `Opera Stable`);
+	- backup deterministico in JSON per rollback.
+- Creato playbook operativo `KB/resource-pressure-playbook.md` con pattern riusabile agent/operator.
+
+### Decisioni
+- **Best next decision**: mantenere sicurezza e processi core invariati; agire prima su autostart user-space ad alto chatter I/O.
+- Nessuna terminazione aggressiva: osservazione + tuning incrementale e reversibile.
+- Su host con HDD meccanici presenti, ridurre prelaunch browser e competizione I/O al logon.
+
+### Esito
+- Baseline conferma carico prevalente su app utente (Code/Opera) con pressione CPU/Mem; `MsMpEng` classificato `Keep`.
+- Apply safe eseguito con backup; post-check completato senza errori.
+- Segnale startup browser ridotto (indicatore `BrowserAutoStartCount` in calo nel post-check).
+
+### Check anti-regressione
+- Nessun kill/stop di processi core o security.
+- Backup startup creato prima dell'apply.
+- Verifica post-change completata con stesso strumento e output JSON.
+
+
 ## 2026-05-12 — Sessione Chiusura: SMB Share Rimosso + Concetti Riusabili
 
 ### Operazioni finali
