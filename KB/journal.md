@@ -1,3 +1,44 @@
+## 2026-06-25 — DD-WRT hotspot→switch: tuning permanente + KB + repo sync
+
+### Obiettivo
+Ottimizzare al massimo router DD-WRT (hotspot mobile → LAN switch), rendere persistenti le modifiche, documentare pattern validati in KB, allineare repo e push.
+
+### Task
+- Analisi repo locale vs `origin/master` (pull + commit lavoro locale)
+- Diagnosi NVMe Kingchungxing assente (software vs hardware)
+- Configurazione e hardening DD-WRT TL-WR740N v4 @ 192.168.1.250
+- SSH key auth + script apply riproducibile
+- Playbook KB con soluzioni validate per ogni problema risolto
+
+### Modifiche
+- `git pull --ff-only` (+20 commit remote) + commit locale resource-pressure/Store scripts
+- Creato `KB/dd-wrt-hotspot-playbook.md` (10 pattern validati)
+- Creato `scripts/ddwrt-apply-permanent-tuning.sh` + `scripts/apply-ddwrt-permanent-tuning.ps1`
+- `.gitattributes` (`*.sh` LF), `.gitignore` (`ddwrtkey/`, log router sensibili)
+- NVRAM permanente router: DNS 1.1.1.1/8.8.8.8, MTU 1492, AP dd-wrt off, cron keepalive, rc_startup sysctl, telnet/remote off, SSH on
+
+### Decisioni
+- **Best next decision**: mantenere `wlan0_mode=sta` verso hotspot; non riabilitare AP `dd-wrt` su single-radio.
+- NVMe: diagnosi software chiusa → intervento hardware (reseating/BIOS/Linux live).
+- Accesso router: SSH `root` + key `ddwrtkey/id_ed25519.ssh`; web UI `admin`.
+
+### Esito (validato)
+| Check | Risultato |
+|-------|-----------|
+| wan_dns | 1.1.1.1 8.8.8.8 |
+| wan_mtu | 1492 |
+| wlan0_mode | sta |
+| wl0_bss_enabled | 0 |
+| ping 1.1.1.1 | 0% loss |
+| PC LAN 192.168.1.125 | gateway 192.168.1.250 OK |
+
+### Check anti-regressione
+- Script apply idempotente con backup NVRAM su router
+- Audit mode: `apply-ddwrt-permanent-tuning.ps1 -AuditOnly`
+- Log: `logs/ddwrt-permanent-tuning.out.txt`
+
+---
+
 ## 2026-05-14 18:50:00
 ### Obiettivo
 Eseguire valutazione data-based su CPU/RAM/I/O e causa rumore disco in avvio, con tuning safe e ripetibile senza regressioni.
