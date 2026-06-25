@@ -26,8 +26,23 @@ $target = "${SshUser}@${RouterHost}"
 $sshBase = @('-i', $KeyPath, '-o', "UserKnownHostsFile=$KnownHosts", '-o', 'StrictHostKeyChecking=accept-new', '-o', 'IdentitiesOnly=yes', '-o', 'ConnectTimeout=25')
 
 if ($AuditOnly) {
-    $cmd = 'echo AUDIT; nvram get wan_dns; nvram get wan_mtu; nvram get wl0_bss_enabled; nvram get wlan0_mode; nvram get telnetd_enable; nvram get remote_management; ping -c 1 -W 3 1.1.1.1'
-    & ssh.exe @sshBase $target $cmd
+    # Interroga la NVRAM su tutte le possibili nomenclature wireless e lo stato del link
+    $cmd = 'echo "=== VERIFICA NVRAM WIRELESS ==="; ' +
+           'echo "wl0_mode:"; nvram get wl0_mode; ' +
+           'echo "wlan0_mode:"; nvram get wlan0_mode; ' +
+           'echo "wl0_ssid:"; nvram get wl0_ssid; ' +
+           'echo "wlan0_ssid:"; nvram get wlan0_ssid; ' +
+           'echo "wl0_akm:"; nvram get wl0_akm; ' +
+           'echo "wlan0_akm:"; nvram get wlan0_akm; ' +
+           'echo "=== STATO INTERFACCE LINUX ==="; ' +
+           'ifconfig wlan0 | grep -E "Link|inet"; ' +
+           'iwconfig wlan0 2>/dev/null | grep -E "ESSID|Access Point"; ' +
+           'echo "=== SISTEMA ==="; ' +
+           'uname -a; ' +
+           'echo "DD_BOARD:"; nvram get DD_BOARD; ' +
+           'echo "=== PROCESSI ==="; ' +
+           'ps | grep -E "hostapd|wpa|nas"'
+        & ssh.exe @sshBase $target $cmd
     return
 }
 
