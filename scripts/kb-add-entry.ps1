@@ -12,11 +12,15 @@ param(
     [string[]]$Decisions,
 
     [string]$Outcome = "Completato",
-    [string]$KbRoot = "C:\\KB"
+    [string]$KbRoot = ""
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+
+if ([string]::IsNullOrWhiteSpace($KbRoot)) {
+    $KbRoot = Join-Path (Split-Path $PSScriptRoot -Parent) "KB"
+}
 
 if (-not (Test-Path -LiteralPath $KbRoot)) {
     New-Item -Path $KbRoot -ItemType Directory -Force | Out-Null

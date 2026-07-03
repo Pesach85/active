@@ -10,6 +10,8 @@
 /logs/writeoffload-step-*.json
 /logs/writeoffload-verify-*.json
 /logs/robocopy-reboot-status.json
+/logs/*rollback*.json
+/logs/whea-monitoring-continuous.json
 /logs/diagnostics/
 
 # dist runtime artifacts (overwritten each run, not source artifacts)

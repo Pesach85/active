@@ -1,44 +1,65 @@
 # KB Operativa - System Optimization
 
-Questa Knowledge Base tiene traccia di:
-- Obiettivi
-- Task eseguiti
-- Modifiche applicate
-- Decisioni prese
+Knowledge base operativa giornaliera. La conoscenza strutturata permanente vive in [`../docs/`](../docs/).
 
-## File principali
-- journal.md: storico cronologico completo.
-- task-board.md: stato task correnti (ToDo/In Progress/Done).
-- architecture.md: architettura aggiornata di moduli, flussi e decisioni tecniche.
-- templates/entry-template.md: template manuale per nuove registrazioni.
+## Struttura
+
+| Percorso | Ruolo |
+|----------|-------|
+| `journal.md` | Storico cronologico decisioni (auto via script) |
+| `task-board.md` | Stato task correnti (ToDo/In Progress/Done) |
+| `architecture.md` | Architettura tecnica script/GUI/pattern stabilità |
+| `templates/entry-template.md` | Template entry journal manuale |
+| `../docs/` | Runbook, ADR, agenti, troubleshooting, checklists |
+
+## Mappa docs/ (knowledge permanente)
+
+| Area docs/ | Contenuto |
+|------------|-----------|
+| `architecture/` | Overview piattaforma + ADR |
+| `knowledge/` | Decision framework, orchestrazione, browser MCP |
+| `agents/` | Roster agenti dominio manutenzione Windows |
+| `runbooks/` | Procedure operative |
+| `playbooks/` | Scenari multi-step |
+| `troubleshooting/` | Problemi noti e fix |
+| `lessons-learned/` | Retrospettive |
+| `hardware/` | Note hardware |
+| `software/` | Stack software |
+| `maintenance/` | Campagne manutenzione |
+| `automation/` | Automazioni e MCP |
+| `monitoring/` | KPI e soglie |
+| `security/` | Policy sicurezza |
+| `checklists/` | Gate qualità |
+| `history/` | Eventi significativi |
 
 ## Regola operativa
-Per ogni attivita, registra SEMPRE una entry nel journal con:
+
+Per ogni attività, registrare SEMPRE una entry nel journal con:
+
 1. Obiettivo
 2. Task
 3. Modifiche
 4. Decisioni
 5. Esito
 
+## Registrazione rapida
+
+Dalla root del repo clonato (qualsiasi path):
+
+```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/kb-add-entry.ps1 `
+  -Objective "..." `
+  -Task "..." `
+  -Changes @("modifica1","modifica2") `
+  -Decisions @("decisione1") `
+  -Outcome "Completato"
+```
+
+`-KbRoot` è opzionale (default: `<repo>/KB`).
+
 ## Regola repository (cleanup pre-push)
-- Prima di ogni push, esegui sempre cleanup dei runtime artifact non sorgente.
-- Gate automatico consigliato: hook `pre-push` con script `scripts/repo-cleanup-before-push.ps1`.
-- Il gate ripristina file runtime tracciati in `dist/**/logs/*` e rimuove runtime json non sorgente in `logs/`.
-- Se restano artifact runtime sporchi, il push deve essere bloccato fino a cleanup completato.
 
-### Setup una tantum (locale repo)
-pwsh -NoProfile -ExecutionPolicy Bypass -Command "git config core.hooksPath .githooks"
-
-### Esecuzione manuale (fallback)
-pwsh -NoProfile -ExecutionPolicy Bypass -File C:\SystemOptimizerHub\active\scripts\repo-cleanup-before-push.ps1 -Apply
-
-## Registrazione rapida (consigliata)
-Usa lo script:
-
-pwsh -NoProfile -ExecutionPolicy Bypass -File C:\SystemOptimizerHub\active\scripts\kb-add-entry.ps1 \
-  -Objective "Ridurre consumo RAM processi browser" \
-  -Task "Applicato throttle priorita per processi oltre soglia" \
-  -Changes "Aggiornata soglia RAM nel JSON","Aggiornato monitor-resources.ps1" \
-  -Decisions "AutoTerminate resta false in fase iniziale" \
-  -Outcome "Completato" \
-  -KbRoot "C:\SystemOptimizerHub\active\KB"
+```powershell
+git config core.hooksPath .githooks
+pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/repo-cleanup-before-push.ps1 -Apply
+```
