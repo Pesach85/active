@@ -1,12 +1,16 @@
 [CmdletBinding()]
 param(
-    [string]$HubRoot = "C:\\SystemOptimizerHub\\active",
+    [string]$HubRoot = "",
     [switch]$InstallCoreIfMissing,
     [switch]$UpdateMachinePath
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+
+if ([string]::IsNullOrWhiteSpace($HubRoot)) {
+    $HubRoot = Split-Path $PSScriptRoot -Parent
+}
 
 $scriptsDir = Join-Path $HubRoot "scripts"
 $configDir = Join-Path $HubRoot "config"
