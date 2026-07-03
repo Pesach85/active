@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
     [string]$InstallRoot = "C:\\SystemOptimizer",
     [switch]$RemoveInstallRoot

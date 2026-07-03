@@ -1,14 +1,21 @@
-param(
+﻿param(
     [string]$TaskName = "SystemResourceMonitor",
-    [string]$MonitorScriptPath = "C:\\scripts\\monitor-resources.ps1",
-    [string]$ConfigPath = "C:\\config\\sys-maintenance.json",
+    [string]$MonitorScriptPath = "",
+    [string]$ConfigPath = "",
     [switch]$RequireCore
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
-$pwsh = $null
+. (Join-Path $PSScriptRoot 'hub-common.ps1')
+$hub = Get-HubPaths
+if ([string]::IsNullOrWhiteSpace($MonitorScriptPath)) {
+    $MonitorScriptPath = Join-Path $hub.Scripts 'monitor-resources.ps1'
+}
+if ([string]::IsNullOrWhiteSpace($ConfigPath)) {
+    $ConfigPath = $hub.ConfigFile
+}
 
 if (-not (Test-Path -LiteralPath $MonitorScriptPath)) {
     throw "Monitor script not found: $MonitorScriptPath"

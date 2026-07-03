@@ -1,15 +1,36 @@
 param(
     [string]$TaskName = "StorageCleanupSafe",
-    [string]$CleanupScriptPath = "C:\\scripts\\cleanup-storage-safe.ps1",
-    [int]$TempRetentionDays = 7,
-    [int]$LogRetentionDays = 30,
+    [string]$CleanupScriptPath = "",
+    [int]$TempRetentionDays = 0,
+    [int]$LogRetentionDays = 0,
+    [string]$ConfigPath = "",
     [switch]$RequireCore
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
-$pwsh = $null
+. (Join-Path $PSScriptRoot 'hub-common.ps1')
+$hub = Get-HubPaths
+if ([string]::IsNullOrWhiteSpace($CleanupScriptPath)) {
+    $CleanupScriptPath = Join-Path $hub.Scripts 'cleanup-storage-safe.ps1'
+}
+if ([string]::IsNullOrWhiteSpace($ConfigPath)) {
+    $ConfigPath = $hub.ConfigFile
+}
+
+if (Test-Path -LiteralPath $ConfigPath) {
+    $cfg = Get-MaintenanceConfig -ConfigPath $ConfigPath
+    $cleanupCfg = Get-ConfigSection -Config $cfg -SectionName 'Cleanup'
+    if ($TempRetentionDays -le 0 -and $cleanupCfg.TempRetentionDays) {
+        $TempRetentionDays = [int]$cleanupCfg.TempRetentionDays
+    }
+    if ($LogRetentionDays -le 0 -and $cleanupCfg.LogRetentionDays) {
+        $LogRetentionDays = [int]$cleanupCfg.LogRetentionDays
+    }
+}
+if ($TempRetentionDays -le 0) { $TempRetentionDays = 7 }
+if ($LogRetentionDays -le 0) { $LogRetentionDays = 30 }
 
 if (-not (Test-Path -LiteralPath $CleanupScriptPath)) {
     throw "Cleanup script not found: $CleanupScriptPath"
@@ -37,7 +58,7 @@ function Resolve-PowerShellRuntime {
 
 $pwsh = Resolve-PowerShellRuntime -CoreOnly:$RequireCore.IsPresent
 
-$arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$CleanupScriptPath`" -Execute -TempRetentionDays $TempRetentionDays -LogRetentionDays $LogRetentionDays"
+$arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$CleanupScriptPath`" -Execute -ConfigPath `"$ConfigPath`" -TempRetentionDays $TempRetentionDays -LogRetentionDays $LogRetentionDays"
 $action = New-ScheduledTaskAction -Execute $pwsh -Argument $arguments
 $trigger = New-ScheduledTaskTrigger -Daily -At 3:15am
 $settings = New-ScheduledTaskSettingsSet -RestartCount 2 -RestartInterval (New-TimeSpan -Minutes 5) -AllowStartIfOnBatteries -StartWhenAvailable

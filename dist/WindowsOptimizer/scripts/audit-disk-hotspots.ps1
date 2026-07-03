@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
     [string[]]$Drives = @("C", "D"),
     [int]$Top = 20,

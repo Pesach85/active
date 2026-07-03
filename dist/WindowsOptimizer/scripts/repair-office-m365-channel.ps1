@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
     [ValidateSet('MonthlyEnterprise','Current','SemiAnnualEnterprise')]
     [string]$PreferredChannel = 'MonthlyEnterprise',

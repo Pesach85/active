@@ -27,7 +27,7 @@ param(
 
 $ErrorActionPreference = 'Continue'
 
-# â”€â”€ helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── helpers ────────────────────────────────────────────────────────────────────
 function Write-Progress2 { param([string]$Msg) Write-Host "[AUDIT] $Msg" }
 
 function New-Finding {
@@ -115,6 +115,50 @@ function New-OfficeM365ChannelFinding {
         -Solutions $solutions
 }
 
+function New-WslConfigFinding {
+    param(
+        [string]$Status,
+        [string]$DistributionName,
+        [string]$DefaultGuid,
+        [int]$ZombieWslCount,
+        [string]$WslServiceStatus,
+        [string[]]$Issues,
+        [string]$RepairScriptPath
+    )
+
+    $issueText = if ($Issues -and $Issues.Count -gt 0) { ($Issues -join '; ') } else { 'n/a' }
+    $inspectCommand = "& '$RepairScriptPath'"
+    $repairCommand = "& '$RepairScriptPath' -Apply"
+    $validateCommand = "& '$RepairScriptPath' -Apply -ValidateLaunch"
+    $rollbackCommand = "& '$RepairScriptPath' -RestoreLatest"
+
+    $solutions = @(
+        (New-Solution -Level 'Safe' -Label 'Inspect WSL registry/service health (read-only JSON assessment)' `
+            -Command $inspectCommand `
+            -Rollback 'N/A (read-only)' `
+            -RiskNote 'Uses bounded timeouts; does not unregister distros or change hypervisor settings.'),
+        (New-Solution -Level 'Safe' -Label 'Repair HKLM/HKCU WSL registry desync and recover WslService' `
+            -Command $repairCommand `
+            -Rollback $rollbackCommand `
+            -RiskNote 'Mirrors HKCU distro metadata into HKLM, clears zombie wsl.exe clients, and restarts WslService safely.'),
+        (New-Solution -Level 'Safe' -Label 'Validate default distro launch after repair (optional)' `
+            -Command $validateCommand `
+            -Rollback $rollbackCommand `
+            -RiskNote 'Runs only after registry repair. If launch is slow, reboot once and rerun assessment.')
+    )
+
+    return New-Finding `
+        -Id 'WSL-CONFIG-001' `
+        -Severity 'Critical' `
+        -Category 'OS' `
+        -Title 'WSL configuration broken (HKLM/HKCU desync or hung clients)' `
+        -Description 'WSL commands hang when HKCU DefaultDistribution is missing from HKLM, when WslService is STOP_PENDING, or when zombie wsl.exe clients accumulate. This blocks terminals, dev tools, and automation that call wsl.exe.' `
+        -CurrentValue "Status=$Status; Distro=$DistributionName; Guid=$DefaultGuid; Zombies=$ZombieWslCount; WslService=$WslServiceStatus; Issues=$issueText" `
+        -RecommendedValue 'HKLM distro registration aligned with HKCU; WslService Running; wsl -l -v responds within timeout' `
+        -Impact 'Every wsl.exe invocation can block indefinitely until registry/service state is repaired.' `
+        -Solutions $solutions
+}
+
 function Test-CommandAvailable {
     param([string]$Name)
 
@@ -161,13 +205,13 @@ function Test-WingetPackageInstalled {
     }
 }
 
-# â”€â”€ collector arrays â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── collector arrays ───────────────────────────────────────────────────────────
 $findings = [System.Collections.ArrayList]::new()
 $hardwareProfile = [ordered]@{}
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ══════════════════════════════════════════════════════════════════════════════
 #  PHASE 1 - Hardware Inventory
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ══════════════════════════════════════════════════════════════════════════════
 Write-Progress2 "Collecting hardware inventory..."
 
 # --- CPU ---
@@ -275,12 +319,12 @@ $hardwareProfile.GPU = @($gpus | ForEach-Object {
     }
 })
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ══════════════════════════════════════════════════════════════════════════════
 #  PHASE 2 - Finding Detection
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ══════════════════════════════════════════════════════════════════════════════
 Write-Progress2 "Analyzing disk health..."
 
-# â”€â”€ DISK HEALTH â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── DISK HEALTH ───────────────────────────────────────────────────────────────
 foreach ($pd in $physDisks) {
     if ($pd.HealthStatus -ne 'Healthy') {
         [void]$findings.Add((New-Finding `
@@ -309,7 +353,7 @@ foreach ($pd in $physDisks) {
     }
 }
 
-# â”€â”€ DISK SPACE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── DISK SPACE ────────────────────────────────────────────────────────────────
 Write-Progress2 "Analyzing disk space..."
 foreach ($vol in $volumes) {
     $sizeGB = [math]::Round($vol.Size / 1GB, 1)
@@ -413,7 +457,7 @@ Write-Host `"Removed `$cleaned temp files.`"" `
         -Solutions @($solutions.ToArray())))
 }
 
-# â”€â”€ RAM SINGLE-CHANNEL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── RAM SINGLE-CHANNEL ────────────────────────────────────────────────────────
 Write-Progress2 "Analyzing memory configuration..."
 if (-not $isDualChannel -and $slotsTotal -ge 2) {
     $currentModule = $dimms[0]
@@ -436,7 +480,7 @@ if (-not $isDualChannel -and $slotsTotal -ge 2) {
         )))
 }
 
-# â”€â”€ INTEL RST DRIVER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── INTEL RST DRIVER ──────────────────────────────────────────────────────────
 Write-Progress2 "Checking storage controller driver..."
 if ($rstDrv) {
     $rstVersionStr = $rstDrv.DriverVersion
@@ -486,7 +530,7 @@ Write-Host 'Registry prepared. REBOOT INTO SAFE MODE, then change BIOS from RAID
     }
 }
 
-# â”€â”€ SERVICES â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── SERVICES ──────────────────────────────────────────────────────────────────
 Write-Progress2 "Analyzing running services..."
 $heavyServices = @(
     @{ Name='MySQL80';                    Desc='MySQL Server';             Note='Database server' },
@@ -539,7 +583,7 @@ if ($runningHeavy.Count -gt 0) {
         )))
 }
 
-# â”€â”€ STARTUP PROGRAMS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── STARTUP PROGRAMS ──────────────────────────────────────────────────────────
 Write-Progress2 "Checking startup programs..."
 $startupEntries = [System.Collections.ArrayList]::new()
 foreach ($regPath in @('HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run', 'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run')) {
@@ -580,7 +624,7 @@ if ($startupEntries.Count -gt 0) {
         )))
 }
 
-# â”€â”€ NTFS TUNING â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── NTFS TUNING ───────────────────────────────────────────────────────────────
 Write-Progress2 "Checking NTFS/filesystem tuning..."
 
 $memUsage = 0
@@ -623,7 +667,7 @@ if ($ntfsSolutions.Count -gt 0) {
         -Solutions @($ntfsSolutions.ToArray())))
 }
 
-# â”€â”€ VISUAL EFFECTS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── VISUAL EFFECTS ────────────────────────────────────────────────────────────
 Write-Progress2 "Checking visual effects..."
 $vfx = Get-ItemProperty -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\VisualEffects' -EA SilentlyContinue
 $vfxSetting = if ($vfx) { [int]$vfx.VisualFXSetting } else { 3 }
@@ -646,7 +690,7 @@ if ($vfxSetting -ne 2) {
         )))
 }
 
-# â”€â”€ POWER PLAN CHECK â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── POWER PLAN CHECK ──────────────────────────────────────────────────────────
 Write-Progress2 "Checking power plan..."
 $activePlan = powercfg /getactivescheme 2>$null
 $isHighPerf = $activePlan -match '8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c'
@@ -668,13 +712,44 @@ if (-not $isHighPerf) {
         )))
 }
 
-# â”€â”€ ALREADY OPTIMIZED (positive findings) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── ALREADY OPTIMIZED (positive findings) ─────────────────────────────────────
 Write-Progress2 "Collecting positive findings..."
 $positives = [System.Collections.ArrayList]::new()
 $repairOfficeChannelScript = Join-Path $PSScriptRoot 'repair-office-m365-channel.ps1'
+$repairWslConfigScript = Join-Path $PSScriptRoot 'repair-wsl-config.ps1'
 $recommendedM365Channels = 'Current Channel, Monthly Enterprise Channel, Semi-Annual Enterprise Channel'
 
-# â”€â”€ OFFICE UPDATE CHANNEL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── WSL CONFIGURATION ─────────────────────────────────────────────────────────
+Write-Progress2 "Checking WSL configuration..."
+if (Test-Path -LiteralPath $repairWslConfigScript) {
+    try {
+        $wslAssessmentRaw = & pwsh -NoProfile -ExecutionPolicy Bypass -File $repairWslConfigScript 2>$null
+        if ($wslAssessmentRaw) {
+            $wslAssessment = $wslAssessmentRaw | ConvertFrom-Json
+            if ($wslAssessment.Status -ne 'Ready') {
+                [void]$findings.Add((New-WslConfigFinding `
+                    -Status ([string]$wslAssessment.Status) `
+                    -DistributionName ([string]$wslAssessment.DistributionName) `
+                    -DefaultGuid ([string]$wslAssessment.DefaultGuid) `
+                    -ZombieWslCount ([int]$wslAssessment.ZombieWslCount) `
+                    -WslServiceStatus ([string]$wslAssessment.WslService.Status) `
+                    -Issues @([string[]]$wslAssessment.Issues) `
+                    -RepairScriptPath $repairWslConfigScript))
+            } else {
+                $wslDistro = [string]$wslAssessment.DistributionName
+                if (-not [string]::IsNullOrWhiteSpace($wslDistro)) {
+                    [void]$positives.Add(("WSL healthy (distro={0}, service=Running)" -f $wslDistro))
+                } else {
+                    [void]$positives.Add('WSL healthy (service=Running)')
+                }
+            }
+        }
+    } catch {
+        Write-Progress2 "WSL assessment skipped: $($_.Exception.Message)"
+    }
+}
+
+# ── OFFICE UPDATE CHANNEL ─────────────────────────────────────────────────────
 Write-Progress2 "Checking Office update channel compatibility..."
 $officePolicyPath = 'HKLM:\SOFTWARE\Policies\Microsoft\office\16.0\common\officeupdate'
 $officePolicy = Get-ItemProperty -LiteralPath $officePolicyPath -EA SilentlyContinue
@@ -719,7 +794,7 @@ if ($officeMismatch -and (Test-Path -LiteralPath $repairOfficeChannelScript)) {
     [void]$positives.Add(("Office channel aligned for Microsoft 365 Apps ({0})" -f $officeBranch))
 }
 
-# â”€â”€ REQUIRED SYSTEM PACKAGES â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── REQUIRED SYSTEM PACKAGES ─────────────────────────────────────────────────
 Write-Progress2 "Checking required system packages..."
 
 $wingetAvailable = Test-CommandAvailable -Name 'winget'
@@ -836,9 +911,9 @@ if ($isHighPerf) {
     [void]$positives.Add('Power plan: High Performance')
 }
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ══════════════════════════════════════════════════════════════════════════════
 #  PHASE 3 - Load KB overrides (future extensibility)
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ══════════════════════════════════════════════════════════════════════════════
 if ($KnowledgeBase -and (Test-Path $KnowledgeBase)) {
     Write-Progress2 "Loading knowledge base overrides..."
     try {
@@ -872,9 +947,9 @@ if ($KnowledgeBase -and (Test-Path $KnowledgeBase)) {
     }
 }
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ══════════════════════════════════════════════════════════════════════════════
 #  PHASE 4 - Build & Write JSON report
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ══════════════════════════════════════════════════════════════════════════════
 Write-Progress2 "Building report..."
 
 # Sort findings: Critical first, then Important, Moderate, Info

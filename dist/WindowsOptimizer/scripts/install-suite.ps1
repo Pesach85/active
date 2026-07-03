@@ -1,12 +1,19 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
-    [string]$InstallRoot = "C:\\SystemOptimizer",
-    [string]$SourceRoot = "C:\\",
+    [string]$InstallRoot = "",
+    [string]$SourceRoot = "",
     [switch]$CoreInstallIfMissing
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+
+if ([string]::IsNullOrWhiteSpace($SourceRoot)) {
+    $SourceRoot = Split-Path $PSScriptRoot -Parent
+}
+if ([string]::IsNullOrWhiteSpace($InstallRoot)) {
+    $InstallRoot = Join-Path $SourceRoot "dist\WindowsOptimizer"
+}
 
 $scriptsSource = Join-Path $SourceRoot "scripts"
 $configSource = Join-Path $SourceRoot "config"
