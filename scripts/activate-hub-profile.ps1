@@ -35,7 +35,7 @@ if (-not (Test-Path -LiteralPath $logsDir)) {
 }
 
 $config = Get-Content -LiteralPath $configPath -Raw | ConvertFrom-Json
-$config.LogDirectory = $logsDir
+$config.LogDirectory = "logs"
 $config | ConvertTo-Json -Depth 8 | Out-File -LiteralPath $configPath -Encoding utf8
 
 $ensureArgs = @(
