@@ -50,6 +50,35 @@ function Resolve-HubPath {
     return (Join-Path $HubRoot $Path)
 }
 
+function ConvertFrom-JsonToHashtable {
+    param($InputObject)
+
+    if ($null -eq $InputObject) { return @{} }
+    if ($InputObject -is [hashtable]) { return $InputObject }
+
+    if ($InputObject -is [System.Collections.IDictionary]) {
+        $result = @{}
+        foreach ($key in $InputObject.Keys) {
+            $result[$key] = ConvertFrom-JsonToHashtable -InputObject $InputObject[$key]
+        }
+        return $result
+    }
+
+    if ($InputObject -is [System.Array]) {
+        return @($InputObject | ForEach-Object { ConvertFrom-JsonToHashtable -InputObject $_ })
+    }
+
+    if ($InputObject -is [pscustomobject]) {
+        $result = @{}
+        foreach ($prop in $InputObject.PSObject.Properties) {
+            $result[$prop.Name] = ConvertFrom-JsonToHashtable -InputObject $prop.Value
+        }
+        return $result
+    }
+
+    return $InputObject
+}
+
 function Get-MaintenanceConfig {
     param(
         [string]$ConfigPath
@@ -60,7 +89,15 @@ function Get-MaintenanceConfig {
     }
 
     $raw = Get-Content -LiteralPath $ConfigPath -Raw -ErrorAction Stop
-    return ($raw | ConvertFrom-Json -AsHashtable)
+    if ($PSVersionTable.PSVersion.Major -ge 6) {
+        try {
+            return ($raw | ConvertFrom-Json -AsHashtable)
+        } catch {
+            # Fall through for hosts where -AsHashtable is unavailable.
+        }
+    }
+
+    return (ConvertFrom-JsonToHashtable -InputObject ($raw | ConvertFrom-Json))
 }
 
 function Save-MaintenanceConfig {
@@ -96,7 +133,11 @@ function Get-ConfigSection {
         return @{}
     }
 
-    return [hashtable]($section | ConvertTo-Json -Depth 8 | ConvertFrom-Json -AsHashtable)
+    if ($section -is [hashtable]) {
+        return $section
+    }
+
+    return (ConvertFrom-JsonToHashtable -InputObject $section)
 }
 
 function Test-EventLogServicesHealthy {
