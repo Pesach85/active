@@ -1,6 +1,11 @@
 @echo off
-if exist C:\SystemOptimizerHub\active\dist\WindowsOptimizer\WindowsOptimizer.exe (
-  start "" C:\SystemOptimizerHub\active\dist\WindowsOptimizer\WindowsOptimizer.exe
+setlocal
+set "SCRIPTDIR=%~dp0"
+set "HUBROOT=%SCRIPTDIR%.."
+if exist "%HUBROOT%\dist\WindowsOptimizer\WindowsOptimizer.exe" (
+  start "" "%HUBROOT%\dist\WindowsOptimizer\WindowsOptimizer.exe"
+) else if exist "%ProgramFiles%\PowerShell\7\pwsh.exe" (
+  "%ProgramFiles%\PowerShell\7\pwsh.exe" -NoProfile -ExecutionPolicy Bypass -File "%HUBROOT%\scripts\system-optimizer-gui.ps1"
 ) else (
-  powershell -NoProfile -ExecutionPolicy Bypass -File C:\SystemOptimizerHub\active\scripts\system-optimizer-gui.ps1
+  powershell -NoProfile -ExecutionPolicy Bypass -File "%HUBROOT%\scripts\system-optimizer-gui.ps1"
 )

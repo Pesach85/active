@@ -17,10 +17,17 @@ How many days to run monitoring (default: 7)
 param(
     [string]$TaskName = "NVMe-KPI-Monitor-7Day",
     [DateTime]$StartTime = (Get-Date),
-    [int]$MonitoringDurationDays = 7
+    [int]$MonitoringDurationDays = 7,
+    [string]$ScriptPath = ""
 )
 
 $ErrorActionPreference = "Stop"
+
+. (Join-Path $PSScriptRoot 'hub-common.ps1')
+$hub = Get-HubPaths
+if ([string]::IsNullOrWhiteSpace($ScriptPath)) {
+    $ScriptPath = Join-Path $hub.Scripts 'monitor-nvme-kpi-7day.ps1'
+}
 
 function Register-KPIMonitoringTask {
     param(
@@ -29,7 +36,7 @@ function Register-KPIMonitoringTask {
         [int]$DurationDays
     )
     
-    $scriptPath = "C:\SystemOptimizerHub\active\scripts\monitor-nvme-kpi-7day.ps1"
+    $scriptPath = $ScriptPath
     
     if (-not (Test-Path $scriptPath)) {
         throw "KPI monitoring script not found at: $scriptPath"

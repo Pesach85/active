@@ -15,6 +15,9 @@ if (-not $OutputDir -or $OutputDir.Trim() -eq "") {
 }
 
 $items = @(
+    (Join-Path $scriptDir "hub-common.ps1"),
+    (Join-Path $scriptDir "hub-orchestrator.ps1"),
+    (Join-Path $scriptDir "fs-integrity.ps1"),
     (Join-Path $scriptDir "monitor-resources.ps1"),
     (Join-Path $scriptDir "cleanup-storage-safe.ps1"),
     (Join-Path $scriptDir "quick-cleanup-safe.ps1"),
@@ -53,7 +56,7 @@ New-Item -Path $targetConfig -ItemType Directory -Force | Out-Null
 
 foreach ($item in $items) {
     if (Test-Path -LiteralPath $item) {
-        if ($item -like "*\\config\\*") {
+        if ($item -match '[\\/]config[\\/]') {
             Copy-Item -LiteralPath $item -Destination $targetConfig -Force
         } else {
             Copy-Item -LiteralPath $item -Destination $targetScripts -Force

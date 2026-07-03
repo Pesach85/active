@@ -19,11 +19,25 @@ Anti-pattern guard: All event handlers use .Tag-based references per KB/powershe
 #>
 
 param(
-    [string]$MonitorLogPath = "C:\SystemOptimizerHub\active\logs\whea-monitoring-continuous.json"
+    [string]$MonitorLogPath = ""
 )
 
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
+
+. (Join-Path $PSScriptRoot 'hub-common.ps1')
+$hub = Get-HubPaths
+if ([string]::IsNullOrWhiteSpace($MonitorLogPath)) {
+    $cfgPath = $hub.ConfigFile
+    if (Test-Path -LiteralPath $cfgPath) {
+        $cfg = Get-MaintenanceConfig -ConfigPath $cfgPath
+        $whea = Get-ConfigSection -Config $cfg -SectionName 'Whea'
+        $rel = if ($whea.OutputPath) { [string]$whea.OutputPath } else { 'logs/whea-monitoring-continuous.json' }
+        $MonitorLogPath = Resolve-HubPath -HubRoot $hub.HubRoot -Path $rel
+    } else {
+        $MonitorLogPath = Join-Path $hub.Logs 'whea-monitoring-continuous.json'
+    }
+}
 
 # ============================================================================
 # Load Data

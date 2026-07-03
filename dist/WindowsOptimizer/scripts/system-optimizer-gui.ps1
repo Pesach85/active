@@ -114,6 +114,10 @@ $script:computeAnalyzeTop = 8
 $script:quickCleanupRetentionDays = 2
 $script:quickCleanupMaxFilesPerTarget = 2000
 $script:diagnosticRetentionDays = 7
+$script:cfgTempRetentionDays = 7
+$script:cfgLogRetentionDays = 30
+$script:cfgTier2Enabled = $false
+$script:cfgTier2SimulateOnly = $true
 $script:diagnosticsDir = Join-Path $script:hubRoot "logs\diagnostics"
 $script:healthAuditScript  = Join-Path $script:scriptRoot "system-health-audit.ps1"
 $script:nvmeAdvisorScript  = Join-Path $script:scriptRoot "analyze-nvme-readonly-plan.ps1"
@@ -793,7 +797,86 @@ $lblConfig.BackColor = [System.Drawing.Color]::Transparent
 $btnOpenConfig = New-Btn "Open in Notepad"  $clrRaised  150 34
 $btnOpenConfig.Location = New-Object System.Drawing.Point(24, 88)
 
-$pnlConfigBody.Controls.AddRange(@($lblConfigHeading, $lblConfig, $btnOpenConfig))
+$btnSaveConfig = New-Btn "Save GUI Settings"  $clrAccent  150 34
+$btnSaveConfig.Location = New-Object System.Drawing.Point(190, 88)
+
+$btnReloadConfig = New-Btn "Reload"  $clrRaised  90 34
+$btnReloadConfig.Location = New-Object System.Drawing.Point(356, 88)
+
+$chkAutoAnalyze = New-Object System.Windows.Forms.CheckBox
+$chkAutoAnalyze.Text = "Auto-analyze on startup"
+$chkAutoAnalyze.ForeColor = $clrText
+$chkAutoAnalyze.BackColor = [System.Drawing.Color]::Transparent
+$chkAutoAnalyze.AutoSize = $true
+$chkAutoAnalyze.Location = New-Object System.Drawing.Point(24, 140)
+
+$lblCfgTemp = New-Object System.Windows.Forms.Label
+$lblCfgTemp.Text = "Temp retention (days)"
+$lblCfgTemp.ForeColor = $clrMuted
+$lblCfgTemp.AutoSize = $true
+$lblCfgTemp.Location = New-Object System.Drawing.Point(24, 176)
+$lblCfgTemp.BackColor = [System.Drawing.Color]::Transparent
+
+$numCfgTemp = New-Object System.Windows.Forms.NumericUpDown
+$numCfgTemp.Minimum = 1; $numCfgTemp.Maximum = 30; $numCfgTemp.Value = 7
+$numCfgTemp.Width = 72
+$numCfgTemp.Location = New-Object System.Drawing.Point(180, 172)
+$numCfgTemp.BackColor = $clrRaised; $numCfgTemp.ForeColor = $clrText
+
+$lblCfgLog = New-Object System.Windows.Forms.Label
+$lblCfgLog.Text = "Log retention (days)"
+$lblCfgLog.ForeColor = $clrMuted
+$lblCfgLog.AutoSize = $true
+$lblCfgLog.Location = New-Object System.Drawing.Point(24, 208)
+$lblCfgLog.BackColor = [System.Drawing.Color]::Transparent
+
+$numCfgLog = New-Object System.Windows.Forms.NumericUpDown
+$numCfgLog.Minimum = 1; $numCfgLog.Maximum = 90; $numCfgLog.Value = 30
+$numCfgLog.Width = 72
+$numCfgLog.Location = New-Object System.Drawing.Point(180, 204)
+$numCfgLog.BackColor = $clrRaised; $numCfgLog.ForeColor = $clrText
+
+$lblCfgDiag = New-Object System.Windows.Forms.Label
+$lblCfgDiag.Text = "Diagnostic log retention"
+$lblCfgDiag.ForeColor = $clrMuted
+$lblCfgDiag.AutoSize = $true
+$lblCfgDiag.Location = New-Object System.Drawing.Point(24, 240)
+$lblCfgDiag.BackColor = [System.Drawing.Color]::Transparent
+
+$numCfgDiag = New-Object System.Windows.Forms.NumericUpDown
+$numCfgDiag.Minimum = 1; $numCfgDiag.Maximum = 30; $numCfgDiag.Value = 7
+$numCfgDiag.Width = 72
+$numCfgDiag.Location = New-Object System.Drawing.Point(180, 236)
+$numCfgDiag.BackColor = $clrRaised; $numCfgDiag.ForeColor = $clrText
+
+$chkTier2 = New-Object System.Windows.Forms.CheckBox
+$chkTier2.Text = "Cleanup Tier-2 enabled (D: whitelist)"
+$chkTier2.ForeColor = $clrText
+$chkTier2.BackColor = [System.Drawing.Color]::Transparent
+$chkTier2.AutoSize = $true
+$chkTier2.Location = New-Object System.Drawing.Point(24, 276)
+
+$chkTier2Sim = New-Object System.Windows.Forms.CheckBox
+$chkTier2Sim.Text = "Tier-2 simulate only (audit, no delete)"
+$chkTier2Sim.ForeColor = $clrText
+$chkTier2Sim.BackColor = [System.Drawing.Color]::Transparent
+$chkTier2Sim.AutoSize = $true
+$chkTier2Sim.Location = New-Object System.Drawing.Point(24, 302)
+
+$lblCfgHint = New-Object System.Windows.Forms.Label
+$lblCfgHint.Text = "Monitor/WHEA/Orchestrator thresholds: edit JSON or use Save to persist GUI section."
+$lblCfgHint.Font = $fntSmall
+$lblCfgHint.ForeColor = $clrMuted
+$lblCfgHint.AutoSize = $true
+$lblCfgHint.MaximumSize = New-Object System.Drawing.Size(640, 0)
+$lblCfgHint.Location = New-Object System.Drawing.Point(24, 340)
+$lblCfgHint.BackColor = [System.Drawing.Color]::Transparent
+
+$pnlConfigBody.Controls.AddRange(@(
+    $lblConfigHeading, $lblConfig, $btnOpenConfig, $btnSaveConfig, $btnReloadConfig,
+    $chkAutoAnalyze, $lblCfgTemp, $numCfgTemp, $lblCfgLog, $numCfgLog,
+    $lblCfgDiag, $numCfgDiag, $chkTier2, $chkTier2Sim, $lblCfgHint
+))
 $tabConfig.Controls.Add($pnlConfigBody)
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1096,6 +1179,84 @@ function Load-GuiPreferences {
             if ($v -gt 30) { $v = 30 }
             $script:diagnosticRetentionDays = $v
         }
+    }
+
+    if ($cfg.PSObject.Properties.Name -contains "Cleanup") {
+        $cleanup = $cfg.Cleanup
+        if ($null -ne $cleanup.TempRetentionDays) {
+            $script:cfgTempRetentionDays = [int]$cleanup.TempRetentionDays
+        }
+        if ($null -ne $cleanup.LogRetentionDays) {
+            $script:cfgLogRetentionDays = [int]$cleanup.LogRetentionDays
+        }
+        if ($cleanup.Tier2) {
+            if ($null -ne $cleanup.Tier2.Enabled) {
+                $script:cfgTier2Enabled = [bool]$cleanup.Tier2.Enabled
+            }
+            if ($null -ne $cleanup.Tier2.SimulateOnly) {
+                $script:cfgTier2SimulateOnly = [bool]$cleanup.Tier2.SimulateOnly
+            }
+        }
+    }
+}
+
+function Apply-ConfigControls {
+    if ($null -ne $script:cfgTempRetentionDays) { $numCfgTemp.Value = [decimal]$script:cfgTempRetentionDays }
+    if ($null -ne $script:cfgLogRetentionDays) { $numCfgLog.Value = [decimal]$script:cfgLogRetentionDays }
+    $numCfgDiag.Value = [decimal]$script:diagnosticRetentionDays
+    $chkAutoAnalyze.Checked = $script:autoAnalyzeOnStartup
+    if ($null -ne $script:cfgTier2Enabled) { $chkTier2.Checked = $script:cfgTier2Enabled }
+    if ($null -ne $script:cfgTier2SimulateOnly) { $chkTier2Sim.Checked = $script:cfgTier2SimulateOnly }
+}
+
+function Save-GuiPreferences {
+    if (-not (Test-Path -LiteralPath $script:configPath)) {
+        Append-Status "Config file missing; cannot save."
+        return
+    }
+
+    try {
+        $raw = Get-Content -LiteralPath $script:configPath -Raw -ErrorAction Stop
+        $cfg = $raw | ConvertFrom-Json -ErrorAction Stop
+    } catch {
+        Append-Status ("Config save failed (read): {0}" -f $_.Exception.Message)
+        return
+    }
+
+    if (-not $cfg.Gui) {
+        $cfg | Add-Member -NotePropertyName Gui -NotePropertyValue ([pscustomobject]@{}) -Force
+    }
+    $cfg.Gui.AutoAnalyzeOnStartup = [bool]$chkAutoAnalyze.Checked
+    $cfg.Gui.DefaultAnalyzeDepth = [string]$cmbDepth.SelectedItem
+    $cfg.Gui.DefaultAnalyzeTop = [int]$numTop.Value
+    $cfg.Gui.ComputeAnalyzeDurationSec = [int]$script:computeAnalyzeDurationSec
+    $cfg.Gui.ComputeAnalyzeTop = [int]$script:computeAnalyzeTop
+    $cfg.Gui.QuickCleanupRetentionDays = [int]$script:quickCleanupRetentionDays
+    $cfg.Gui.QuickCleanupMaxFilesPerTarget = [int]$script:quickCleanupMaxFilesPerTarget
+    $cfg.Gui.DiagnosticRetentionDays = [int]$numCfgDiag.Value
+
+    if (-not $cfg.Cleanup) {
+        $cfg | Add-Member -NotePropertyName Cleanup -NotePropertyValue ([pscustomobject]@{}) -Force
+    }
+    $cfg.Cleanup.TempRetentionDays = [int]$numCfgTemp.Value
+    $cfg.Cleanup.LogRetentionDays = [int]$numCfgLog.Value
+    if (-not $cfg.Cleanup.Tier2) {
+        $cfg.Cleanup | Add-Member -NotePropertyName Tier2 -NotePropertyValue ([pscustomobject]@{}) -Force
+    }
+    $cfg.Cleanup.Tier2.Enabled = [bool]$chkTier2.Checked
+    $cfg.Cleanup.Tier2.SimulateOnly = [bool]$chkTier2Sim.Checked
+
+    try {
+        $cfg | ConvertTo-Json -Depth 12 | Out-File -LiteralPath $script:configPath -Encoding utf8 -Force
+        $script:autoAnalyzeOnStartup = [bool]$chkAutoAnalyze.Checked
+        $script:diagnosticRetentionDays = [int]$numCfgDiag.Value
+        $script:cfgTempRetentionDays = [int]$numCfgTemp.Value
+        $script:cfgLogRetentionDays = [int]$numCfgLog.Value
+        $script:cfgTier2Enabled = [bool]$chkTier2.Checked
+        $script:cfgTier2SimulateOnly = [bool]$chkTier2Sim.Checked
+        Append-Status "Configuration saved to sys-maintenance.json"
+    } catch {
+        Append-Status ("Config save failed (write): {0}" -f $_.Exception.Message)
     }
 }
 
@@ -3392,6 +3553,12 @@ $btnOpenConfig.Add_Click({
         Start-Process notepad.exe -ArgumentList $script:configPath
     }
 })
+$btnSaveConfig.Add_Click({ Save-GuiPreferences })
+$btnReloadConfig.Add_Click({
+    Load-GuiPreferences
+    Apply-ConfigControls
+    Append-Status "Configuration reloaded from disk."
+})
 
 # ── Deep Scan event handlers ───────────────────────────────────────────────────
 $btnDeepScanRun.Add_Click({ Run-DeepScan })
@@ -3454,6 +3621,7 @@ $btnDeepApply.Add_Click({
 })
 
 Load-GuiPreferences
+Apply-ConfigControls
 Cleanup-DiagnosticLogs -RetentionDays $script:diagnosticRetentionDays
 if ($cmbDepth.Items.Contains($script:startupAnalyzeDepth)) {
     $cmbDepth.SelectedItem = $script:startupAnalyzeDepth

@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Audit, auto-check and safe repair for broken WSL configuration on Windows.
 

@@ -1,21 +1,53 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
     [switch]$Execute,
-    [int]$TempRetentionDays = 7,
-    [int]$LogRetentionDays = 30,
+    [int]$TempRetentionDays = 0,
+    [int]$LogRetentionDays = 0,
     [ValidateSet("Quick", "Standard", "Deep")]
-    [string]$AuditDepth = "Standard",
+    [string]$AuditDepth = "",
     [ValidateSet("FileLevel", "BitLevel")]
-    [string]$AuditLevel = "FileLevel",
+    [string]$AuditLevel = "",
     [ValidateSet("Safe", "Radical")]
-    [string]$CleanupMode = "Safe",
-    [string[]]$Drives = @("C", "D"),
-    [string]$LogFile = "C:\\logs\\storage-cleanup.log",
+    [string]$CleanupMode = "",
+    [string[]]$Drives = @(),
+    [string]$LogFile = "",
+    [string]$ConfigPath = "",
     [string]$OutputJson = ""
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+
+. (Join-Path $PSScriptRoot 'hub-common.ps1')
+$hub = Get-HubPaths
+if ([string]::IsNullOrWhiteSpace($ConfigPath)) {
+    $ConfigPath = $hub.ConfigFile
+}
+$mainCfg = $null
+$cleanupCfg = @{}
+if (Test-Path -LiteralPath $ConfigPath) {
+    $mainCfg = Get-MaintenanceConfig -ConfigPath $ConfigPath
+    $cleanupCfg = Get-ConfigSection -Config $mainCfg -SectionName 'Cleanup'
+}
+
+if ([string]::IsNullOrWhiteSpace($LogFile)) {
+    $LogFile = Join-Path $hub.Logs 'storage-cleanup.log'
+} else {
+    $LogFile = Resolve-HubPath -HubRoot $hub.HubRoot -Path $LogFile
+}
+
+if ([string]::IsNullOrWhiteSpace($CleanupMode)) {
+    $CleanupMode = if ($cleanupCfg.DefaultMode) { [string]$cleanupCfg.DefaultMode } else { 'Safe' }
+}
+if ([string]::IsNullOrWhiteSpace($AuditDepth)) {
+    $AuditDepth = if ($cleanupCfg.DefaultAuditDepth) { [string]$cleanupCfg.DefaultAuditDepth } else { 'Standard' }
+}
+if ([string]::IsNullOrWhiteSpace($AuditLevel)) {
+    $AuditLevel = if ($cleanupCfg.DefaultAuditLevel) { [string]$cleanupCfg.DefaultAuditLevel } else { 'FileLevel' }
+}
+if (-not $Drives -or $Drives.Count -eq 0) {
+    $Drives = @('C', 'D')
+}
 
 if (-not (Test-Path -LiteralPath (Split-Path -Path $LogFile -Parent))) {
     New-Item -Path (Split-Path -Path $LogFile -Parent) -ItemType Directory -Force | Out-Null
@@ -103,18 +135,18 @@ function Get-FileCandidates {
 }
 
 if ($CleanupMode -eq "Radical") {
-    if (-not $PSBoundParameters.ContainsKey("TempRetentionDays")) {
+    if (-not $PSBoundParameters.ContainsKey("TempRetentionDays") -or $TempRetentionDays -le 0) {
         $TempRetentionDays = 2
     }
-    if (-not $PSBoundParameters.ContainsKey("LogRetentionDays")) {
+    if (-not $PSBoundParameters.ContainsKey("LogRetentionDays") -or $LogRetentionDays -le 0) {
         $LogRetentionDays = 7
     }
 } else {
-    if (-not $PSBoundParameters.ContainsKey("TempRetentionDays")) {
-        $TempRetentionDays = 7
+    if (-not $PSBoundParameters.ContainsKey("TempRetentionDays") -or $TempRetentionDays -le 0) {
+        $TempRetentionDays = if ($cleanupCfg.TempRetentionDays) { [int]$cleanupCfg.TempRetentionDays } else { 7 }
     }
-    if (-not $PSBoundParameters.ContainsKey("LogRetentionDays")) {
-        $LogRetentionDays = 30
+    if (-not $PSBoundParameters.ContainsKey("LogRetentionDays") -or $LogRetentionDays -le 0) {
+        $LogRetentionDays = if ($cleanupCfg.LogRetentionDays) { [int]$cleanupCfg.LogRetentionDays } else { 30 }
     }
 }
 
@@ -148,6 +180,22 @@ Get-UserTempPaths | ForEach-Object {
     $targets.Add([PSCustomObject]@{ Path = $_; Cutoff = $tempCutoff; Kind = "temp" })
 }
 
+$tier2 = @{}
+if ($cleanupCfg.ContainsKey('Tier2')) {
+    $tier2 = Get-ConfigSection -Config @{ Tier2 = $cleanupCfg['Tier2'] } -SectionName 'Tier2'
+}
+if ($tier2.ContainsKey('Enabled') -and [bool]$tier2.Enabled) {
+    $tier2Paths = @($tier2.WhitelistPaths)
+    $tier2Max = if ($tier2.MaxFilesPerTarget) { [int]$tier2.MaxFilesPerTarget } else { $maxFilesPerTarget }
+    $simulateOnly = $true
+    if ($tier2.ContainsKey('SimulateOnly')) { $simulateOnly = [bool]$tier2.SimulateOnly }
+    foreach ($p in $tier2Paths) {
+        if ([string]::IsNullOrWhiteSpace($p)) { continue }
+        $targets.Add([PSCustomObject]@{ Path = $p; Cutoff = $tempCutoff; Kind = 'tier2'; MaxFiles = $tier2Max; SimulateOnly = $simulateOnly })
+    }
+    Write-Log -Level "INFO" -Message ("Tier2 targets enabled count={0} simulateOnly={1}" -f $tier2Paths.Count, $simulateOnly)
+}
+
 $wuService = Get-Service -Name wuauserv -ErrorAction SilentlyContinue
 if ($wuService -and $wuService.Status -eq "Running") {
     $targets = $targets | Where-Object { $_.Path -ne "C:\\Windows\\SoftwareDistribution\\Download" }
@@ -160,7 +208,17 @@ $totalDeleted = 0
 $totalDeletedBytes = 0L
 
 foreach ($t in $targets) {
-    $files = Get-FileCandidates -Path $t.Path -OlderThan $t.Cutoff -MaxFiles $maxFilesPerTarget
+    $perTargetMax = $maxFilesPerTarget
+    if ($t.PSObject.Properties.Name -contains 'MaxFiles' -and $t.MaxFiles) {
+        $perTargetMax = [int]$t.MaxFiles
+    }
+    $tierSimulate = $false
+    if ($t.PSObject.Properties.Name -contains 'SimulateOnly') {
+        $tierSimulate = [bool]$t.SimulateOnly
+    }
+    $effectiveExecute = $Execute -and -not ($tierSimulate -and $t.Kind -eq 'tier2')
+
+    $files = Get-FileCandidates -Path $t.Path -OlderThan $t.Cutoff -MaxFiles $perTargetMax
     $count = ($files | Measure-Object).Count
     $bytes = 0L
     $bytesAllocated = 0L
@@ -182,7 +240,7 @@ foreach ($t in $targets) {
 
     Write-Log -Level "INFO" -Message ("Target={0} Kind={1} Candidates={2} SizeGB={3} LogicalGB={4} MaxFiles={5}" -f $t.Path, $t.Kind, $count, [math]::Round($effectiveBytes / 1GB, 3), [math]::Round($bytes / 1GB, 3), $maxFilesPerTarget)
 
-    if ($Execute) {
+    if ($effectiveExecute) {
         foreach ($f in $files) {
             try {
                 Remove-Item -LiteralPath $f.FullName -Force -ErrorAction Stop

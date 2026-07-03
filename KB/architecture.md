@@ -1,10 +1,13 @@
 # Architecture - Windows Optimizer Hub
 
 ## Scope
-Workspace operativo globale su C, D e sistema operativo, con profilo centralizzato in C:/SystemOptimizerHub/active.
+Workspace operativo globale su C, D e sistema operativo, con profilo centralizzato nel clone Git (path portabile; es. `D:/SystemOptimizerHub/active`).
 
 ## Componenti principali
 - scripts/monitor-resources.ps1: monitor sempre attivo processi CPU/RAM + handling priorita.
+- scripts/hub-common.ps1: helper condivisi (hub root, config JSON, event log health).
+- scripts/hub-orchestrator.ps1: heartbeat, log rotation, orchestrazione WHEA/fs-integrity.
+- scripts/fs-integrity.ps1: scan-only integrità filesystem (volumi, symlink DataHub, eventi).
 - scripts/cleanup-storage-safe.ps1: cleanup con modalita Safe/Radical e criteri AuditDepth/AuditLevel.
 - scripts/quick-cleanup-safe.ps1: pulitore rapido a basso rischio con target sicuri e retention breve.
 - scripts/analyze-garbage-hotspots.ps1: ranking statistico cartelle garbage-prone con classificazione.

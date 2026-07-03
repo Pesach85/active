@@ -1,7 +1,7 @@
 {
   "LoopIntervalSeconds": 20,
   "StorageCheckEveryCycles": 12,
-  "LogDirectory": "C:\\logs",
+  "LogDirectory": "logs",
   "LogFileName": "resource-monitor.log",
   "DrivesToMonitor": [
     "C",
@@ -23,5 +23,60 @@
   "Zombie": {
     "Enabled": true,
     "ConsecutiveUnresponsiveChecks": 4
+  },
+  "Cleanup": {
+    "TempRetentionDays": 7,
+    "LogRetentionDays": 30,
+    "DefaultMode": "Safe",
+    "DefaultAuditDepth": "Standard",
+    "DefaultAuditLevel": "FileLevel",
+    "Tier2": {
+      "Enabled": false,
+      "SimulateOnly": true,
+      "Drives": [
+        "D"
+      ],
+      "WhitelistPaths": [
+        "D:\\DataHub\\Temp",
+        "D:\\DataHub\\Cache"
+      ],
+      "MaxFilesPerTarget": 5000
+    }
+  },
+  "Whea": {
+    "Enabled": true,
+    "WindowMinutes": 10,
+    "OutputPath": "logs/whea-monitoring-continuous.json",
+    "GoThreshold": 300,
+    "HoldThreshold": 600,
+    "UseWevtutilFallback": true,
+    "VerifyEventLogServices": true
+  },
+  "Orchestrator": {
+    "Enabled": true,
+    "HeartbeatIntervalSeconds": 300,
+    "LogRotationDays": 7,
+    "HeartbeatFile": "logs/hub-orchestrator-heartbeat.json",
+    "RunWheaMonitor": true,
+    "RunFsIntegrityScan": true
+  },
+  "FsIntegrity": {
+    "Enabled": true,
+    "ScanDrives": [
+      "C",
+      "D"
+    ],
+    "OutputPath": "logs/fs-integrity-latest.json",
+    "EventLookbackHours": 24
+  },
+  "Gui": {
+    "AutoAnalyzeOnStartup": true,
+    "DefaultAnalyzeDepth": "Quick",
+    "DefaultAnalyzeTop": 15,
+    "ComputeAnalyzeDurationSec": 8,
+    "ComputeAnalyzeTop": 8,
+    "QuickCleanupRetentionDays": 2,
+    "QuickCleanupMaxFilesPerTarget": 2000,
+    "DiagnosticRetentionDays": 7
   }
 }

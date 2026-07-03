@@ -2,12 +2,20 @@
 param(
     [switch]$Execute,
     [switch]$SetAnyDeskManual,
-    [string]$BackupJson = "C:\SystemOptimizerHub\active\logs\startup-safe-tuning-backup.json",
+    [string]$BackupJson = "",
     [string]$OutputJson = ""
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+
+. (Join-Path $PSScriptRoot 'hub-common.ps1')
+$hub = Get-HubPaths
+if ([string]::IsNullOrWhiteSpace($BackupJson)) {
+    $BackupJson = Join-Path $hub.Logs 'startup-safe-tuning-backup.json'
+} else {
+    $BackupJson = Resolve-HubPath -HubRoot $hub.HubRoot -Path $BackupJson
+}
 
 function Get-RunLocations {
     $locations = New-Object System.Collections.Generic.List[string]

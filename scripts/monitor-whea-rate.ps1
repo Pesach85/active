@@ -27,7 +27,8 @@ Designed to run every 10 minutes via scheduled task.
 
 param(
     [string]$OutputPath = "",
-    [int]$WindowMinutes = 10,
+    [string]$ConfigPath = "",
+    [int]$WindowMinutes = 0,
     [switch]$Quiet,
     [switch]$Retrospective
 )
@@ -35,12 +36,36 @@ param(
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 
-# ============================================================================
-# Configuration
-# ============================================================================
-if (-not $OutputPath) {
-    $OutputPath = "C:\SystemOptimizerHub\active\logs\whea-monitoring-continuous.json"
+. (Join-Path $PSScriptRoot 'hub-common.ps1')
+$hub = Get-HubPaths
+if ([string]::IsNullOrWhiteSpace($ConfigPath)) {
+    $ConfigPath = $hub.ConfigFile
 }
+
+$wheaCfg = @{}
+if (Test-Path -LiteralPath $ConfigPath) {
+    $mainCfg = Get-MaintenanceConfig -ConfigPath $ConfigPath
+    $wheaCfg = Get-ConfigSection -Config $mainCfg -SectionName 'Whea'
+}
+
+if (-not $OutputPath) {
+    $rel = if ($wheaCfg.OutputPath) { [string]$wheaCfg.OutputPath } else { 'logs/whea-monitoring-continuous.json' }
+    $OutputPath = Resolve-HubPath -HubRoot $hub.HubRoot -Path $rel
+}
+if ($WindowMinutes -le 0) {
+    $WindowMinutes = if ($wheaCfg.WindowMinutes) { [int]$wheaCfg.WindowMinutes } else { 10 }
+}
+
+$useWevtutilFallback = $true
+if ($wheaCfg.ContainsKey('UseWevtutilFallback')) {
+    $useWevtutilFallback = [bool]$wheaCfg.UseWevtutilFallback
+}
+$verifyEventLogServices = $true
+if ($wheaCfg.ContainsKey('VerifyEventLogServices')) {
+    $verifyEventLogServices = [bool]$wheaCfg.VerifyEventLogServices
+}
+$goThreshold = if ($wheaCfg.GoThreshold) { [int]$wheaCfg.GoThreshold } else { 300 }
+$holdThreshold = if ($wheaCfg.HoldThreshold) { [int]$wheaCfg.HoldThreshold } else { 600 }
 
 $LogDir = Split-Path -Parent $OutputPath
 if (-not (Test-Path -LiteralPath $LogDir)) {
@@ -61,41 +86,55 @@ function Get-WHEA-Rate {
     
     try {
         $cutoffTime = (Get-Date).AddMinutes(-$MinutesBack)
+
+        if ($verifyEventLogServices) {
+            $svcHealth = Test-EventLogServicesHealthy
+            if (-not $svcHealth.Healthy) {
+                Write-Warning ("Event log/RPC services unhealthy: {0}" -f ($svcHealth.Issues -join '; '))
+            }
+        }
         
-        # All corrected WHEA errors (WHEA Errors channel)
-        $correctedEvents = @()
+        $correctedCount = 0
+        $uncorrectedCount = 0
+        $correctedByID = @{}
+        $uncorrectedByID = @{}
+        $dataSource = 'none'
+
         try {
-            $correctedEvents = @(Get-WinEvent -LogName $WheatLogName -FilterScript {
-                $_.TimeCreated -ge $cutoffTime
-            } -ErrorAction SilentlyContinue)
+            $correctedResult = Get-WinEventCountSafe -LogName $WheatLogName -StartTime $cutoffTime -UseWevtutilFallback:$useWevtutilFallback
+            $dataSource = $correctedResult.Source
+            if ($correctedResult.Events -and $correctedResult.Events.Count -gt 0) {
+                $correctedEvents = @($correctedResult.Events)
+                $correctedCount = $correctedEvents.Count
+                $correctedByID = $correctedEvents | Group-Object -Property Id -AsHashTable -AsString
+            } else {
+                $correctedCount = [int]$correctedResult.Count
+            }
         } catch {
             # Channel may not exist or be empty
         }
-        
-        # Uncorrected WHEA errors in System log (WHEA-Logger provider)
-        $uncorrectedEvents = @()
+
         try {
-            $uncorrectedEvents = @(Get-WinEvent -FilterHashtable @{
-                LogName = $SystemLogName
-                ProviderName = $WheatProvider
-                StartTime = $cutoffTime
-            } -ErrorAction SilentlyContinue)
+            $uncorrectedResult = Get-WinEventCountSafe -LogName $SystemLogName -StartTime $cutoffTime -ProviderName $WheatProvider -UseWevtutilFallback:$useWevtutilFallback
+            if ($uncorrectedResult.Events -and $uncorrectedResult.Events.Count -gt 0) {
+                $uncorrectedEvents = @($uncorrectedResult.Events)
+                $uncorrectedCount = $uncorrectedEvents.Count
+                $uncorrectedByID = $uncorrectedEvents | Group-Object -Property Id -AsHashTable -AsString
+            } else {
+                $uncorrectedCount = [int]$uncorrectedResult.Count
+            }
+            if ($dataSource -eq 'none') { $dataSource = $uncorrectedResult.Source }
         } catch {
             # May not exist
         }
-        
-        # Group by Event ID for histogram
-        $correctedByID = $correctedEvents | Group-Object -Property Id -AsHashTable -AsString
-        $uncorrectedByID = $uncorrectedEvents | Group-Object -Property Id -AsHashTable -AsString
-        
+
         return @{
-            CorrectedCount = $correctedEvents.Count
-            UncorrectedCount = $uncorrectedEvents.Count
-            TotalCount = $correctedEvents.Count + $uncorrectedEvents.Count
+            CorrectedCount = $correctedCount
+            UncorrectedCount = $uncorrectedCount
+            TotalCount = $correctedCount + $uncorrectedCount
             CorrectedByID = $correctedByID
             UncorrectedByID = $uncorrectedByID
-            CorrectedEvents = $correctedEvents
-            UncorrectedEvents = $uncorrectedEvents
+            DataSource = $dataSource
         }
     } catch {
         Write-Warning "Failed to retrieve WHEA events: $_"
@@ -248,8 +287,8 @@ if (-not $Quiet) {
     Write-Host "Corrected Errors   : $($result.Snapshot.CorrectedCount)"
     Write-Host "Uncorrected Errors : $($result.Snapshot.UncorrectedCount)"
     Write-Host "Total (10-min)     : $($result.Snapshot.TotalCount)" -ForegroundColor $(
-        if ($result.Snapshot.TotalCount -le 300) { "Green" }
-        elseif ($result.Snapshot.TotalCount -le 600) { "Yellow" }
+        if ($result.Snapshot.TotalCount -le $goThreshold) { "Green" }
+        elseif ($result.Snapshot.TotalCount -le $holdThreshold) { "Yellow" }
         else { "Red" }
     )
     
