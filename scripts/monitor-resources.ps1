@@ -17,7 +17,8 @@ if (-not (Test-Path -LiteralPath $ConfigPath)) {
     throw "Config file not found: $ConfigPath"
 }
 
-$config = Get-Content -LiteralPath $ConfigPath -Raw | ConvertFrom-Json -AsHashtable
+. (Join-Path $PSScriptRoot 'hub-common.ps1')
+$config = Get-MaintenanceConfig -ConfigPath $ConfigPath
 
 $logDirectory = [string]$config.LogDirectory
 if (-not [System.IO.Path]::IsPathRooted($logDirectory)) {

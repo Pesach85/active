@@ -34,6 +34,16 @@ if (-not (Test-Path -LiteralPath $logsDir)) {
     New-Item -Path $logsDir -ItemType Directory -Force | Out-Null
 }
 
+function Resolve-ProfilePowerShell {
+    $pwsh = Get-Command pwsh -ErrorAction SilentlyContinue
+    if ($pwsh) { return $pwsh.Path }
+    $winPs = Get-Command powershell -ErrorAction SilentlyContinue
+    if ($winPs) { return $winPs.Path }
+    throw 'No PowerShell runtime found in PATH.'
+}
+
+$psHost = Resolve-ProfilePowerShell
+
 $config = Get-Content -LiteralPath $configPath -Raw | ConvertFrom-Json
 $config.LogDirectory = "logs"
 $config | ConvertTo-Json -Depth 8 | Out-File -LiteralPath $configPath -Encoding utf8
@@ -53,10 +63,10 @@ if ($UpdateMachinePath.IsPresent) {
     $ensureArgs += "-UpdateMachinePath"
 }
 
-& powershell @ensureArgs
+& $psHost @ensureArgs
 
-& powershell -NoProfile -ExecutionPolicy Bypass -File $monitorInstaller -TaskName "SystemResourceMonitor" -MonitorScriptPath $monitorScript -ConfigPath $configPath -RequireCore
-& powershell -NoProfile -ExecutionPolicy Bypass -File $cleanupInstaller -TaskName "StorageCleanupSafe" -CleanupScriptPath $cleanupScript -RequireCore
+& $psHost -NoProfile -ExecutionPolicy Bypass -File $monitorInstaller -TaskName "SystemResourceMonitor" -MonitorScriptPath $monitorScript -ConfigPath $configPath -RequireCore
+& $psHost -NoProfile -ExecutionPolicy Bypass -File $cleanupInstaller -TaskName "StorageCleanupSafe" -CleanupScriptPath $cleanupScript -ConfigPath $configPath -RequireCore
 
 Write-Host "Hub profile activated from $HubRoot"
 Write-Host "Config: $configPath"
