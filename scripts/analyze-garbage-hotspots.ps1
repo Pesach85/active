@@ -8,11 +8,15 @@ param(
     [string]$AuditLevel = "FileLevel",
     [ValidateSet("Safe", "Radical")]
     [string]$CleanupMode = "Safe",
-    [string]$OutputCsv = "C:\\SystemOptimizerHub\\active\\logs\\garbage-hotspots.csv"
+    [string]$OutputCsv = ""
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+
+if ([string]::IsNullOrWhiteSpace($OutputCsv)) {
+    $OutputCsv = Join-Path (Split-Path $PSScriptRoot -Parent) "logs\garbage-hotspots.csv"
+}
 
 # Normalize CLI input so both "-Drives C D" and "-Drives C,D" resolve correctly.
 $normalizedDrives = New-Object System.Collections.Generic.List[string]

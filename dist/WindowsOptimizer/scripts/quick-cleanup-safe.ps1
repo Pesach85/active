@@ -1,14 +1,18 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
     [switch]$Execute,
     [int]$RetentionDays = 2,
     [int]$MaxFilesPerTarget = 3000,
-    [string]$LogFile = "C:\\SystemOptimizerHub\\active\\logs\\quick-cleanup.log",
+    [string]$LogFile = "",
     [string]$OutputJson = ""
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+
+if ([string]::IsNullOrWhiteSpace($LogFile)) {
+    $LogFile = Join-Path (Split-Path $PSScriptRoot -Parent) "logs\quick-cleanup.log"
+}
 
 if ($RetentionDays -lt 1) { $RetentionDays = 1 }
 if ($RetentionDays -gt 14) { $RetentionDays = 14 }

@@ -1,9 +1,13 @@
-param(
-    [string]$ConfigPath = "C:\\config\\sys-maintenance.json"
+﻿param(
+    [string]$ConfigPath = ""
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+
+if ([string]::IsNullOrWhiteSpace($ConfigPath)) {
+    $ConfigPath = Join-Path (Split-Path $PSScriptRoot -Parent) "config\sys-maintenance.json"
+}
 
 if ($PSVersionTable.PSEdition -ne "Core") {
     Write-Warning "This script is optimized for PowerShell Core (pwsh)."
@@ -16,6 +20,9 @@ if (-not (Test-Path -LiteralPath $ConfigPath)) {
 $config = Get-Content -LiteralPath $ConfigPath -Raw | ConvertFrom-Json -AsHashtable
 
 $logDirectory = [string]$config.LogDirectory
+if (-not [System.IO.Path]::IsPathRooted($logDirectory)) {
+    $logDirectory = Join-Path (Split-Path $PSScriptRoot -Parent) $logDirectory
+}
 $logPath = Join-Path -Path $logDirectory -ChildPath ([string]$config.LogFileName)
 if (-not (Test-Path -LiteralPath $logDirectory)) {
     New-Item -Path $logDirectory -ItemType Directory -Force | Out-Null

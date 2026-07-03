@@ -170,30 +170,32 @@ $script:deepScanFilter           = "All"
 $script:deepScanLastSummary      = $null
 
 # ═══════════════════════════════════════════════════════════════════════════════
-#  Theme palette
+#  Theme palette — Obsidian v2.1 (2026-07)
 # ═══════════════════════════════════════════════════════════════════════════════
-$clrBg       = [System.Drawing.Color]::FromArgb(12, 16, 26)
-$clrSurface  = [System.Drawing.Color]::FromArgb(19, 27, 44)
-$clrRaised   = [System.Drawing.Color]::FromArgb(26, 37, 58)
-$clrBorderC  = [System.Drawing.Color]::FromArgb(40, 57, 86)
-$clrAccent   = [System.Drawing.Color]::FromArgb(59, 130, 246)
-$clrGreen    = [System.Drawing.Color]::FromArgb(16, 185, 129)
-$clrRed      = [System.Drawing.Color]::FromArgb(220, 60, 60)
-$clrAmber    = [System.Drawing.Color]::FromArgb(217, 140, 10)
-$clrPurple   = [System.Drawing.Color]::FromArgb(124, 80, 230)
-$clrCyan     = [System.Drawing.Color]::FromArgb(8, 148, 180)
-$clrText     = [System.Drawing.Color]::FromArgb(220, 228, 242)
-$clrMuted    = [System.Drawing.Color]::FromArgb(95, 112, 140)
-$clrRowHigh  = [System.Drawing.Color]::FromArgb(72, 28, 28)
-$clrRowAmber = [System.Drawing.Color]::FromArgb(72, 54, 14)
-$clrTxtHigh  = [System.Drawing.Color]::FromArgb(252, 160, 160)
-$clrTxtAmber = [System.Drawing.Color]::FromArgb(253, 220, 120)
+$script:appVersion = "2.1.0"
+$clrBg       = [System.Drawing.Color]::FromArgb(8, 11, 19)
+$clrSurface  = [System.Drawing.Color]::FromArgb(15, 22, 36)
+$clrRaised   = [System.Drawing.Color]::FromArgb(22, 32, 52)
+$clrBorderC  = [System.Drawing.Color]::FromArgb(36, 52, 78)
+$clrAccent   = [System.Drawing.Color]::FromArgb(16, 185, 129)
+$clrAccent2  = [System.Drawing.Color]::FromArgb(56, 189, 248)
+$clrGreen    = [System.Drawing.Color]::FromArgb(34, 197, 94)
+$clrRed      = [System.Drawing.Color]::FromArgb(239, 68, 68)
+$clrAmber    = [System.Drawing.Color]::FromArgb(245, 158, 11)
+$clrPurple   = [System.Drawing.Color]::FromArgb(139, 92, 246)
+$clrCyan     = [System.Drawing.Color]::FromArgb(6, 182, 212)
+$clrText     = [System.Drawing.Color]::FromArgb(241, 245, 249)
+$clrMuted    = [System.Drawing.Color]::FromArgb(100, 116, 139)
+$clrRowHigh  = [System.Drawing.Color]::FromArgb(56, 24, 24)
+$clrRowAmber = [System.Drawing.Color]::FromArgb(56, 42, 12)
+$clrTxtHigh  = [System.Drawing.Color]::FromArgb(254, 202, 202)
+$clrTxtAmber = [System.Drawing.Color]::FromArgb(253, 230, 138)
 
-$fntUI    = New-Object System.Drawing.Font("Segoe UI", 9.5)
-$fntHead  = New-Object System.Drawing.Font("Segoe UI", 14, [System.Drawing.FontStyle]::Bold)
+$fntUI    = New-Object System.Drawing.Font("Segoe UI", 9.75)
+$fntHead  = New-Object System.Drawing.Font("Segoe UI", 16, [System.Drawing.FontStyle]::Bold)
 $fntH2    = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
-$fntMono  = New-Object System.Drawing.Font("Consolas", 9)
-$fntSmall = New-Object System.Drawing.Font("Segoe UI", 8)
+$fntMono  = New-Object System.Drawing.Font("Consolas", 9.25)
+$fntSmall = New-Object System.Drawing.Font("Segoe UI", 8.25)
 
 $script:spinFrames = @("", ".", "..", "...", "....", ".....", "....", "...", "..", ".")
 $script:spinIdx    = 0
@@ -217,17 +219,19 @@ function Set-NoTheme {
 
 # Flat button factory
 function New-Btn {
-    param([string]$Text, [System.Drawing.Color]$Bg, [int]$W = 140, [int]$H = 34)
+    param([string]$Text, [System.Drawing.Color]$Bg, [int]$W = 140, [int]$H = 36)
     $b = New-Object System.Windows.Forms.Button
     $b.Text = $Text; $b.Width = $W; $b.Height = $H
     $b.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
-    $b.FlatAppearance.BorderSize = 0
+    $b.FlatAppearance.BorderSize = 1
+    $b.FlatAppearance.BorderColor = [System.Drawing.Color]::FromArgb(
+        [Math]::Min(255, $Bg.R + 28), [Math]::Min(255, $Bg.G + 28), [Math]::Min(255, $Bg.B + 28))
     $b.FlatAppearance.MouseOverBackColor = [System.Drawing.Color]::FromArgb(
-        [Math]::Min(255, $Bg.R + 38), [Math]::Min(255, $Bg.G + 38), [Math]::Min(255, $Bg.B + 38))
+        [Math]::Min(255, $Bg.R + 42), [Math]::Min(255, $Bg.G + 42), [Math]::Min(255, $Bg.B + 42))
     $b.FlatAppearance.MouseDownBackColor = [System.Drawing.Color]::FromArgb(
-        [Math]::Max(0, $Bg.R - 22), [Math]::Max(0, $Bg.G - 22), [Math]::Max(0, $Bg.B - 22))
+        [Math]::Max(0, $Bg.R - 18), [Math]::Max(0, $Bg.G - 18), [Math]::Max(0, $Bg.B - 18))
     $b.BackColor = $Bg
-    $b.ForeColor = $clrText
+    $b.ForeColor = if ($Bg.GetBrightness() -gt 0.55) { $clrBg } else { $clrText }
     $b.Font = $fntH2
     $b.Cursor = [System.Windows.Forms.Cursors]::Hand
     return $b
@@ -237,9 +241,9 @@ function New-Btn {
 #  Main Form
 # ═══════════════════════════════════════════════════════════════════════════════
 $form = New-Object System.Windows.Forms.Form
-$form.Text          = "Windows Optimizer Console"
-$form.Size          = New-Object System.Drawing.Size(1400, 880)
-$form.MinimumSize   = New-Object System.Drawing.Size(1100, 700)
+$form.Text          = "System Optimizer Hub"
+$form.Size          = New-Object System.Drawing.Size(1440, 900)
+$form.MinimumSize   = New-Object System.Drawing.Size(1150, 720)
 $form.StartPosition = "CenterScreen"
 $form.BackColor     = $clrBg
 $form.Font          = $fntUI
@@ -247,21 +251,46 @@ $form.Font          = $fntUI
 # ── Header bar ────────────────────────────────────────────────────────────────
 $pnlHeader = New-Object System.Windows.Forms.Panel
 $pnlHeader.Dock = "Top"
-$pnlHeader.Height = 64
+$pnlHeader.Height = 76
 $pnlHeader.BackColor = $clrSurface
 
+$pnlHeaderAccent = New-Object System.Windows.Forms.Panel
+$pnlHeaderAccent.Dock = "Left"
+$pnlHeaderAccent.Width = 5
+$pnlHeaderAccent.BackColor = $clrAccent
+
 $lblAppTitle = New-Object System.Windows.Forms.Label
-$lblAppTitle.Text      = "  Windows Optimizer Console"
+$lblAppTitle.Text      = "System Optimizer Hub"
 $lblAppTitle.Font      = $fntHead
 $lblAppTitle.ForeColor = $clrText
 $lblAppTitle.AutoSize  = $true
-$lblAppTitle.Location  = New-Object System.Drawing.Point(10, 16)
+$lblAppTitle.Location  = New-Object System.Drawing.Point(18, 12)
 $lblAppTitle.BackColor = [System.Drawing.Color]::Transparent
+
+$lblAppSubtitle = New-Object System.Windows.Forms.Label
+$lblAppSubtitle.Text      = ("Intelligent maintenance console  |  v{0}" -f $script:appVersion)
+$lblAppSubtitle.Font      = $fntSmall
+$lblAppSubtitle.ForeColor = $clrMuted
+$lblAppSubtitle.AutoSize  = $true
+$lblAppSubtitle.Location  = New-Object System.Drawing.Point(20, 42)
+$lblAppSubtitle.BackColor = [System.Drawing.Color]::Transparent
+
+$lblHubPath = New-Object System.Windows.Forms.Label
+$lblHubPath.Text      = $script:hubRoot
+$lblHubPath.Font      = $fntSmall
+$lblHubPath.ForeColor = $clrAccent2
+$lblHubPath.AutoSize  = $false
+$lblHubPath.Width     = 380
+$lblHubPath.Height    = 32
+$lblHubPath.TextAlign = "MiddleRight"
+$lblHubPath.Location  = New-Object System.Drawing.Point(430, 22)
+$lblHubPath.Anchor    = [System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Right
+$lblHubPath.BackColor = [System.Drawing.Color]::Transparent
 
 # Drive C card
 $pnlDriveC = New-Object System.Windows.Forms.Panel
 $pnlDriveC.Size      = New-Object System.Drawing.Size(210, 48)
-$pnlDriveC.Location  = New-Object System.Drawing.Point(820, 8)
+$pnlDriveC.Location  = New-Object System.Drawing.Point(860, 14)
 $pnlDriveC.BackColor = $clrRaised
 $pnlDriveC.Anchor    = [System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Right
 
@@ -285,7 +314,7 @@ $pnlDriveC.Controls.AddRange(@($lblDriveC, $pbDriveC))
 # Drive D card
 $pnlDriveD = New-Object System.Windows.Forms.Panel
 $pnlDriveD.Size      = New-Object System.Drawing.Size(210, 48)
-$pnlDriveD.Location  = New-Object System.Drawing.Point(1044, 8)
+$pnlDriveD.Location  = New-Object System.Drawing.Point(1084, 14)
 $pnlDriveD.BackColor = $clrRaised
 $pnlDriveD.Anchor    = [System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Right
 
@@ -312,12 +341,12 @@ $pnlHeaderLine.Dock      = "Bottom"
 $pnlHeaderLine.Height    = 3
 $pnlHeaderLine.BackColor = $clrAccent
 
-$pnlHeader.Controls.AddRange(@($lblAppTitle, $pnlDriveC, $pnlDriveD, $pnlHeaderLine))
+$pnlHeader.Controls.AddRange(@($pnlHeaderAccent, $lblAppTitle, $lblAppSubtitle, $lblHubPath, $pnlDriveC, $pnlDriveD, $pnlHeaderLine))
 
 # ── Status bar (bottom) ───────────────────────────────────────────────────────
 $pnlStatusBar = New-Object System.Windows.Forms.Panel
 $pnlStatusBar.Dock      = "Bottom"
-$pnlStatusBar.Height    = 28
+$pnlStatusBar.Height    = 32
 $pnlStatusBar.BackColor = $clrSurface
 
 $pnlStatusBarLine = New-Object System.Windows.Forms.Panel
@@ -337,10 +366,10 @@ $lblStatusRight = New-Object System.Windows.Forms.Label
 $lblStatusRight.Text      = "PSHost: —"
 $lblStatusRight.Font      = $fntSmall
 $lblStatusRight.ForeColor = $clrMuted
-$lblStatusRight.Width     = 420
+$lblStatusRight.Width     = 520
 $lblStatusRight.AutoSize  = $false
 $lblStatusRight.TextAlign = "MiddleRight"
-$lblStatusRight.Location  = New-Object System.Drawing.Point(950, 5)
+$lblStatusRight.Location  = New-Object System.Drawing.Point(880, 7)
 $lblStatusRight.BackColor = [System.Drawing.Color]::Transparent
 $lblStatusRight.Anchor    = [System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Right
 
@@ -350,7 +379,7 @@ $pnlStatusBar.Controls.AddRange(@($pnlStatusBarLine, $lblStatusLeft, $lblStatusR
 $tabs = New-Object System.Windows.Forms.TabControl
 $tabs.Dock      = "Fill"
 $tabs.DrawMode  = "OwnerDrawFixed"
-$tabs.ItemSize  = New-Object System.Drawing.Size(136, 34)
+$tabs.ItemSize  = New-Object System.Drawing.Size(148, 38)
 $tabs.SizeMode  = "Fixed"
 $tabs.BackColor = $clrBg
 $tabs.Font      = $fntH2
@@ -371,12 +400,15 @@ $tabs.Add_DrawItem({
     if ($isActive) {
         $e.Graphics.FillRectangle(
             (New-Object System.Drawing.SolidBrush($clrAccent)),
-            $e.Bounds.X + 4, $e.Bounds.Bottom - 3, $e.Bounds.Width - 8, 3)
+            $e.Bounds.X + 6, $e.Bounds.Bottom - 4, $e.Bounds.Width - 12, 4)
+        $e.Graphics.FillRectangle(
+            (New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(40, $clrAccent2.R, $clrAccent2.G, $clrAccent2.B))),
+            $e.Bounds.X + 1, $e.Bounds.Y + 1, $e.Bounds.Width - 2, $e.Bounds.Height - 6)
     }
 })
 
 $tabDashboard = New-Object System.Windows.Forms.TabPage
-$tabDashboard.Text                 = "Dashboard"
+$tabDashboard.Text                 = "Overview"
 $tabDashboard.BackColor            = $clrBg
 $tabDashboard.UseVisualStyleBackColor = $false
 
@@ -386,12 +418,12 @@ $tabTasks.BackColor            = $clrBg
 $tabTasks.UseVisualStyleBackColor = $false
 
 $tabLogs = New-Object System.Windows.Forms.TabPage
-$tabLogs.Text                 = "Logs"
+$tabLogs.Text                 = "Diagnostics"
 $tabLogs.BackColor            = $clrBg
 $tabLogs.UseVisualStyleBackColor = $false
 
 $tabConfig = New-Object System.Windows.Forms.TabPage
-$tabConfig.Text                 = "Settings"
+$tabConfig.Text                 = "Preferences"
 $tabConfig.BackColor            = $clrBg
 $tabConfig.UseVisualStyleBackColor = $false
 
@@ -407,7 +439,7 @@ $tabDeepScan.UseVisualStyleBackColor = $false
 # Action panel
 $pnlActions = New-Object System.Windows.Forms.Panel
 $pnlActions.Dock      = "Top"
-$pnlActions.Height    = 142
+$pnlActions.Height    = 152
 $pnlActions.BackColor = $clrSurface
 
 # Row 1 — primary actions (y=28)
@@ -3477,7 +3509,7 @@ $form.Add_Shown({
     Set-NoTheme -Ctrl $listTasks
     Set-NoTheme -Ctrl $listDeepFindings
     Set-NoTheme -Ctrl $listDeepSolutions
-    $lblStatusRight.Text = ("PSHost: {0}" -f (Split-Path -Leaf $script:psHost))
+    $lblStatusRight.Text = ("Hub: {0}  |  PS: {1}" -f $script:hubRoot, (Split-Path -Leaf $script:psHost))
     Refresh-Drives
     Reload-Tasks
     if ($script:autoAnalyzeOnStartup) {

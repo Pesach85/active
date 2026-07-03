@@ -45,5 +45,5 @@ if (-not (Get-Command Invoke-PS2EXE -ErrorAction SilentlyContinue)) {
     throw "Invoke-PS2EXE not available after module installation attempts."
 }
 
-Invoke-PS2EXE -InputFile $SourceScript -OutputFile $OutputExe -NoConsole -Title "Windows Optimizer Console" -Description "Windows optimization dashboard"
+Invoke-PS2EXE -InputFile $SourceScript -OutputFile $OutputExe -NoConsole -Title "System Optimizer Hub" -Description "Intelligent Windows maintenance dashboard"
 Write-Host "EXE generated: $OutputExe"
