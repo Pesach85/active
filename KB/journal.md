@@ -1972,3 +1972,21 @@ async-worker + config hub-common + efficacia STARTUP/PKG/WSL + smoke/package/com
 
 ### Esito
 Smoke ALL PASSED + package-suite OK; commit `56589a8` pushed to origin/master
+
+## 2026-08-27 11:10:00
+### Obiettivo
+Fix EXE HubWorkers StrictMode + smoke obbligatorio + redeploy EXE
+
+### Task
+Bug 28 global HubWorkers; smoke async-worker-registry; package; build EXE; commit push
+
+### Modifiche
+- scripts/gui/async-worker.ps1 → `$global:HubWorkers` + Initialize-HubWorkerRegistry
+- GUI pre-init + v3.2.1; test-hub-smoke probe StrictMode
+- KB bugs-fixed Bug 28
+
+### Decisioni
+- Mai usare `$script:HubWorkers` con StrictMode/ps2exe; smoke gate su ogni fix GUI/EXE
+
+### Esito
+Smoke ALL PASSED (incl. async-worker-registry); package + EXE v3.2.1 ricostruito in dist/

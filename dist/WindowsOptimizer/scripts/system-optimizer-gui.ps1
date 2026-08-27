@@ -33,6 +33,8 @@ if (Test-Path -LiteralPath $scriptsUnderBase) {
 }
 
 $script:guiDir = Join-Path $script:scriptRoot "gui"
+# Pre-init worker registry before StrictMode modules (ps2exe + hub-common safe)
+$global:HubWorkers = @{}
 $hubCommonPath = Join-Path $script:scriptRoot "hub-common.ps1"
 if (Test-Path -LiteralPath $hubCommonPath) {
     . $hubCommonPath
@@ -45,6 +47,9 @@ if (Test-Path -LiteralPath (Join-Path $script:guiDir "worker-helpers.ps1")) {
 }
 if (Test-Path -LiteralPath (Join-Path $script:guiDir "async-worker.ps1")) {
     . (Join-Path $script:guiDir "async-worker.ps1")
+    if (Get-Command Initialize-HubWorkerRegistry -ErrorAction SilentlyContinue) {
+        Initialize-HubWorkerRegistry
+    }
 }
 if (Test-Path -LiteralPath (Join-Path $script:guiDir "i18n.ps1")) {
     . (Join-Path $script:guiDir "i18n.ps1")

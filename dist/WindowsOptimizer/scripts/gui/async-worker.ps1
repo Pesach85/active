@@ -1,9 +1,26 @@
 ﻿# Shared async worker registry for System Optimizer Hub GUI.
 # Dot-sourced after worker-helpers.ps1. Pure PowerShell (5.1 + 7+); no WinForms.
+#
+# Uses $global:HubWorkers (not $script:) so the registry survives:
+# - Set-StrictMode from hub-common / i18n
+# - ps2exe host where dot-sourced files have a separate script scope
 
-if (-not $script:HubWorkers) {
-    $script:HubWorkers = @{}
+function Initialize-HubWorkerRegistry {
+    $var = Get-Variable -Name HubWorkers -Scope Global -ErrorAction SilentlyContinue
+    if ($null -eq $var -or $null -eq $var.Value) {
+        Set-Variable -Name HubWorkers -Scope Global -Value (@{}) -Force
+    }
+    elseif ($var.Value -isnot [hashtable] -and $var.Value -isnot [System.Collections.IDictionary]) {
+        Set-Variable -Name HubWorkers -Scope Global -Value (@{}) -Force
+    }
 }
+
+function Get-HubWorkersTable {
+    Initialize-HubWorkerRegistry
+    return $global:HubWorkers
+}
+
+Initialize-HubWorkerRegistry
 
 function Start-HubAsyncWorker {
     param(
@@ -27,6 +44,8 @@ function Start-HubAsyncWorker {
 
         [int]$TimeoutSec = 120
     )
+
+    Initialize-HubWorkerRegistry
 
     if ([string]::IsNullOrWhiteSpace($PsHost)) {
         throw "PsHost is required."
@@ -84,14 +103,15 @@ function Start-HubAsyncWorker {
             return $false
         }
 
-        $script:HubWorkers[$Name] = @{
-            Process            = $proc
-            StartedAt          = Get-Date
-            TimeoutSec         = [math]::Max(1, [int]$TimeoutSec)
-            SoftTimeoutWarned  = $false
-            StdErrPath         = $StdErrPath
-            StdOutPath         = $StdOutPath
-            OutputPaths        = @($OutputPaths)
+        $table = Get-HubWorkersTable
+        $table[$Name] = @{
+            Process           = $proc
+            StartedAt         = Get-Date
+            TimeoutSec        = [math]::Max(1, [int]$TimeoutSec)
+            SoftTimeoutWarned = $false
+            StdErrPath        = $StdErrPath
+            StdOutPath        = $StdOutPath
+            OutputPaths       = @($OutputPaths)
         }
         return $true
     }
@@ -106,10 +126,11 @@ function Get-HubAsyncWorker {
         [string]$Name
     )
 
-    if (-not $script:HubWorkers -or -not $script:HubWorkers.ContainsKey($Name)) {
+    $table = Get-HubWorkersTable
+    if (-not $table.ContainsKey($Name)) {
         return $null
     }
-    return $script:HubWorkers[$Name]
+    return $table[$Name]
 }
 
 function Test-HubAsyncWorkerRunning {
@@ -151,7 +172,8 @@ function Update-HubAsyncWorkerSoftTimeout {
 
     if ($shouldWarn) {
         $w.SoftTimeoutWarned = $true
-        $script:HubWorkers[$Name] = $w
+        $table = Get-HubWorkersTable
+        $table[$Name] = $w
         if ($null -ne $OnWarn) {
             & $OnWarn $elapsedSec $timeoutSec
         }
@@ -184,8 +206,9 @@ function Stop-HubAsyncWorker {
         }
     }
 
-    if ($script:HubWorkers -and $script:HubWorkers.ContainsKey($Name)) {
-        $script:HubWorkers.Remove($Name)
+    $table = Get-HubWorkersTable
+    if ($table.ContainsKey($Name)) {
+        $table.Remove($Name)
     }
 }
 
@@ -237,19 +260,21 @@ function Complete-HubAsyncWorker {
         OutputPaths = @($w.OutputPaths)
     }
 
-    if ($script:HubWorkers.ContainsKey($Name)) {
-        $script:HubWorkers.Remove($Name)
+    $table = Get-HubWorkersTable
+    if ($table.ContainsKey($Name)) {
+        $table.Remove($Name)
     }
 
     return $result
 }
 
 function Test-AnyHubAsyncWorkerRunning {
-    if (-not $script:HubWorkers -or $script:HubWorkers.Count -eq 0) {
+    $table = Get-HubWorkersTable
+    if ($table.Count -eq 0) {
         return $false
     }
 
-    foreach ($key in @($script:HubWorkers.Keys)) {
+    foreach ($key in @($table.Keys)) {
         if (Test-HubAsyncWorkerRunning -Name $key) {
             return $true
         }

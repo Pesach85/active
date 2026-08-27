@@ -29,3 +29,4 @@
 - GUI v3.1.2: parse AlreadyOptimized stringhe; layout advanced tools; AutoAnalyze default false.
 - GUI v3.1.3: `theme.ps1` + `worker-helpers.ps1`; `test-hub-smoke.ps1`; KB/refactor plan sync.
 - **Onda 1–3 (2026-08-27):** `async-worker.ps1`; Privacy/Garbage/Health via hub workers; Save/Load config via hub-common; STARTUP whitelist; PKG Kind OpenLink/Install; WSL header allineato; GUI v3.2.0.
+- **Bug 28 (2026-08-27):** HubWorkers global + smoke registry; GUI/EXE **v3.2.1**.

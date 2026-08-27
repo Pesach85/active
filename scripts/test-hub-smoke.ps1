@@ -124,6 +124,51 @@ foreach ($mod in @('gui\theme.ps1', 'gui\worker-helpers.ps1', 'gui\async-worker.
     }
 }
 
+# Async-worker StrictMode / unset-variable regression (Bug 28 / EXE HubWorkers)
+Write-Host '[SMOKE] async-worker-registry...'
+try {
+    $hubCommon = Join-Path $scriptDir 'hub-common.ps1'
+    $workerHelpers = Join-Path $scriptDir 'gui\worker-helpers.ps1'
+    $asyncWorker = Join-Path $scriptDir 'gui\async-worker.ps1'
+    $probeScript = Join-Path $logs 'smoke-async-worker-probe.ps1'
+    @'
+param([string]$HubCommon, [string]$WorkerHelpers, [string]$AsyncWorker)
+Set-StrictMode -Version Latest
+$ErrorActionPreference = "Stop"
+. $HubCommon
+. $WorkerHelpers
+. $AsyncWorker
+Initialize-HubWorkerRegistry
+if (-not (Test-Path variable:global:HubWorkers)) { throw "global HubWorkers missing after init" }
+if ((Test-AnyHubAsyncWorkerRunning) -ne $false) { throw "expected no running workers" }
+if ($null -ne (Get-HubAsyncWorker -Name "does-not-exist")) { throw "expected null for missing worker" }
+# Re-read under StrictMode without prior assignment in THIS scope (global must exist)
+$null = $global:HubWorkers.Count
+Write-Output "OK"
+'@ | Set-Content -LiteralPath $probeScript -Encoding utf8
+    $p = Start-Process -FilePath $pwsh -ArgumentList @(
+        '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $probeScript,
+        '-HubCommon', $hubCommon,
+        '-WorkerHelpers', $workerHelpers,
+        '-AsyncWorker', $asyncWorker
+    ) -Wait -PassThru -NoNewWindow -RedirectStandardOutput (Join-Path $logs 'smoke-async-worker.out.log') -RedirectStandardError (Join-Path $logs 'smoke-async-worker.err.log')
+    $outText = ''
+    if (Test-Path (Join-Path $logs 'smoke-async-worker.out.log')) {
+        $outText = Get-Content (Join-Path $logs 'smoke-async-worker.out.log') -Raw
+    }
+    $errText = ''
+    if (Test-Path (Join-Path $logs 'smoke-async-worker.err.log')) {
+        $errText = Get-Content (Join-Path $logs 'smoke-async-worker.err.log') -Raw
+    }
+    if ($p.ExitCode -ne 0 -or $outText -notmatch 'OK') {
+        $failures.Add(("async-worker-registry failed exit={0} out={1} err={2}" -f $p.ExitCode, $outText.Trim(), $errText.Trim()))
+    } else {
+        Write-Host '[SMOKE] async-worker-registry OK'
+    }
+} catch {
+    $failures.Add(("async-worker-registry exception: {0}" -f $_.Exception.Message))
+}
+
 if ($failures.Count -gt 0) {
     Write-Host '[SMOKE] FAILED'
     $failures | ForEach-Object { Write-Host ("  - {0}" -f $_) }

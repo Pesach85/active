@@ -1,5 +1,13 @@
 # Bugs Fixed
 
+## 2026-08-27 - EXE: HubWorkers unset under StrictMode (ps2exe)
+
+### Bug 28
+- **Sintomo**: dialog all'avvio/uso EXE: `Impossibile recuperare la variabile $Script:HubWorkers perché non è stata impostata.`
+- **Causa**: `async-worker.ps1` usava `$script:HubWorkers` con check `if (-not $script:HubWorkers)` dopo `Set-StrictMode` da `hub-common`; sotto ps2exe lo scope script del file dot-sourced non coincide con l'host EXE.
+- **Fix**: registry su `$global:HubWorkers` + `Initialize-HubWorkerRegistry` / `Get-HubWorkersTable` (StrictMode-safe); pre-init in GUI; smoke `async-worker-registry`; GUI **v3.2.1**.
+- **Check**: `test-hub-smoke.ps1` include async-worker-registry OK; EXE rebuild senza dialog HubWorkers.
+
 ## 2026-08-27 - Audit elite + modularizzazione GUI v3.1.3
 
 ### Bug 26
