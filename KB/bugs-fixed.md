@@ -1,5 +1,41 @@
 # Bugs Fixed
 
+## 2026-08-27 - Audit elite + modularizzazione GUI v3.1.3
+
+### Bug 26
+- **Sintomo**: `Health Audit completed … but parse failed: The property 'Id' cannot be found on this object`.
+- **Causa**: `AlreadyOptimized` nel JSON audit è un **array di stringhe**; la GUI faceva `$_.Id`.
+- **Fix**: `Format-AlreadyOptimizedLog` tratta ogni voce come stringa (ora in `scripts/gui/theme.ps1`).
+- **Check**: Health Scan completa senza parse failed; log mostra preview stringhe.
+
+### Bug 27
+- **Sintomo**: debito strutturale — tema/helper worker inline nel monolite GUI; KB non rifletteva v3.1.x / Privacy / AutoAnalyze=false.
+- **Fix**:
+  - estratti `scripts/gui/theme.ps1` e `scripts/gui/worker-helpers.ps1`;
+  - aggiunto `scripts/test-hub-smoke.ps1`;
+  - `Test-HubAdmin` / `Assert-HubAdmin` in `hub-common.ps1`;
+  - KB architecture/task-board/codebase-health + `docs/product/REFACTORING-PLAN-ELITE.md`.
+- **Check**: smoke exit 0; package-suite include moduli gui; version GUI **3.1.3**.
+
+## 2026-08-12 - GUI v3.1: Add_Focus su Button + combo sovrapposti + package gui
+
+
+### Bug 25
+- **Sintomo**: avvio GUI con errori ripetuti `Add_Focus` su ogni pulsante; combo PROF/DETTAGLIO/MODALITÀ con testo troncato; `package-suite.ps1` fallisce su `scripts/gui/*`.
+- **Causa**:
+  - `command-help.ps1` usava `$ctrl.Add_Focus` (metodo inesistente su WinForms Button);
+  - opzioni scan nello stesso pannello dei pulsanti con coordinate assolute in conflitto;
+  - `package-suite` duplicava copy gui con glob `*` e creava `dist/.../gui/gui/`.
+- **Fix**:
+  - `MouseEnter` + `Click` (Button) / `GotFocus` (altri) in `scripts/gui/command-help.ps1`;
+  - nuovo pannello `pnlScanOptions` separato da `pnlActions` in `system-optimizer-gui.ps1` v3.1.1;
+  - `package-suite.ps1`: copy ricorsivo directory singolo, clean target, BOM su tutti `.ps1` sotto scripts.
+- **Check anti-regressione**:
+  - GUI avvia senza errori console al hover sui pulsanti;
+  - combo mostrano testo completo (FileLevel, Safe);
+  - `package-suite.ps1` exit 0 e `dist/WindowsOptimizer/scripts/gui/i18n.ps1` presente.
+- **Doc**: `docs/lessons-learned/gui-v3.1-i18n-layout-fixes.md`
+
 ## 2026-06-23 - WSL bloccato: comandi wsl.exe in hang con 100+ processi zombie
 
 ### Bug 23

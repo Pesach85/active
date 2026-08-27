@@ -216,3 +216,17 @@ function Get-WinEventCountSafe {
         return @{ Count = 0; Events = @(); Source = 'wevtutil-parse-failed' }
     }
 }
+
+function Test-HubAdmin {
+    $id = [Security.Principal.WindowsIdentity]::GetCurrent()
+    $principal = New-Object Security.Principal.WindowsPrincipal($id)
+    return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+}
+
+function Assert-HubAdmin {
+    param([string]$ActionName = 'This operation')
+
+    if (-not (Test-HubAdmin)) {
+        throw ("{0} requires an elevated PowerShell session (Run as administrator)." -f $ActionName)
+    }
+}

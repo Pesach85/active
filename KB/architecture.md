@@ -4,21 +4,42 @@
 Workspace operativo globale su C, D e sistema operativo, con profilo centralizzato nel clone Git (path portabile; es. `D:/SystemOptimizerHub/active`).
 
 ## Componenti principali
-- scripts/monitor-resources.ps1: monitor sempre attivo processi CPU/RAM + handling priorita.
-- scripts/hub-common.ps1: helper condivisi (hub root, config JSON, event log health).
-- scripts/hub-orchestrator.ps1: heartbeat, log rotation, orchestrazione WHEA/fs-integrity.
-- scripts/fs-integrity.ps1: scan-only integrità filesystem (volumi, symlink DataHub, eventi).
-- scripts/cleanup-storage-safe.ps1: cleanup con modalita Safe/Radical e criteri AuditDepth/AuditLevel.
-- scripts/quick-cleanup-safe.ps1: pulitore rapido a basso rischio con target sicuri e retention breve.
-- scripts/analyze-garbage-hotspots.ps1: ranking statistico cartelle garbage-prone con classificazione.
-- scripts/analyze-compute-resources.ps1: analizzatore intelligente di spesa computazionale per processo (CPU/RAM/IO) con score e raccomandazioni.
-- scripts/repair-office-m365-channel.ps1: rilevazione/fix safe del canale Office per Microsoft 365 Apps con backup JSON e rollback.
-- scripts/repair-wsl-config.ps1: auto-check/autofix WSL (desync HKLM/HKCU, zombie wsl.exe, recovery WslService, abilitazione hypervisor `hypervisorlaunchtype=Auto` per boot WSL2) con probe gated a timeout, marker reboot in ticks e rollback JSON.
-- scripts/system-optimizer-gui.ps1: dashboard UI con explorer evidenziato e controlli intelligenti.
-- scripts/install-monitor-task.ps1: registrazione task monitor startup.
-- scripts/install-cleanup-task.ps1: registrazione task cleanup giornaliero.
-- scripts/ensure-powershell-core.ps1: bootstrap/validazione pwsh e applicazione task Core-only.
-- scripts/activate-hub-profile.ps1: attivazione profilo centralizzato e rebinding percorsi task.
+
+### Runtime condiviso
+- `scripts/hub-common.ps1` — hub root, config JSON, event log health, `Test-HubAdmin` / `Assert-HubAdmin`.
+- `scripts/hub-orchestrator.ps1` — heartbeat, log rotation, trigger WHEA/fs-integrity.
+- `config/sys-maintenance.json` — Monitor, Cleanup, Whea, Orchestrator, FsIntegrity, **Gui**, **Privacy**.
+- `config/locale/{en,it}.json` + `config/command-catalog.json` — i18n e help comandi GUI.
+
+### Monitor e storage
+- `scripts/monitor-resources.ps1` — monitor processi CPU/RAM + priorita.
+- `scripts/fs-integrity.ps1` — scan-only integrita filesystem (non ripara con `-Execute`).
+- `scripts/cleanup-storage-safe.ps1` — Safe/Radical + AuditDepth/AuditLevel.
+- `scripts/quick-cleanup-safe.ps1` — target sicuri, retention breve.
+- `scripts/analyze-garbage-hotspots.ps1` — ranking cartelle reclaim-prone.
+- `scripts/analyze-compute-resources.ps1` — score CPU/RAM/IO per processo.
+
+### Salute e remediation
+- `scripts/system-health-audit.ps1` — findings JSON (`AlreadyOptimized` = **array di stringhe**).
+- `scripts/apply-safe-fixes.ps1` — **una** soluzione per finding ≤ MaxLevel.
+- `scripts/repair-office-m365-channel.ps1` / `scripts/repair-wsl-config.ps1` — fix mirati con rollback JSON.
+
+### Privacy
+- `scripts/privacy-scan-secrets.ps1` — read-only, report redatti `PrivacyScanReport.v1`.
+
+### GUI v3.1.3
+- `scripts/system-optimizer-gui.ps1` — shell WinForms (layout, worker wiring, tabs).
+- `scripts/gui/theme.ps1` — palette Obsidian, font, `New-Btn`, `Format-AlreadyOptimizedLog`.
+- `scripts/gui/worker-helpers.ps1` — Wait-ForOutputFile, exit/err tail.
+- `scripts/gui/i18n.ps1` / `command-help.ps1` — lingua + pannello "Cosa fa".
+
+### Install / package / gate
+- `scripts/install-*-task.ps1`, `ensure-powershell-core.ps1`, `activate-hub-profile.ps1`.
+- `scripts/package-suite.ps1` → `dist/WindowsOptimizer` (subset + BOM).
+- `scripts/test-hub-smoke.ps1` — gate health + garbage + privacy + moduli gui.
+
+### Lab / campagne (spesso fuori dist)
+- NVMe writeoffload, WHEA monitor/KPI, kernel/bloatware/eventlog tuners, DD-WRT scripts.
 
 ## Flussi
 1. Osservazione: analyzer produce ranking con score e recommendation (High/Medium/Low).
@@ -26,6 +47,8 @@ Workspace operativo globale su C, D e sistema operativo, con profilo centralizza
 3. Audit: cleanup in modalita audit senza cancellazione.
 4. Esecuzione: cleanup in modalita execute con policy selezionata o quick cleanup safe.
 5. Validazione: confronto metriche pre/post e log persistente + output JSON deterministico worker->UI.
+6. Salute: audit JSON → review in GUI → apply selettivo (mai auto-apply dai CTA primari).
+7. Privacy: scan read-only → findings redatti (vault = Fase 2).
 
 ## Explorer Intelligence
 Per ogni cartella candidata:
@@ -51,6 +74,8 @@ Per ogni cartella candidata:
 - Nessuna cancellazione fuori target noti senza whitelist esplicita.
 - Logging obbligatorio su logs/storage-cleanup.log.
 - Task always-on vincolati a runtime pwsh Core.
+- Smoke gate: `scripts/test-hub-smoke.ps1` prima di package/push significativi.
+- Piano refactor: [`docs/product/REFACTORING-PLAN-ELITE.md`](../docs/product/REFACTORING-PLAN-ELITE.md).
 
 ## Stability Patterns riusabili
 
@@ -63,6 +88,7 @@ Per ogni cartella candidata:
 - Pattern: avvio task pesanti in processo background (`Start-Process`) + polling con `System.Windows.Forms.Timer`.
 - Obiettivo: mantenere il message loop WinForms sempre responsivo.
 - Regola: nessuna scansione dischi o cleanup costoso sul thread UI.
+- Evoluzione: consolidare in `scripts/gui/async-worker.ps1` (Onda 1 del piano elite).
 
 ### 3) Soft Timeout Observability (no kill aggressivo)
 - Pattern: timeout atteso per profilo (`Quick/Standard/Deep`) con warning informativo se superato.
@@ -86,9 +112,10 @@ Per ogni cartella candidata:
 
 ### 7) Startup Budget Profile (config-driven)
 - Pattern: profilo startup configurabile (`Gui.AutoAnalyzeOnStartup`, `Gui.DefaultAnalyzeDepth`, `Gui.DefaultAnalyzeTop`) caricato da `config/sys-maintenance.json`.
-- Obiettivo: ridurre overhead iniziale mantenendo osservabilita e controllo.
-- Default consigliato: `AutoAnalyzeOnStartup=true`, `Depth=Quick`, `Top=15`.
-- Fallback: se config assente/non valida, usare default sicuri nel codice (Quick/15/auto-on).
+- Obiettivo: UI pronta subito; scan solo su richiesta (o opt-in Settings).
+- **Default prodotto (v3.1.2+): `AutoAnalyzeOnStartup=false`**, `Depth=Quick`, `Top=15`.
+- Se abilitato: avvio scan **ritardato** (~600ms) dopo `Shown`, non durante costruzione form.
+- Fallback codice se config assente: Quick/15/**auto-off**.
 
 ### 8) Async Cleanup Worker (UI-safe)
 - Pattern: cleanup/audit sempre in worker process + polling timer UI, mai sincrono sul thread grafico.
@@ -113,7 +140,7 @@ Per ogni cartella candidata:
 
 ### 12) Worker Output Handshake + Diagnostics
 - Pattern: ogni worker background deve produrre output file deterministico e stream di diagnostica separati (stdout/stderr).
-- Obiettivo: evitare race tra fine processo e disponibilita file, migliorando l'analisi cause in caso di errore.
+- Helper: `scripts/gui/worker-helpers.ps1` (`Wait-ForOutputFile`, `Get-WorkerErrorTail`, `Get-ProcessExitCodeSafe`).
 - Regola:
   - attesa output con retry a timeout breve,
   - su exit code != 0 riportare tail stderr in UI,
@@ -144,8 +171,15 @@ Per ogni cartella candidata:
 - Obiettivo: rendere visibile e ispezionabile ogni output dei worker senza accesso file system manuale.
 - Regola: aggiornare la mappa `$logMap` quando si aggiungono nuovi worker.
 
+### 18) Modular GUI theme (v3.1.3+)
+- Pattern: palette/font/`New-Btn` in `scripts/gui/theme.ps1` dot-sourced all'avvio.
+- Obiettivo: ridurre monolite e allineare ROADMAP 1.5.
+- Regola: se `theme.ps1` manca, GUI fallisce early con messaggio chiaro (no silent fallback spezzato).
+
 ## Packaging e distribuzione
-- Dist principale: dist/WindowsOptimizer.
-- GUI eseguibile: dist/WindowsOptimizer/WindowsOptimizer.exe.
-- Installazione/rimozione: scripts/install-suite.ps1, scripts/uninstall-suite.ps1.
-- Versioning locale sicuro: repo Git in C:/SystemOptimizerHub/active con .gitignore hardening.
+- Dist principale: `dist/WindowsOptimizer` (generato da `package-suite.ps1`, **non** editare a mano).
+- Source of truth: `scripts/` + `config/` sul clone portabile (es. `D:/SystemOptimizerHub/active`).
+- GUI eseguibile opzionale: `WindowsOptimizer.exe` (ps2exe); Fase 3 prevede launcher stub.
+- Installazione/rimozione: `scripts/install-suite.ps1`, `scripts/uninstall-suite.ps1`.
+- Piano refactor elite: [`docs/product/REFACTORING-PLAN-ELITE.md`](../docs/product/REFACTORING-PLAN-ELITE.md).
+- Snapshot salute codice: [`KB/codebase-health.md`](codebase-health.md).

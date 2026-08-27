@@ -9,8 +9,11 @@ Knowledge base operativa giornaliera. La conoscenza strutturata permanente vive 
 | `journal.md` | Storico cronologico decisioni (auto via script) |
 | `task-board.md` | Stato task correnti (ToDo/In Progress/Done) |
 | `architecture.md` | Architettura tecnica script/GUI/pattern stabilità |
+| `codebase-health.md` | Snapshot salute codice + voti per area |
+| `bugs-fixed.md` | Incident risolti e check anti-regressione |
 | `templates/entry-template.md` | Template entry journal manuale |
 | `../docs/` | Runbook, ADR, agenti, troubleshooting, checklists |
+| `../docs/product/REFACTORING-PLAN-ELITE.md` | Piano operativo refactor onde validate |
 
 ## Mappa docs/ (knowledge permanente)
 

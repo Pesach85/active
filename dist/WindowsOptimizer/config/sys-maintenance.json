@@ -31,7 +31,7 @@
     "DefaultAuditDepth": "Standard",
     "DefaultAuditLevel": "FileLevel",
     "Tier2": {
-      "Enabled": false,
+      "Enabled": true,
       "SimulateOnly": true,
       "Drives": [
         "D"
@@ -70,13 +70,52 @@
     "EventLookbackHours": 24
   },
   "Gui": {
-    "AutoAnalyzeOnStartup": true,
+    "AutoAnalyzeOnStartup": false,
     "DefaultAnalyzeDepth": "Quick",
     "DefaultAnalyzeTop": 15,
     "ComputeAnalyzeDurationSec": 8,
     "ComputeAnalyzeTop": 8,
     "QuickCleanupRetentionDays": 2,
     "QuickCleanupMaxFilesPerTarget": 2000,
-    "DiagnosticRetentionDays": 7
+    "DiagnosticRetentionDays": 7,
+    "ShowAdvancedTools": false,
+    "Language": "it"
+  },
+  "Privacy": {
+    "MaxFileSizeKb": 512,
+    "MaxFindings": 500,
+    "ScanPaths": [
+      "%USERPROFILE%\\Documents",
+      "%USERPROFILE%\\Desktop",
+      "config",
+      "scripts"
+    ],
+    "ExcludeDirNames": [
+      ".git",
+      "node_modules",
+      "dist",
+      "ddwrtkey",
+      "vendor",
+      "modules",
+      "Windows"
+    ],
+    "Extensions": [
+      ".env",
+      ".ini",
+      ".cfg",
+      ".conf",
+      ".config",
+      ".json",
+      ".xml",
+      ".yaml",
+      ".yml",
+      ".ps1",
+      ".bat",
+      ".cmd",
+      ".sql",
+      ".php",
+      ".txt",
+      ".md"
+    ]
   }
 }

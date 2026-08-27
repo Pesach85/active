@@ -33,6 +33,7 @@ $items = @(
     (Join-Path $scriptDir "analyze-compute-resources.ps1"),
     (Join-Path $scriptDir "analyze-nvme-readonly-plan.ps1"),
     (Join-Path $scriptDir "analyze-recovery-partition-legacy.ps1"),
+    (Join-Path $scriptDir "privacy-scan-secrets.ps1"),
     (Join-Path $scriptDir "system-optimizer-gui.ps1"),
     (Join-Path $scriptDir "build-gui-exe.ps1"),
     (Join-Path $scriptDir "install-suite.ps1"),
@@ -64,14 +65,37 @@ foreach ($item in $items) {
     }
 }
 
+$guiSource = Join-Path $scriptDir "gui"
+$guiTarget = Join-Path $targetScripts "gui"
+if (Test-Path -LiteralPath $guiSource) {
+    if (Test-Path -LiteralPath $guiTarget) {
+        Remove-Item -LiteralPath $guiTarget -Recurse -Force -ErrorAction SilentlyContinue
+    }
+    Copy-Item -LiteralPath $guiSource -Destination $guiTarget -Recurse -Force
+}
+
+$localeSource = Join-Path $configDir "locale"
+$localeTarget = Join-Path $targetConfig "locale"
+if (Test-Path -LiteralPath $localeSource) {
+    if (Test-Path -LiteralPath $localeTarget) {
+        Remove-Item -LiteralPath $localeTarget -Recurse -Force -ErrorAction SilentlyContinue
+    }
+    Copy-Item -LiteralPath $localeSource -Destination $localeTarget -Recurse -Force
+}
+
+$catalogSource = Join-Path $configDir "command-catalog.json"
+if (Test-Path -LiteralPath $catalogSource) {
+    Copy-Item -LiteralPath $catalogSource -Destination $targetConfig -Force
+}
+
 # Force UTF-8 BOM on packaged PowerShell scripts for Windows PowerShell parsing compatibility.
 $utf8Bom = New-Object System.Text.UTF8Encoding($true)
-Get-ChildItem -LiteralPath $targetScripts -Filter "*.ps1" -File -ErrorAction SilentlyContinue | ForEach-Object {
+Get-ChildItem -LiteralPath $targetScripts -Filter "*.ps1" -File -Recurse -ErrorAction SilentlyContinue | ForEach-Object {
     try {
         $raw = Get-Content -LiteralPath $_.FullName -Raw
         [System.IO.File]::WriteAllText($_.FullName, $raw, $utf8Bom)
     } catch {
-        Write-Warning ("Skipping UTF-8 BOM normalization for locked file: {0}" -f $_.FullName)
+        Write-Warning ("Skipping UTF-8 BOM normalization for locked file: {0}" -f $_.Exception.Message)
     }
 }
 
