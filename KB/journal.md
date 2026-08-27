@@ -1971,4 +1971,4 @@ async-worker + config hub-common + efficacia STARTUP/PKG/WSL + smoke/package/com
 - HITL lasciato per Tier2 D:, task orchestrator SYSTEM, WHEA DIMM, Vault/signing
 
 ### Esito
-Smoke ALL PASSED + package-suite OK; commit/push in corso
+Smoke ALL PASSED + package-suite OK; commit `56589a8` pushed to origin/master
