@@ -1,0 +1,304 @@
+{
+  "schemaVersion": 1,
+  "commands": {
+    "health_scan": {
+      "scripts": ["system-health-audit.ps1"],
+      "efficacy": 58,
+      "effortImpact": 52,
+      "risk": "Low",
+      "writesSystem": false,
+      "en": {
+        "title": "Health Scan",
+        "summary": "Read-only inventory of disk, services, startup, power, WSL and Office policy.",
+        "does": "Runs WMI/CIM checks and writes a JSON report with severity-ranked findings.",
+        "doesNot": "Does not change settings, install packages, or apply fixes.",
+        "expect": "Actionable report in Health tab; review before applying anything.",
+        "tip": "Prefer this over 'Scan + Apply' unless you already reviewed findings."
+      },
+      "it": {
+        "title": "Scansione Salute",
+        "summary": "Inventario read-only di disco, servizi, avvio, alimentazione, WSL e policy Office.",
+        "does": "Esegue controlli WMI/CIM e scrive un report JSON con finding per severità.",
+        "doesNot": "Non modifica impostazioni, non installa pacchetti, non applica fix.",
+        "expect": "Report consultabile nel tab Salute; rivedi prima di applicare.",
+        "tip": "Preferisci questa azione rispetto a 'Scansiona + Applica' se non hai ancora rivisto i finding."
+      }
+    },
+    "health_apply": {
+      "scripts": ["system-health-audit.ps1", "apply-safe-fixes.ps1"],
+      "efficacy": 42,
+      "effortImpact": 38,
+      "risk": "High",
+      "writesSystem": true,
+      "en": {
+        "title": "Scan + Apply Fixes",
+        "summary": "Health scan followed by automatic fixes up to the selected MAX FIX level.",
+        "does": "Runs audit then apply-safe-fixes for each finding (one best solution per finding).",
+        "doesNot": "Does not replace manual review for Moderate/Aggressive items (services, startup, registry).",
+        "expect": "Some items fixed automatically; others may need reboot or admin.",
+        "tip": "Use Safe level only unless you understand each finding. Review Health tab first when possible."
+      },
+      "it": {
+        "title": "Scansiona + Applica Fix",
+        "summary": "Scansione salute seguita da fix automatici fino al livello FIX MAX selezionato.",
+        "does": "Esegue audit poi apply-safe-fixes per ogni finding (una soluzione migliore per finding).",
+        "doesNot": "Non sostituisce la revisione manuale per item Moderate/Aggressive (servizi, avvio, registry).",
+        "expect": "Alcuni item corretti in automatico; altri possono richiedere reboot o admin.",
+        "tip": "Usa livello Safe salvo conoscenza dei finding. Preferisci prima Scansione Salute."
+      }
+    },
+    "scan_storage": {
+      "scripts": ["analyze-garbage-hotspots.ps1"],
+      "efficacy": 38,
+      "effortImpact": 32,
+      "risk": "Low",
+      "writesSystem": false,
+      "en": {
+        "title": "Scan Storage",
+        "summary": "Finds folders likely holding reclaimable space (analysis only).",
+        "does": "Samples files under known paths, scores stale/transient content, exports CSV.",
+        "doesNot": "Does not delete files. Use Storage Clean for deletion.",
+        "expect": "Ranked list in Home explorer; double-click opens path.",
+        "tip": "Deep depth scans more root folders — takes longer but finds more candidates."
+      },
+      "it": {
+        "title": "Analizza Spazio",
+        "summary": "Trova cartelle con spazio potenzialmente recuperabile (solo analisi).",
+        "does": "Campiona file in percorsi noti, calcola score stale/transient, esporta CSV.",
+        "doesNot": "Non elimina file. Usa Pulizia Storage per cancellare.",
+        "expect": "Lista ordinata in Home; doppio clic apre il percorso.",
+        "tip": "Profondità Deep analizza più cartelle radice — più lento ma più completo."
+      }
+    },
+    "quick_clean": {
+      "scripts": ["quick-cleanup-safe.ps1"],
+      "efficacy": 55,
+      "effortImpact": 62,
+      "risk": "Low",
+      "writesSystem": true,
+      "en": {
+        "title": "Quick Clean",
+        "summary": "Fast cleanup of temp, cache and old logs (current user + system paths).",
+        "does": "Deletes files older than retention in safe targets; writes JSON log.",
+        "doesNot": "Does not touch WinSxS, browser profiles, or Tier-2 whitelist paths.",
+        "expect": "Modest GB reclaimed; safe for daily use.",
+        "tip": "Run Scan Storage first if you need to see where space is before deleting."
+      },
+      "it": {
+        "title": "Pulizia Rapida",
+        "summary": "Pulizia veloce di temp, cache e log vecchi (utente corrente + percorsi di sistema).",
+        "does": "Elimina file oltre retention in target sicuri; scrive log JSON.",
+        "doesNot": "Non tocca WinSxS, profili browser o path whitelist Tier-2.",
+        "expect": "Recupero modesto in GB; adatto uso quotidiano.",
+        "tip": "Esegui prima Analizza Spazio se vuoi capire dove si perde spazio."
+      }
+    },
+    "privacy_scan": {
+      "scripts": ["privacy-scan-secrets.ps1"],
+      "efficacy": 46,
+      "effortImpact": 44,
+      "risk": "Low",
+      "writesSystem": false,
+      "en": {
+        "title": "Privacy Scan",
+        "summary": "Read-only search for plaintext passwords, API keys and connection strings.",
+        "does": "Regex scan on configured paths; redacted previews in JSON/GUI.",
+        "doesNot": "Does not move secrets to vault yet (Phase 2). Does not modify scanned files.",
+        "expect": "Findings list with file, line, redacted preview. Manual review required.",
+        "tip": "Exclude noisy folders in config Privacy.ExcludeDirNames."
+      },
+      "it": {
+        "title": "Scansione Privacy",
+        "summary": "Ricerca read-only di password, API key e connection string in chiaro.",
+        "does": "Scan regex su path configurati; anteprime redatte in JSON/GUI.",
+        "doesNot": "Non sposta segreti nel vault (Fase 2). Non modifica i file scansionati.",
+        "expect": "Lista finding con file, riga, anteprima redatta. Revisione manuale richiesta.",
+        "tip": "Escludi cartelle rumorose in config Privacy.ExcludeDirNames."
+      }
+    },
+    "storage_audit": {
+      "scripts": ["cleanup-storage-safe.ps1"],
+      "efficacy": 52,
+      "effortImpact": 48,
+      "risk": "Low",
+      "writesSystem": false,
+      "en": {
+        "title": "Storage Audit",
+        "summary": "Simulates storage cleanup — reports what would be deleted.",
+        "does": "Walks retention targets, counts reclaimable files, no deletion.",
+        "doesNot": "Does not empty recycle bin or delete in audit mode.",
+        "expect": "JSON report; use Storage Clean to execute.",
+        "tip": "Radical mode includes more targets — always audit first."
+      },
+      "it": {
+        "title": "Audit Storage",
+        "summary": "Simula pulizia storage — riporta cosa verrebbe eliminato.",
+        "does": "Percorre target retention, conta file recuperabili, nessuna cancellazione.",
+        "doesNot": "Non svuota cestino né elimina in modalità audit.",
+        "expect": "Report JSON; usa Pulizia Storage per eseguire.",
+        "tip": "Modalità Radical include più target — audit sempre prima."
+      }
+    },
+    "storage_execute": {
+      "scripts": ["cleanup-storage-safe.ps1"],
+      "efficacy": 52,
+      "effortImpact": 48,
+      "risk": "Med",
+      "writesSystem": true,
+      "en": {
+        "title": "Storage Clean",
+        "summary": "Deletes old temp/logs per retention rules (Safe or Radical mode).",
+        "does": "Removes files from configured paths; clears recycle bin on execute.",
+        "doesNot": "Does not run DISM, compact OS, or clean entire user profiles as SYSTEM.",
+        "expect": "GB reclaimed varies; rollback JSON in logs before apply.",
+        "tip": "Skips Windows Update cache if wuauserv is running."
+      },
+      "it": {
+        "title": "Pulizia Storage",
+        "summary": "Elimina temp/log vecchi secondo retention (Safe o Radical).",
+        "does": "Rimuove file da path configurati; svuota cestino in execute.",
+        "doesNot": "Non esegue DISM, compact OS o pulizia completa profili utente come SYSTEM.",
+        "expect": "GB recuperati variabili; rollback JSON in logs.",
+        "tip": "Salta cache Windows Update se wuauserv è in esecuzione."
+      }
+    },
+    "compute": {
+      "scripts": ["analyze-compute-resources.ps1"],
+      "efficacy": 34,
+      "effortImpact": 38,
+      "risk": "Low",
+      "writesSystem": false,
+      "en": {
+        "title": "Compute Load",
+        "summary": "Short snapshot of top CPU/RAM/IO processes.",
+        "does": "Two Get-Process samples ~8s apart; scores and exports JSON.",
+        "doesNot": "Does not throttle or kill processes (unlike background monitor task).",
+        "expect": "Advisory list only — recommendations are labels, not auto-applied.",
+        "tip": "For continuous throttling see Automation / monitor task (review risk first)."
+      },
+      "it": {
+        "title": "Carico Compute",
+        "summary": "Snapshot breve dei processi top CPU/RAM/IO.",
+        "does": "Due campioni Get-Process ~8s; score ed export JSON.",
+        "doesNot": "Non limita né termina processi (a differenza del task monitor in background).",
+        "expect": "Solo elenco consultivo — raccomandazioni non auto-applicate.",
+        "tip": "Per throttling continuo vedi Automazione / task monitor (valuta rischio)."
+      }
+    },
+    "nvme_plan": {
+      "scripts": ["analyze-nvme-readonly-plan.ps1"],
+      "efficacy": 44,
+      "effortImpact": 50,
+      "risk": "Low",
+      "writesSystem": false,
+      "en": {
+        "title": "NVMe Advisor",
+        "summary": "Read-only wear/risk heuristics and generic offload checklist.",
+        "does": "Reads physical disk reliability counters when available.",
+        "doesNot": "Does not relocate data or change write patterns automatically.",
+        "expect": "Plan text; SMART may be empty under RAID/RST.",
+        "tip": "Use with vendor tools (CrystalDiskInfo) for ground truth."
+      },
+      "it": {
+        "title": "Consulente NVMe",
+        "summary": "Euristica usura/rischio read-only e checklist offload generica.",
+        "does": "Legge reliability counter quando disponibili.",
+        "doesNot": "Non sposta dati né cambia pattern di scrittura in automatico.",
+        "expect": "Testo piano; SMART spesso vuoto con RAID/RST.",
+        "tip": "Affianca tool vendor (CrystalDiskInfo) per dati certi."
+      }
+    },
+    "partition_plan": {
+      "scripts": ["analyze-recovery-partition-legacy.ps1"],
+      "efficacy": 15,
+      "effortImpact": 28,
+      "risk": "High",
+      "writesSystem": true,
+      "en": {
+        "title": "Partition Plan",
+        "summary": "Checks legacy WinRE partition reclaim (disk 1 / part 4 defaults).",
+        "does": "Evidence chain for GPT recovery partition layout.",
+        "doesNot": "Does not guarantee safe apply on non-matching layouts.",
+        "expect": "Audit safe; Apply is destructive — full backup required.",
+        "tip": "Default disk/partition numbers are wrong on most PCs — audit only unless verified."
+      },
+      "it": {
+        "title": "Piano Partizioni",
+        "summary": "Verifica reclaim partizione WinRE legacy (default disco 1 / part 4).",
+        "does": "Catena evidenze per layout partizione recovery GPT.",
+        "doesNot": "Non garantisce apply sicuro su layout non corrispondenti.",
+        "expect": "Audit sicuro; Apply distruttivo — backup completo obbligatorio.",
+        "tip": "Default disco/partizione spesso errati — solo audit salvo verifica."
+      }
+    },
+    "pkg_fix": {
+      "scripts": ["system-health-audit.ps1", "apply-safe-fixes.ps1"],
+      "efficacy": 35,
+      "effortImpact": 30,
+      "risk": "Med",
+      "writesSystem": true,
+      "en": {
+        "title": "Pkg Prerequisites",
+        "summary": "Audit for missing PKG-* items then apply Safe solutions only.",
+        "does": "Filters PKG findings; may open download pages or run ensure-powershell-core.",
+        "doesNot": "Does not silently install all missing software — many fixes are links.",
+        "expect": "Partial automation; manual install often still required.",
+        "tip": "Read each PKG finding — 'Safe' may mean 'open browser' not 'install'."
+      },
+      "it": {
+        "title": "Prerequisiti Pkg",
+        "summary": "Audit item PKG-* mancanti poi applica solo soluzioni Safe.",
+        "does": "Filtra finding PKG; può aprire pagine download o ensure-powershell-core.",
+        "doesNot": "Non installa silenziosamente tutto — molti fix sono link.",
+        "expect": "Automazione parziale; spesso serve install manuale.",
+        "tip": "Leggi ogni finding PKG — 'Safe' può significare 'apri browser'."
+      }
+    },
+    "run_deep_scan": {
+      "scripts": ["system-health-audit.ps1"],
+      "efficacy": 58,
+      "effortImpact": 52,
+      "risk": "Low",
+      "writesSystem": false,
+      "en": {
+        "title": "Run Health Scan (Health tab)",
+        "summary": "Same engine as Home Health Scan — manual apply per finding.",
+        "does": "Full audit JSON for Health tab with per-finding Apply Selected Fix.",
+        "doesNot": "Does not auto-apply (unlike old Health Check button behavior).",
+        "expect": "Best path: scan here, review, apply one fix at a time.",
+        "tip": "This is the recommended workflow for fixes."
+      },
+      "it": {
+        "title": "Avvia Scansione (tab Salute)",
+        "summary": "Stesso motore di Scansione Salute — apply manuale per finding.",
+        "does": "Audit JSON completo per tab Salute con Applica Fix Selezionato.",
+        "doesNot": "Non auto-applica (a differenza del vecchio Health Check).",
+        "expect": "Percorso consigliato: scansiona, rivedi, applica un fix alla volta.",
+        "tip": "Workflow raccomandato per i fix."
+      }
+    },
+    "install_core": {
+      "scripts": ["ensure-powershell-core.ps1", "install-monitor-task.ps1", "install-cleanup-task.ps1"],
+      "efficacy": 65,
+      "effortImpact": 45,
+      "risk": "Med",
+      "writesSystem": true,
+      "en": {
+        "title": "Install Core",
+        "summary": "Ensures PowerShell 7 and registers background monitor + daily cleanup tasks.",
+        "does": "Installs pwsh if missing; creates SYSTEM scheduled tasks.",
+        "doesNot": "Does not uninstall tasks or explain monitor throttling behavior in UI.",
+        "expect": "Background monitor may lower process priority after threshold hits.",
+        "tip": "Review monitor-resources.ps1 AutoTerminate setting in config before install."
+      },
+      "it": {
+        "title": "Installa Core",
+        "summary": "Assicura PowerShell 7 e registra task monitor + cleanup giornaliero.",
+        "does": "Installa pwsh se assente; crea scheduled task SYSTEM.",
+        "doesNot": "Non disinstalla task né spiega throttling monitor in UI.",
+        "expect": "Monitor in background può abbassare priorità processi oltre soglia.",
+        "tip": "Rivedi AutoTerminate in config prima di installare."
+      }
+    }
+  }
+}

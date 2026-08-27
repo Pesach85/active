@@ -64,7 +64,9 @@ function New-Solution {
         [string]$Label,
         [string]$Command,
         [string]$Rollback,
-        [string]$RiskNote
+        [string]$RiskNote,
+        [ValidateSet('Review', 'OpenLink', 'Install', 'Script')]
+        [string]$Kind = 'Script'
     )
     return @{
         Level    = $Level
@@ -72,7 +74,25 @@ function New-Solution {
         Command  = $Command
         Rollback = $Rollback
         RiskNote = $RiskNote
+        Kind     = $Kind
     }
+}
+
+function Test-StartupEntryProtected {
+    param([string]$Name)
+    if ([string]::IsNullOrWhiteSpace($Name)) { return $false }
+    $n = $Name.ToLowerInvariant()
+    $patterns = @(
+        'securityhealth',
+        'windowsdefender',
+        'windows security',
+        'msascuil',
+        'securityhealthsystray'
+    )
+    foreach ($p in $patterns) {
+        if ($n -like "*$p*") { return $true }
+    }
+    return $false
 }
 
 function New-OfficeM365ChannelFinding {
@@ -586,17 +606,26 @@ if ($runningHeavy.Count -gt 0) {
 # ── STARTUP PROGRAMS ──────────────────────────────────────────────────────────
 Write-Progress2 "Checking startup programs..."
 $startupEntries = [System.Collections.ArrayList]::new()
+$startupProtected = [System.Collections.ArrayList]::new()
 foreach ($regPath in @('HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run', 'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run')) {
     $props = Get-ItemProperty $regPath -EA SilentlyContinue
     if ($props) {
-        $props.PSObject.Properties | Where-Object { $_.Name -notmatch '^PS|^\(default\)$|^SecurityHealth' } | ForEach-Object {
-            [void]$startupEntries.Add(@{ Name = $_.Name; Value = $_.Value; Path = $regPath })
+        $props.PSObject.Properties | Where-Object { $_.Name -notmatch '^PS|^\(default\)$' } | ForEach-Object {
+            $entry = @{ Name = $_.Name; Value = $_.Value; Path = $regPath }
+            if (Test-StartupEntryProtected -Name $_.Name) {
+                [void]$startupProtected.Add($entry)
+            } else {
+                [void]$startupEntries.Add($entry)
+            }
         }
     }
 }
 
 if ($startupEntries.Count -gt 0) {
     $startupList = ($startupEntries | ForEach-Object { "  - $($_.Name)" }) -join "`n"
+    $protectedNote = if ($startupProtected.Count -gt 0) {
+        "`nProtected (never auto-removed): " + (($startupProtected | ForEach-Object { $_.Name }) -join ', ')
+    } else { '' }
     $removeCmd = ($startupEntries | ForEach-Object {
         "Remove-ItemProperty -Path '$($_.Path)' -Name '$($_.Name)' -EA SilentlyContinue"
     }) -join "`n"
@@ -607,20 +636,22 @@ if ($startupEntries.Count -gt 0) {
         -Id 'STARTUP-001' `
         -Severity 'Moderate' `
         -Category 'OS' `
-        -Title "$($startupEntries.Count) non-essential startup programs" `
-        -Description "Programs launching at login:`n$startupList" `
-        -CurrentValue "$($startupEntries.Count) startup entries" `
-        -RecommendedValue 'Remove non-essential entries' `
-        -Impact "Faster login, lower background resource usage." `
+        -Title "$($startupEntries.Count) removable startup programs (AV/security excluded)" `
+        -Description "Non-protected programs launching at login:`n$startupList$protectedNote" `
+        -CurrentValue "$($startupEntries.Count) removable + $($startupProtected.Count) protected" `
+        -RecommendedValue 'Review then remove only non-essential third-party entries' `
+        -Impact "Faster login, lower background resource usage. Security Health / Defender entries are never removed by this finding." `
         -Solutions @(
             (New-Solution -Level 'Safe' -Label 'Review startup entries (no changes)' `
                 -Command "Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run','HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run' -EA SilentlyContinue | Format-List *" `
                 -Rollback 'N/A' `
-                -RiskNote 'Read-only review.'),
-            (New-Solution -Level 'Moderate' -Label "Remove all $($startupEntries.Count) startup entries" `
+                -RiskNote 'Read-only review.' `
+                -Kind 'Review'),
+            (New-Solution -Level 'Moderate' -Label "Remove $($startupEntries.Count) non-protected startup entries" `
                 -Command $removeCmd `
                 -Rollback $restoreCmd `
-                -RiskNote 'Programs will no longer auto-start. They can still be launched manually.')
+                -RiskNote 'Does not remove Security Health / Defender / Windows Security entries. Other programs will no longer auto-start.' `
+                -Kind 'Script')
         )))
 }
 
@@ -813,10 +844,11 @@ if (-not $wingetAvailable) {
         -RecommendedValue 'External installer path available and validated' `
         -Impact 'Store-based remediation is unavailable; use external installer flow.' `
         -Solutions @(
-            (New-Solution -Level 'Safe' -Label 'Open PowerShell release page (external installer path)' `
+            (New-Solution -Level 'Safe' -Label '[OpenLink] PowerShell release page (manual install)' `
                 -Command 'Start-Process "https://aka.ms/powershell-release?tag=stable"' `
                 -Rollback 'N/A (manual install path)' `
-                -RiskNote 'Uses external vendor installer flow without Store dependency.')
+                -RiskNote 'Opens browser only — does not install. Uses external vendor page without Store dependency.' `
+                -Kind 'OpenLink')
         )))
 }
 
@@ -825,21 +857,23 @@ if ($pwshMajor -lt 7) {
     $pwshSolutions = [System.Collections.ArrayList]::new()
     $ensureCoreScript = Join-Path $PSScriptRoot 'ensure-powershell-core.ps1'
     $ensureCoreCmd = ('powershell -NoProfile -ExecutionPolicy Bypass -File "{0}" -InstallIfMissing' -f $ensureCoreScript)
-    [void]$pwshSolutions.Add((New-Solution -Level 'Safe' -Label 'Install PowerShell 7 using external installer flow' `
+    [void]$pwshSolutions.Add((New-Solution -Level 'Safe' -Label '[Install] PowerShell 7 via ensure-powershell-core.ps1' `
         -Command $ensureCoreCmd `
         -Rollback 'Uninstall PowerShell 7 from Apps and Features if needed' `
-        -RiskNote 'Uses external vendor installer path; no Store/AppInstaller dependency.'))
-    [void]$pwshSolutions.Add((New-Solution -Level 'Safe' -Label 'Open PowerShell 7 download page' `
+        -RiskNote 'Runs installer script — installs pwsh. Prefer this over OpenLink when automation is allowed.' `
+        -Kind 'Install'))
+    [void]$pwshSolutions.Add((New-Solution -Level 'Safe' -Label '[OpenLink] PowerShell 7 download page' `
         -Command 'Start-Process "https://aka.ms/powershell-release?tag=stable"' `
         -Rollback 'N/A (manual install path)' `
-        -RiskNote 'Manual fallback when automated external install is blocked by policy.'))
+        -RiskNote 'Opens browser only — does not install. Use when automated install is blocked by policy.' `
+        -Kind 'OpenLink'))
 
     [void]$findings.Add((New-Finding `
         -Id 'PKG-CORE-002' `
         -Severity 'Critical' `
         -Category 'OS' `
         -Title 'PowerShell 7 runtime missing for core automation' `
-        -Description 'The optimization suite expects PowerShell 7 (pwsh) for core-only tasks and deterministic background workers.' `
+        -Description 'The optimization suite expects PowerShell 7 (pwsh) for core-only tasks and deterministic background workers. Prefer [Install] over [OpenLink].' `
         -CurrentValue $psCurrent `
         -RecommendedValue 'pwsh 7.x installed and resolvable' `
         -Impact 'Some always-on tasks and GUI worker orchestration may be degraded or incompatible.' `
@@ -856,15 +890,16 @@ if ($diskHealthWarning -and (-not $crystalInstalled)) {
         -Severity 'Important' `
         -Category 'Disk' `
         -Title 'CrystalDiskInfo not installed for NVMe SMART diagnostics' `
-        -Description 'Disk health warning was detected and SMART passthrough may be limited by Intel RST. CrystalDiskInfo is required for a direct diagnostic check.' `
+        -Description 'Disk health warning was detected and SMART passthrough may be limited by Intel RST. CrystalDiskInfo is required for a direct diagnostic check. Solution is OpenLink only (no silent install).' `
         -CurrentValue 'CrystalDiskInfo not installed' `
         -RecommendedValue 'CrystalDiskInfo installed' `
         -Impact 'NVMe wear/failure trend cannot be validated quickly from GUI-safe tooling.' `
         -Solutions @(
-            (New-Solution -Level 'Safe' -Label 'Open CrystalDiskInfo official download page' `
+            (New-Solution -Level 'Safe' -Label '[OpenLink] CrystalDiskInfo official download page' `
                 -Command 'Start-Process "https://crystalmark.info/en/software/crystaldiskinfo/"' `
                 -Rollback 'N/A (manual install path)' `
-                -RiskNote 'Uses external installer flow independent from Microsoft Store.')
+                -RiskNote 'Opens browser only — does not install CrystalDiskInfo.' `
+                -Kind 'OpenLink')
         )
     ))
 } elseif ($diskHealthWarning -and $crystalInstalled) {

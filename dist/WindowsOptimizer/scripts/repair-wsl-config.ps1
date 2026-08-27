@@ -8,16 +8,20 @@
       from HKLM\...\Lxss. WslService enumerates distros from HKLM, so every
       wsl.exe client blocks on IPC and accumulates zombie processes.
 
-    Safe apply sequence (no distro unregister, no hypervisor changes):
+    Safe apply sequence (no distro unregister):
       1. Backup HKLM Lxss state
       2. Terminate zombie wsl/wslrelay/vmwp clients
       3. Recover WslService when STOP_PENDING (kill wslservice.exe + sc start)
       4. Mirror HKCU distro metadata into HKLM when absent or incomplete
       5. Set HKLM DefaultDistribution to the HKCU default GUID
       6. Validate wsl -l -v with a bounded timeout
+      7. If hypervisorlaunchtype is Off: set bcdedit hypervisorlaunchtype Auto
+         (WSL2 utility VM cannot boot otherwise). This IS a boot-config change;
+         reboot is required. Rollback via -RestoreLatest restores prior value.
 
 .PARAMETER Apply
-    Apply the safe repair sequence after assessment.
+    Apply the safe repair sequence after assessment, including optional
+    hypervisorlaunchtype Off→Auto when WSL2 boot would otherwise hang.
 
 .PARAMETER RestoreLatest
     Restore HKLM Lxss state from the latest JSON backup.

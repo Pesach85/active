@@ -1,0 +1,71 @@
+{
+  "meta": { "lang": "en", "label": "English" },
+  "app": {
+    "title": "System Optimizer Hub",
+    "subtitle": "Intelligent maintenance console  |  v{0}",
+    "ready": "Ready"
+  },
+  "tabs": {
+    "home": "Home",
+    "health": "Health & Fixes",
+    "privacy": "Privacy",
+    "automation": "Automation",
+    "diagnostics": "Diagnostics",
+    "settings": "Settings"
+  },
+  "sections": {
+    "primary_actions": "PRIMARY ACTIONS",
+    "advanced_tools": "ADVANCED TOOLS",
+    "command_help": "What this does"
+  },
+  "buttons": {
+    "health_check": "Health Scan",
+    "health_apply": "Scan + Apply Fixes",
+    "scan_storage": "Scan Storage",
+    "quick_clean": "Quick Clean",
+    "privacy_scan": "Privacy Scan",
+    "more_tools": "More tools",
+    "less_tools": "Less tools",
+    "cancel": "Cancel",
+    "pkg_fix": "Pkg Prerequisites",
+    "nvme_plan": "NVMe Advisor",
+    "health_tab": "Health Tab",
+    "partition_plan": "Partition Plan",
+    "compute": "Compute Load",
+    "storage_audit": "Storage Audit",
+    "storage_execute": "Storage Clean",
+    "diagnostics": "Diagnostics",
+    "run_deep_scan": "Run Health Scan",
+    "apply_fix": "Apply Selected Fix",
+    "export_report": "Export Report",
+    "run_privacy_scan": "Run Privacy Scan",
+    "reload_tasks": "Reload Tasks",
+    "install_core": "Install Core",
+    "load_logs": "Load Last 200",
+    "save_settings": "Save GUI Settings",
+    "reload": "Reload"
+  },
+  "labels": {
+    "scan_depth": "SCAN",
+    "detail": "DETAIL",
+    "mode": "MODE",
+    "top": "TOP",
+    "max_fix": "MAX FIX",
+    "show": "SHOW",
+    "explorer_hint": "Double-click a row to open the path",
+    "privacy_desc": "Read-only scan for plaintext credentials. Values are redacted in reports.",
+    "deep_scan_desc": "System health scan — review findings, pick one solution, then Apply. Does not auto-fix.",
+    "config_hint": "Monitor/WHEA/Orchestrator thresholds: edit JSON or use Save to persist GUI section.",
+    "language": "Language"
+  },
+  "states": {
+    "idle": "Idle",
+    "running": "Running…"
+  },
+  "dialogs": {
+    "confirm": "Confirm",
+    "warning": "Warning",
+    "yes": "Yes",
+    "no": "No"
+  }
+}

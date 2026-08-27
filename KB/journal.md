@@ -1909,3 +1909,66 @@ Eseguito repair-wsl-config.ps1 -ValidateLaunch dopo reboot; confermato WSL_OK su
 
 ### Esito
 Completato - Status Ready, LaunchProbe WSL_OK
+
+## 2026-08-12 12:23:58
+### Obiettivo
+GUI v3.1.1 fix grafici
+
+### Task
+Add_Focus, layout scan, package-suite
+
+### Modifiche
+- command-help Click/GotFocus
+- gui pnlScanOptions v3.1.1
+- package-suite copy gui
+- lessons-learned doc
+- bugs-fixed Bug 25
+
+### Decisioni
+- Scan options panel separato
+- No Add_Focus su Button
+- Copy directory non glob
+
+### Esito
+Completato
+
+## 2026-08-27 10:30:00
+### Obiettivo
+Allineare KB allo stato reale e avviare refactor elite
+
+### Task
+Audit strutturale + sync docs + modularizzazione GUI theme/worker-helpers + smoke gate
+
+### Modifiche
+- KB architecture/task-board/bugs-fixed/codebase-health aggiornati
+- docs/product/REFACTORING-PLAN-ELITE.md + ROADMAP/ADR/ACTION-PLAN sync
+- scripts/gui/theme.ps1 e worker-helpers.ps1; GUI v3.1.3
+- scripts/test-hub-smoke.ps1; hub-common Test-HubAdmin / Assert-HubAdmin
+
+### Decisioni
+- Default AutoAnalyze=false resta prodotto
+- Refactor worker monolitici a onde (privacy first)
+- Copertura 100% solo sui path instrumentati; Fase 4 per gap OS
+
+### Esito
+Smoke ALL PASSED + package-suite OK; piano operativo documentato
+
+## 2026-08-27 10:45:00
+### Obiettivo
+Eseguire Onde 1–3 refactor elite, deploy e push
+
+### Task
+async-worker + config hub-common + efficacia STARTUP/PKG/WSL + smoke/package/commit/push
+
+### Modifiche
+- scripts/gui/async-worker.ps1; Privacy/Garbage/Health migrati
+- GUI Load/Save via Get/Save-MaintenanceConfig
+- STARTUP whitelist AV; PKG Kind; WSL synopsis; apply prefer Install>OpenLink
+- GUI v3.2.0; ACTION-PLAN 1.5.6–1.5.8 chiusi
+
+### Decisioni
+- Worker rimanenti (cleanup/nvme/deep) restano legacy fino a prossima onda
+- HITL lasciato per Tier2 D:, task orchestrator SYSTEM, WHEA DIMM, Vault/signing
+
+### Esito
+Smoke ALL PASSED + package-suite OK; commit/push in corso

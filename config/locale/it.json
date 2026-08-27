@@ -1,0 +1,71 @@
+{
+  "meta": { "lang": "it", "label": "Italiano" },
+  "app": {
+    "title": "System Optimizer Hub",
+    "subtitle": "Console manutenzione intelligente  |  v{0}",
+    "ready": "Pronto"
+  },
+  "tabs": {
+    "home": "Home",
+    "health": "Salute e Fix",
+    "privacy": "Privacy",
+    "automation": "Automazione",
+    "diagnostics": "Diagnostica",
+    "settings": "Impostazioni"
+  },
+  "sections": {
+    "primary_actions": "AZIONI PRINCIPALI",
+    "advanced_tools": "STRUMENTI AVANZATI",
+    "command_help": "Cosa fa"
+  },
+  "buttons": {
+    "health_check": "Scansione Salute",
+    "health_apply": "Scansiona + Applica Fix",
+    "scan_storage": "Analizza Spazio",
+    "quick_clean": "Pulizia Rapida",
+    "privacy_scan": "Scansione Privacy",
+    "more_tools": "Altri strumenti",
+    "less_tools": "Meno strumenti",
+    "cancel": "Annulla",
+    "pkg_fix": "Prerequisiti Pkg",
+    "nvme_plan": "Consulente NVMe",
+    "health_tab": "Tab Salute",
+    "partition_plan": "Piano Partizioni",
+    "compute": "Carico Compute",
+    "storage_audit": "Audit Storage",
+    "storage_execute": "Pulizia Storage",
+    "diagnostics": "Diagnostica",
+    "run_deep_scan": "Avvia Scansione",
+    "apply_fix": "Applica Fix Selezionato",
+    "export_report": "Esporta Report",
+    "run_privacy_scan": "Avvia Scansione Privacy",
+    "reload_tasks": "Ricarica Task",
+    "install_core": "Installa Core",
+    "load_logs": "Ultimi 200 log",
+    "save_settings": "Salva Impostazioni",
+    "reload": "Ricarica"
+  },
+  "labels": {
+    "scan_depth": "PROF.",
+    "detail": "DETTAGLIO",
+    "mode": "MODALITÀ",
+    "top": "TOP",
+    "max_fix": "FIX MAX",
+    "show": "MOSTRA",
+    "explorer_hint": "Doppio clic su una riga per aprire il percorso",
+    "privacy_desc": "Scansione read-only di credenziali in chiaro. I valori sono redatti nei report.",
+    "deep_scan_desc": "Scansione salute sistema — rivedi i finding, scegli una soluzione, poi Applica. Nessun fix automatico.",
+    "config_hint": "Soglie Monitor/WHEA/Orchestrator: modifica JSON o Salva per persistere la sezione GUI.",
+    "language": "Lingua"
+  },
+  "states": {
+    "idle": "Inattivo",
+    "running": "In esecuzione…"
+  },
+  "dialogs": {
+    "confirm": "Conferma",
+    "warning": "Attenzione",
+    "yes": "Sì",
+    "no": "No"
+  }
+}
