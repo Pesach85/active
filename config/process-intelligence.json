@@ -102,5 +102,15 @@
       "https://learn.microsoft.com/en-us/microsoft-365/security/defender-endpoint/",
       "https://learn.microsoft.com/en-us/powershell/module/defender/set-mppreference"
     ]
+  },
+  "keepExtremeDisableAllowlist": {
+    "MsMpEng": {
+      "displayName": "Microsoft Defender (MsMpEng / WinDefend)",
+      "applyScript": "apply-defender-extreme-necessity.ps1",
+      "evaluateScript": "evaluate-defender-extreme-necessity.ps1",
+      "confirmPhrase": "DISABLE DEFENDER",
+      "minConfirmSteps": 6,
+      "notes": "GUI wizard: 3 checkboxes + confirm phrase + 3 MessageBox gates + admin elevation."
+    }
   }
 }

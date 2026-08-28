@@ -33,7 +33,7 @@
     "partition_plan": "Partition Plan",
     "compute": "Compute Load",
     "apply_throttle": "Safe Throttle",
-    "defender_review": "Defender Review",
+    "defender_review": "Defender KEEP…",
     "storage_audit": "Storage Audit",
     "storage_execute": "Storage Clean",
     "diagnostics": "Diagnostics",

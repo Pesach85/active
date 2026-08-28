@@ -36,6 +36,7 @@ Workspace operativo globale su C, D e sistema operativo, con profilo centralizza
 - `scripts/gui/theme.ps1` — palette Obsidian, font, `New-Btn`, `Format-AlreadyOptimizedLog`.
 - `scripts/gui/worker-helpers.ps1` — Wait-ForOutputFile, exit/err tail.
 - `scripts/gui/i18n.ps1` / `command-help.ps1` — lingua + pannello "Cosa fa".
+- `scripts/gui/keep-service-wizard.ps1` — HITL wizard KEEP extreme apply (Defender).
 
 ### Install / package / gate
 - `scripts/install-*-task.ps1`, `ensure-powershell-core.ps1`, `activate-hub-profile.ps1`.

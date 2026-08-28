@@ -1,3 +1,15 @@
+## 2026-08-28 — GUI KEEP extreme wizard v3.5.0
+
+### Obiettivo
+Disabilitazione servizi KEEP (Defender) da GUI con wizard multi-conferma + elevazione admin.
+
+### Modifiche
+- `scripts/gui/keep-service-wizard.ps1`
+- catalog `keepExtremeDisableAllowlist`, Defender button → wizard flow
+
+### Esito
+Smoke ALL PASSED; EXE v3.5.0; push pending.
+
 ## 2026-08-28 — Defender extreme necessity + UX v3.4.0
 
 ### Obiettivo
@@ -2027,4 +2039,4 @@ Bug 28 global HubWorkers; smoke async-worker-registry; package; build EXE; commi
 - Mai usare `$script:HubWorkers` con StrictMode/ps2exe; smoke gate su ogni fix GUI/EXE
 
 ### Esito
-Smoke ALL PASSED (incl. async-worker-registry); package + EXE v3.2.1 ricostruito in dist/
+Smoke ALL PASSED (incl. async-worker-registry); package + EXE v3.2.1 

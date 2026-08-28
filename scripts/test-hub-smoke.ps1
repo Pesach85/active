@@ -117,7 +117,7 @@ if (-not $SkipPrivacy) {
 }
 
 # Module presence (GUI modularization gate)
-foreach ($mod in @('gui\theme.ps1', 'gui\worker-helpers.ps1', 'gui\async-worker.ps1', 'gui\i18n.ps1', 'gui\command-help.ps1')) {
+foreach ($mod in @('gui\theme.ps1', 'gui\worker-helpers.ps1', 'gui\async-worker.ps1', 'gui\i18n.ps1', 'gui\command-help.ps1', 'gui\keep-service-wizard.ps1')) {
     $p = Join-Path $scriptDir $mod
     if (-not (Test-Path -LiteralPath $p)) {
         $failures.Add("Missing module: $mod")
