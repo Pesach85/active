@@ -53,7 +53,12 @@ if (Test-Path -LiteralPath (Join-Path $script:guiDir "async-worker.ps1")) {
 }
 if (Test-Path -LiteralPath (Join-Path $script:guiDir "i18n.ps1")) {
     . (Join-Path $script:guiDir "i18n.ps1")
+}
+if (Test-Path -LiteralPath (Join-Path $script:guiDir "command-help.ps1")) {
     . (Join-Path $script:guiDir "command-help.ps1")
+}
+if (Test-Path -LiteralPath (Join-Path $script:guiDir "keep-service-wizard.ps1")) {
+    . (Join-Path $script:guiDir "keep-service-wizard.ps1")
 }
 $script:guiLanguage = 'en'
 if (Get-Command Initialize-I18n -ErrorAction SilentlyContinue) {
@@ -102,6 +107,8 @@ $script:analyzerScript = Join-Path $script:scriptRoot "analyze-garbage-hotspots.
 $script:computeAnalyzerScript = Join-Path $script:scriptRoot "analyze-process-pressure.ps1"
 $script:applyPressureScript = Join-Path $script:scriptRoot "apply-process-pressure-safe.ps1"
 $script:evaluateDefenderScript = Join-Path $script:scriptRoot "evaluate-defender-extreme-necessity.ps1"
+$script:applyDefenderScript = Join-Path $script:scriptRoot "apply-defender-extreme-necessity.ps1"
+$script:guiKeepExtremeWizard = $true
 $script:coreScript = Join-Path $script:scriptRoot "ensure-powershell-core.ps1"
 $script:monitorInstaller = Join-Path $script:scriptRoot "install-monitor-task.ps1"
 $script:cleanupInstaller = Join-Path $script:scriptRoot "install-cleanup-task.ps1"
@@ -1483,6 +1490,8 @@ function Load-GuiPreferences {
             if ($null -ne $show) { $script:showDefenderReviewAfterCompute = [bool]$show }
             $minSc = if ($sdr -is [hashtable]) { $sdr['MinCompositeScoreForPrompt'] } else { $sdr.MinCompositeScoreForPrompt }
             if ($null -ne $minSc) { $script:defenderMinScoreForPrompt = [int]$minSc }
+            $gw = if ($sdr -is [hashtable]) { $sdr['GuiKeepExtremeWizard'] } else { $sdr.GuiKeepExtremeWizard }
+            if ($null -ne $gw) { $script:guiKeepExtremeWizard = [bool]$gw }
         }
     }
 }
@@ -3921,6 +3930,10 @@ function Run-ApplySafeThrottle {
 }
 
 function Run-DefenderExtremeReview {
+    if (-not (Get-Command Start-KeepExtremeWizardFlow -ErrorAction SilentlyContinue)) {
+        Append-Status 'KEEP wizard module not loaded (gui/keep-service-wizard.ps1).'
+        return
+    }
     if (-not (Test-Path -LiteralPath $script:evaluateDefenderScript)) {
         Append-Status "Defender evaluation script not found: $script:evaluateDefenderScript"
         return
@@ -3930,33 +3943,35 @@ function Run-DefenderExtremeReview {
         return
     }
 
-    $evalOut = Join-Path $script:hubRoot 'logs\defender-extreme-necessity-eval.json'
-    try {
+    if (-not $script:guiKeepExtremeWizard) {
+        $evalOut = Join-Path $script:hubRoot 'logs\defender-extreme-necessity-eval.json'
         $inputArg = if (Test-Path -LiteralPath $script:computeJson) { $script:computeJson } else { '' }
         $args = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $script:evaluateDefenderScript, '-OutputJson', $evalOut)
         if ($inputArg) { $args += @('-InputJson', $inputArg) }
         $p = Start-Process -FilePath $script:psHost -ArgumentList $args -Wait -PassThru -WindowStyle Hidden
-        if ($p.ExitCode -ne 0) {
-            Append-Status ("Defender evaluation failed exit {0}" -f $p.ExitCode)
-            return
-        }
-        if (-not (Test-Path -LiteralPath $evalOut)) {
-            Append-Status 'Defender evaluation produced no output.'
-            return
-        }
+        if ($p.ExitCode -ne 0) { Append-Status ("Defender evaluation failed exit {0}" -f $p.ExitCode); return }
         $ev = Get-Content -LiteralPath $evalOut -Raw | ConvertFrom-Json
-        $blockers = @($ev.Blockers) -join "`n- "
-        $body = if ($script:guiLanguage -eq 'it') {
-            "Tier consigliato: {0}`nScore composito: {1}`nConsentito: {2}`n`n{3}`n`nBlocchi:`n- {4}`n`nApply CLI (admin): apply-defender-extreme-necessity.ps1" -f `
-                $ev.RecommendedTier, $ev.CompositeScore, $ev.AllowedToProceed, $ev.Rationale, $blockers
-        } else {
-            "Recommended tier: {0}`nComposite score: {1}`nAllowed: {2}`n`n{3}`n`nBlockers:`n- {4}`n`nApply via CLI (admin): apply-defender-extreme-necessity.ps1" -f `
-                $ev.RecommendedTier, $ev.CompositeScore, $ev.AllowedToProceed, $ev.Rationale, $blockers
+        Append-Status ("Defender review: tier={0} composite={1}" -f $ev.RecommendedTier, $ev.CompositeScore)
+        return
+    }
+
+    $intro = if ($script:guiLanguage -eq 'it') {
+        "Wizard KEEP per servizi vitali (Defender).`n`nRichiede:`n- 3 caselle di conferma`n- frase DISABLE DEFENDER`n- 3 dialoghi di conferma`n- privilegi amministratore`n`nContinuare?"
+    } else {
+        "KEEP wizard for vital services (Defender).`n`nRequires:`n- 3 confirmation checkboxes`n- phrase DISABLE DEFENDER`n- 3 confirmation dialogs`n- administrator elevation`n`nContinue?"
+    }
+    $go = [System.Windows.Forms.MessageBox]::Show($intro, (Get-I18n 'buttons.defender_review'), 'YesNo', 'Warning')
+    if ($go -ne 'Yes') { return }
+
+    try {
+        $result = Start-KeepExtremeWizardFlow -Owner $form -HubRoot $script:hubRoot -ScriptRoot $script:scriptRoot `
+            -PsHost $script:psHost -Language $script:guiLanguage -OnStatus { param($m) Append-Status $m } `
+            -ComputeJsonPath $script:computeJson -EvaluateScript $script:evaluateDefenderScript -ProcessName 'MsMpEng'
+        if ($result.Ok) {
+            Show-Toast -Title "KEEP Apply" -Body ("Tier $($result.Tier) — $($result.Reason)") -Level "Warning"
         }
-        Append-Status ("Defender review: tier={0} composite={1} allowed={2}" -f $ev.RecommendedTier, $ev.CompositeScore, $ev.AllowedToProceed)
-        [void][System.Windows.Forms.MessageBox]::Show($body, (Get-I18n 'buttons.defender_review'), 'OK', 'Warning')
     } catch {
-        Append-Status ("Defender review error: {0}" -f $_.Exception.Message)
+        Append-Status ("KEEP wizard error: {0}" -f $_.Exception.Message)
     }
 }
 

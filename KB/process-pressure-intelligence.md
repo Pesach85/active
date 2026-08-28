@@ -71,15 +71,28 @@ Compute button runs `analyze-process-pressure.ps1` with `-IncludeResearch`. Stat
 
 Scripts: `evaluate-defender-extreme-necessity.ps1` → `apply-defender-extreme-necessity.ps1` → `restore-defender-from-rollback.ps1`
 
-GUI: **Defender Review** button (Advanced tools) shows tier, blockers, and CLI path.
+GUI: **Defender KEEP…** button opens evaluation + wizard (3 checkbox + phrase + 3 MessageBox + admin UAC).
 
-## Overcoming prior limits (v3.4.0)
+### KEEP GUI confirmation gates (v3.5.0)
+
+1. Intro Yes/No before wizard
+2. Three explicit checkboxes (risk, prerequisites, responsibility)
+3. Typed phrase `DISABLE DEFENDER` (catalog-configurable)
+4. MessageBox confirm 1/3 — tier summary
+5. MessageBox confirm 2/3 — reduced protection
+6. MessageBox confirm 3/3 — final (extra warning for ExtremeServiceDisable)
+7. UAC elevation if not already admin
+8. Dry-run available without persisting changes
+
+Only processes in `keepExtremeDisableAllowlist` (currently MsMpEng) — core OS (lsass, csrss) never appear.
+
+## Overcoming prior limits
 
 | Limit | Resolution |
 |-------|------------|
 | Linux apply manual | `scripts/linux/apply-process-pressure-safe.sh` (renice + rollback JSON) |
 | No GUI apply | **Safe Throttle** button + post-compute prompt |
-| Defender disable blocked | Deterministic evaluation + tiered HITL apply |
+| Defender disable blocked | Deterministic evaluation + tiered HITL apply + GUI wizard |
 | Research static only | Catalog `extremeNecessityDefender` + escalation ladder in eval JSON |
 
 ## References
