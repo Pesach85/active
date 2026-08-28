@@ -1,6 +1,16 @@
 # Multi-step HITL wizard for extreme apply on catalog-allowlisted KEEP services (Defender first).
 # Dot-sourced from system-optimizer-gui.ps1 after theme.ps1.
 
+function Write-KeepWizardStatus {
+    param(
+        [scriptblock]$OnStatus,
+        [string]$Message
+    )
+    if ($OnStatus) {
+        & $OnStatus $Message
+    }
+}
+
 function Get-KeepExtremeAllowlistEntry {
     param(
         [string]$ProcessName,
@@ -352,7 +362,7 @@ function Show-KeepServiceExtremeWizard {
             $params['ExclusionPaths'] = @($txtPaths.Text -split ';' | ForEach-Object { $_.Trim() } | Where-Object { $_ })
         }
 
-        & $OnStatus.Invoke("KEEP extreme apply starting tier=$tier dryRun=$DryRun")
+        Write-KeepWizardStatus -OnStatus $OnStatus -Message ("KEEP extreme apply starting tier=$tier dryRun=$DryRun")
 
         $isAdmin = $false
         if (Get-Command Test-HubAdmin -ErrorAction SilentlyContinue) {
@@ -383,13 +393,13 @@ function Show-KeepServiceExtremeWizard {
             [void][System.Windows.Forms.MessageBox]::Show(
                 $(if ($it) { "Apply fallito (exit $exitCode). Vedi log." } else { "Apply failed (exit $exitCode). See logs." }),
                 'KEEP Apply', 'OK', 'Error')
-            & $OnStatus.Invoke("KEEP extreme apply failed exit=$exitCode")
+            Write-KeepWizardStatus -OnStatus $OnStatus -Message ("KEEP extreme apply failed exit=$exitCode")
             return
         }
 
         if (Test-Path -LiteralPath $applyOut) {
             $res = Get-Content -LiteralPath $applyOut -Raw | ConvertFrom-Json
-            & $OnStatus.Invoke("KEEP extreme apply OK tier=$tier rollback=$($res.RollbackPath)")
+            Write-KeepWizardStatus -OnStatus $OnStatus -Message ("KEEP extreme apply OK tier=$tier rollback=$($res.RollbackPath)")
         }
 
         [void][System.Windows.Forms.MessageBox]::Show(
@@ -438,16 +448,16 @@ function Start-KeepExtremeWizardFlow {
 
     $p = Start-Process -FilePath $PsHost -ArgumentList $args -Wait -PassThru -WindowStyle Hidden
     if ($p.ExitCode -ne 0) {
-        & $OnStatus.Invoke("KEEP evaluation failed exit=$($p.ExitCode)")
+        Write-KeepWizardStatus -OnStatus $OnStatus -Message ("KEEP evaluation failed exit=$($p.ExitCode)")
         return @{ Ok = $false; Reason = 'EvalFailed' }
     }
     if (-not (Test-Path -LiteralPath $evalOut)) {
-        & $OnStatus.Invoke('KEEP evaluation produced no output.')
+        Write-KeepWizardStatus -OnStatus $OnStatus -Message 'KEEP evaluation produced no output.'
         return @{ Ok = $false; Reason = 'NoEvalOutput' }
     }
 
     $ev = Get-Content -LiteralPath $evalOut -Raw | ConvertFrom-Json
-    & $OnStatus.Invoke("KEEP eval tier=$($ev.RecommendedTier) composite=$($ev.CompositeScore) allowed=$($ev.AllowedToProceed)")
+    Write-KeepWizardStatus -OnStatus $OnStatus -Message ("KEEP eval tier=$($ev.RecommendedTier) composite=$($ev.CompositeScore) allowed=$($ev.AllowedToProceed)")
 
     return Show-KeepServiceExtremeWizard -Owner $Owner -HubRoot $HubRoot -ScriptRoot $ScriptRoot -PsHost $PsHost `
         -Language $Language -OnStatus $OnStatus -Evaluation $ev -EvaluationJsonPath $evalOut -ProcessName $ProcessName
