@@ -9,4 +9,7 @@ Arguments: DURATION_SEC TOP OUTPUT_JSON [CATALOG_PATH]
 
 Catalog: config/process-intelligence.json (shared knowledge base with Windows build).
 
-Safe apply on Linux is manual/HITL for now — review TopProcesses Priority and Recommendation.
+Safe apply on Linux (renice, reversible):
+
+  chmod +x scripts/linux/apply-process-pressure-safe.sh
+  ./scripts/linux/apply-process-pressure-safe.sh /tmp/process-pressure.json /tmp/apply.json

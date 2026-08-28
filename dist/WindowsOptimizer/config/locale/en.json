@@ -32,6 +32,8 @@
     "health_tab": "Health Tab",
     "partition_plan": "Partition Plan",
     "compute": "Compute Load",
+    "apply_throttle": "Safe Throttle",
+    "defender_review": "Defender Review",
     "storage_audit": "Storage Audit",
     "storage_execute": "Storage Clean",
     "diagnostics": "Diagnostics",

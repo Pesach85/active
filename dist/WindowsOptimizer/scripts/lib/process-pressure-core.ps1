@@ -186,6 +186,12 @@ function Resolve-PressureActions {
                 Rationale = (@($known.references) -join '; ')
             })
         }
+        if ($ProcessName -eq 'MsMpEng' -and $Score -ge 55) {
+            [void]$actions.Add([ordered]@{
+                Action = 'DefenderExtremeNecessityReview'; Level = 'Aggressive'; RequiresHitl = $true
+                Rationale = 'Run evaluate-defender-extreme-necessity.ps1 — escalation ladder before any disable.'
+            })
+        }
         return $actions.ToArray()
     }
 
@@ -321,4 +327,157 @@ function Measure-ProcessPressureRows {
         })
     }
     return $list
+}
+
+function Get-DefenderProcessRowFromReport {
+    param($Report)
+    if (-not $Report -or -not $Report.TopProcesses) { return $null }
+    foreach ($row in @($Report.TopProcesses)) {
+        if ([string]$row.ProcessName -eq 'MsMpEng') { return $row }
+    }
+    return $null
+}
+
+function Get-DefenderPlatformStatus {
+    $status = [ordered]@{
+        ModuleAvailable = $false
+        RealTimeProtectionEnabled = $null
+        TamperProtectionEnabled = $null
+        AMServiceEnabled = $null
+        AntivirusEnabled = $null
+        QuickScanAgeHours = $null
+        FullScanAgeHours = $null
+    }
+    try {
+        $mp = Get-MpComputerStatus -ErrorAction Stop
+        $status.ModuleAvailable = $true
+        $status.RealTimeProtectionEnabled = [bool]$mp.RealTimeProtectionEnabled
+        $status.TamperProtectionEnabled = [bool]$mp.IsTamperProtected
+        $status.AMServiceEnabled = [bool]$mp.AMServiceEnabled
+        $status.AntivirusEnabled = [bool]$mp.AntivirusEnabled
+        if ($mp.QuickScanStartTime) {
+            $status.QuickScanAgeHours = [math]::Round(((Get-Date) - $mp.QuickScanStartTime).TotalHours, 1)
+        }
+        if ($mp.FullScanStartTime) {
+            $status.FullScanAgeHours = [math]::Round(((Get-Date) - $mp.FullScanStartTime).TotalHours, 1)
+        }
+    } catch {}
+    return [pscustomobject]$status
+}
+
+function Get-DefenderExtremeNecessityEvaluation {
+    param(
+        $MsMpEngRow,
+        $Catalog,
+        [switch]$IsAdmin
+    )
+
+    $cfg = $null
+    if ($Catalog -and $Catalog.extremeNecessityDefender) {
+        $cfg = $Catalog.extremeNecessityDefender
+    }
+
+    $defStatus = Get-DefenderPlatformStatus
+    $pressureScore = if ($MsMpEngRow) { [double]$MsMpEngRow.Score } else { 0.0 }
+    $cpu = if ($MsMpEngRow) { [double]$MsMpEngRow.CpuPercent } else { 0.0 }
+    $io = if ($MsMpEngRow) { [double]$MsMpEngRow.IoMBps } else { 0.0 }
+    $mem = if ($MsMpEngRow) { [double]$MsMpEngRow.WorkingSetMB } else { 0.0 }
+    $dominant = if ($MsMpEngRow) { [string]$MsMpEngRow.DominantPressure } else { 'Mixed' }
+
+    $w = @{ pressureScore = 0.35; cpuPercent = 0.25; ioMbPerSec = 0.20; workingSetMb = 0.10; dominantPressureMatch = 0.10 }
+    if ($cfg -and $cfg.weights) {
+        foreach ($p in $cfg.weights.PSObject.Properties) { $w[$p.Name] = [double]$p.Value }
+    }
+
+    $cpuNorm = [math]::Min(100.0, [math]::Max(0.0, $cpu))
+    $ioNorm = [math]::Min(100.0, ($io / 400.0) * 100.0)
+    $memNorm = [math]::Min(100.0, ($mem / 8192.0) * 100.0)
+    $domBonus = if ($dominant -in @('CPUBound', 'IOHeavy')) { 100.0 } else { 40.0 }
+
+    $composite = [math]::Round(
+        ($pressureScore * $w['pressureScore']) +
+        ($cpuNorm * $w['cpuPercent']) +
+        ($ioNorm * $w['ioMbPerSec']) +
+        ($memNorm * $w['workingSetMb']) +
+        ($domBonus * $w['dominantPressureMatch']),
+        2
+    )
+
+    $tier = 'Observe'
+    if ($cfg -and $cfg.tiers) {
+        if ($composite -ge [double]$cfg.tiers.ExtremeServiceDisable.minCompositeScore) {
+            $tier = 'ExtremeServiceDisable'
+        } elseif ($composite -ge [double]$cfg.tiers.TemporaryRealtimeOff.minCompositeScore) {
+            $tier = 'TemporaryRealtimeOff'
+        } elseif ($composite -ge [double]$cfg.tiers.TuneExclusions.minCompositeScore) {
+            $tier = 'TuneExclusions'
+        }
+    } else {
+        if ($composite -ge 85) { $tier = 'ExtremeServiceDisable' }
+        elseif ($composite -ge 70) { $tier = 'TemporaryRealtimeOff' }
+        elseif ($composite -ge 55) { $tier = 'TuneExclusions' }
+    }
+
+    $blockers = New-Object System.Collections.Generic.List[string]
+    $prereqs = New-Object System.Collections.Generic.List[string]
+
+    if (-not $IsAdmin) {
+        [void]$blockers.Add('Administrator elevation required for any Defender mutation.')
+    }
+    if (-not $defStatus.ModuleAvailable) {
+        [void]$blockers.Add('Defender PowerShell module unavailable — cannot verify or change state safely.')
+    }
+    if ($tier -in @('TemporaryRealtimeOff', 'ExtremeServiceDisable')) {
+        if ($defStatus.TamperProtectionEnabled -eq $true) {
+            [void]$blockers.Add('Tamper Protection is ON — disable manually in Windows Security > Virus & threat protection > Manage settings before Tier 2+.')
+        }
+        [void]$prereqs.Add('Document reason code and planned re-enable window.')
+        [void]$prereqs.Add('Ensure secondary offline AV or isolated network if disabling real-time protection.')
+    }
+    if ($tier -eq 'ExtremeServiceDisable') {
+        [void]$prereqs.Add('Double human confirmation required (ExtremeServiceDisable).')
+        [void]$prereqs.Add('Register rollback JSON and scheduled re-enable before apply.')
+    }
+    if (-not $MsMpEngRow) {
+        [void]$blockers.Add('MsMpEng not in current pressure top — run process-pressure analyze first.')
+        $tier = 'Observe'
+    }
+
+    $allowed = ($tier -ne 'Observe') -and ($blockers.Count -eq 0)
+    $neverAuto = $true
+    if ($cfg -and $null -ne $cfg.neverAutoApply) { $neverAuto = [bool]$cfg.neverAutoApply }
+
+    $rationale = switch ($tier) {
+        'Observe' { 'Defender pressure does not justify disable path — continue monitoring or tune other workloads.' }
+        'TuneExclusions' { 'Deterministic gate: composite >= 55 — prefer exclusions and scan schedule (keeps AV active).' }
+        'TemporaryRealtimeOff' { 'Deterministic gate: composite >= 70 — time-boxed real-time off allowed ONLY with HITL + Tamper Protection off.' }
+        'ExtremeServiceDisable' { 'Deterministic gate: composite >= 85 — last-resort service stop; maximum risk, mandatory rollback timer.' }
+        default { 'Unknown tier.' }
+    }
+
+    return [ordered]@{
+        SchemaVersion = 'DefenderExtremeNecessityEvaluation.v1'
+        GeneratedAt = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss')
+        CompositeScore = $composite
+        RecommendedTier = $tier
+        AllowedToProceed = [bool]$allowed
+        NeverAutoApply = [bool]$neverAuto
+        Rationale = $rationale
+        MsMpEngMetrics = if ($MsMpEngRow) {
+            [ordered]@{
+                Score = $pressureScore; CpuPercent = $cpu; IoMBps = $io
+                WorkingSetMB = $mem; DominantPressure = $dominant; PID = [int]$MsMpEngRow.PID
+            }
+        } else { $null }
+        DefenderStatus = $defStatus
+        Blockers = @($blockers)
+        Prerequisites = @($prereqs)
+        EscalationLadder = @(
+            '1. Observe and confirm sustained pressure (not a one-shot spike)',
+            '2. TuneExclusions: Add-Defender exclusions for trusted build paths + off-hours scan',
+            '3. TemporaryRealtimeOff: Set-MpPreference -DisableRealtimeMonitoring (time-boxed)',
+            '4. ExtremeServiceDisable: Stop-Service WinDefend (last resort, rollback mandatory)'
+        )
+        ReasonCodes = if ($cfg -and $cfg.reasonCodes) { $cfg.reasonCodes } else { @{} }
+    }
 }

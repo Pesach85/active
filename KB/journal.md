@@ -1,3 +1,17 @@
+## 2026-08-28 — Defender extreme necessity + UX v3.4.0
+
+### Obiettivo
+Valutazione deterministica MsMpEng/Defender (tier HITL), superamento limiti PPI (Linux apply, GUI throttle, Defender review).
+
+### Modifiche
+- `evaluate-defender-extreme-necessity.ps1`, `apply-defender-extreme-necessity.ps1`, `restore-defender-from-rollback.ps1`
+- GUI: Safe Throttle + Defender Review; post-compute prompt
+- Linux `apply-process-pressure-safe.sh`
+- catalog `extremeNecessityDefender`, smoke defender-extreme-eval
+
+### Esito
+Smoke ALL PASSED; deploy pending push.
+
 ## 2026-08-28 — Process Pressure Intelligence v3.3.0 (cross-platform analyze)
 
 ### Obiettivo

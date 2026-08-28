@@ -32,6 +32,8 @@
     "health_tab": "Tab Salute",
     "partition_plan": "Piano Partizioni",
     "compute": "Carico Compute",
+    "apply_throttle": "Throttle Safe",
+    "defender_review": "Review Defender",
     "storage_audit": "Audit Storage",
     "storage_execute": "Pulizia Storage",
     "diagnostics": "Diagnostica",
