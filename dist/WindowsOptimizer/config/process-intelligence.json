@@ -1,0 +1,79 @@
+{
+  "SchemaVersion": "ProcessIntelligence.v1",
+  "vitalExact": [
+    "System", "Idle", "Registry", "Memory Compression", "smss", "csrss", "wininit", "winlogon",
+    "services", "lsass", "svchost", "dwm", "fontdrvhost", "sihost", "explorer"
+  ],
+  "vitalPatterns": [
+    "^System$", "^Secure System$", "WmiPrvSE", "WUDFHost", "dllhost"
+  ],
+  "securityExact": [
+    "MsMpEng", "NisSrv", "Sense", "SecurityHealthService", "SecurityHealthSystray", "MpDefenderCoreService"
+  ],
+  "platformServicePatterns": [
+    "SearchIndexer", "WSearch", "WmiApSrv", "spoolsv", "WUDFHost", "WUDFHost"
+  ],
+  "knownApplications": {
+    "chrome": {
+      "category": "Browser",
+      "priority": "Tune",
+      "pressureMitigations": {
+        "CPUBound": ["Reduce open tabs", "Disable hardware acceleration if GPU driver issue", "Check extensions"],
+        "MemoryHeavy": ["Close unused profiles", "Use sleeping tabs feature"],
+        "IOHeavy": ["Clear cache", "Move user data to SSD if on HDD"]
+      },
+      "references": [
+        "https://support.google.com/chrome/answer/1385029",
+        "https://learn.microsoft.com/en-us/deployedge/"
+      ]
+    },
+    "msedge": {
+      "category": "Browser",
+      "priority": "Tune",
+      "pressureMitigations": {
+        "CPUBound": ["Disable startup boost", "Review extensions"],
+        "MemoryHeavy": ["Enable sleeping tabs", "Close background apps"],
+        "IOHeavy": ["Limit sync folders", "Clear browsing data cache"]
+      },
+      "references": ["https://learn.microsoft.com/en-us/deployedge/"]
+    },
+    "code": {
+      "category": "IDE",
+      "priority": "Tune",
+      "pressureMitigations": {
+        "CPUBound": ["Disable unused extensions", "Exclude large folders from watcher"],
+        "MemoryHeavy": ["Increase swap on low-RAM systems", "Close unused windows"],
+        "IOHeavy": ["Move workspace to SSD", "Disable file watcher on node_modules"]
+      },
+      "references": ["https://code.visualstudio.com/docs/setup/setup-overview"]
+    },
+    "onedrive": {
+      "category": "Sync",
+      "priority": "Tune",
+      "pressureMitigations": {
+        "IOHeavy": ["Pause sync during heavy work", "Choose folders to sync only"],
+        "MemoryHeavy": ["Limit concurrent uploads"]
+      },
+      "references": ["https://support.microsoft.com/en-us/office/sync-files-with-onedrive-in-windows"]
+    },
+    "MsMpEng": {
+      "category": "Security",
+      "priority": "Keep",
+      "pressureMitigations": {
+        "CPUBound": ["Schedule scan outside work hours", "Add build folder exclusions after review"],
+        "IOHeavy": ["Exclude trusted dev paths only after security review"]
+      },
+      "references": ["https://learn.microsoft.com/en-us/microsoft-365/security/defender-endpoint/"]
+    }
+  },
+  "optionalBackgroundPatterns": [
+    "AnyDesk", "TeamViewer", "Zoom", "AdobeARM", "GoogleUpdate", "EdgeUpdate", "OneDriveSetup"
+  ],
+  "safeActionDefinitions": {
+    "ObserveOnly": { "level": "Safe", "requiresHitl": false, "reversible": true },
+    "LowerProcessPriority": { "level": "Safe", "requiresHitl": false, "reversible": true },
+    "DisableStartupEntry": { "level": "Moderate", "requiresHitl": true, "reversible": true },
+    "PauseSyncClient": { "level": "Moderate", "requiresHitl": true, "reversible": true },
+    "TerminateProcess": { "level": "Aggressive", "requiresHitl": true, "reversible": false }
+  }
+}

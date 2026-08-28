@@ -8,7 +8,7 @@ Workspace operativo globale su C, D e sistema operativo, con profilo centralizza
 ### Runtime condiviso
 - `scripts/hub-common.ps1` — hub root, config JSON, event log health, `Test-HubAdmin` / `Assert-HubAdmin`.
 - `scripts/hub-orchestrator.ps1` — heartbeat, log rotation, trigger WHEA/fs-integrity.
-- `config/sys-maintenance.json` — Monitor, Cleanup, Whea, Orchestrator, FsIntegrity, **Gui**, **Privacy**.
+- `config/sys-maintenance.json` — Monitor, Cleanup, Whea, Orchestrator, FsIntegrity, **ProcessPressure**, **Gui**, **Privacy**.
 - `config/locale/{en,it}.json` + `config/command-catalog.json` — i18n e help comandi GUI.
 
 ### Monitor e storage
@@ -17,7 +17,11 @@ Workspace operativo globale su C, D e sistema operativo, con profilo centralizza
 - `scripts/cleanup-storage-safe.ps1` — Safe/Radical + AuditDepth/AuditLevel.
 - `scripts/quick-cleanup-safe.ps1` — target sicuri, retention breve.
 - `scripts/analyze-garbage-hotspots.ps1` — ranking cartelle reclaim-prone.
-- `scripts/analyze-compute-resources.ps1` — score CPU/RAM/IO per processo.
+- `scripts/analyze-compute-resources.ps1` — legacy wrapper compute score.
+- `scripts/analyze-process-pressure.ps1` — Process Pressure Intelligence (`ProcessPressureReport.v1`).
+- `scripts/apply-process-pressure-safe.ps1` — safe apply + rollback JSON.
+- `scripts/lib/process-pressure-core.ps1` + `config/process-intelligence.json` — catalog scoring/classification.
+- `scripts/linux/analyze-process-pressure.sh` + `scripts/package-linux-suite.ps1` → `dist/LinuxOptimizer`.
 
 ### Salute e remediation
 - `scripts/system-health-audit.ps1` — findings JSON (`AlreadyOptimized` = **array di stringhe**).
@@ -36,7 +40,7 @@ Workspace operativo globale su C, D e sistema operativo, con profilo centralizza
 ### Install / package / gate
 - `scripts/install-*-task.ps1`, `ensure-powershell-core.ps1`, `activate-hub-profile.ps1`.
 - `scripts/package-suite.ps1` → `dist/WindowsOptimizer` (subset + BOM).
-- `scripts/test-hub-smoke.ps1` — gate health + garbage + privacy + moduli gui.
+- `scripts/test-hub-smoke.ps1` — gate health + garbage + privacy + process-pressure + moduli gui.
 
 ### Lab / campagne (spesso fuori dist)
 - NVMe writeoffload, WHEA monitor/KPI, kernel/bloatware/eventlog tuners, DD-WRT scripts.

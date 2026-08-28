@@ -99,7 +99,7 @@ function Invoke-ChildPowerShell {
 $script:cleanupScript = Join-Path $script:scriptRoot "cleanup-storage-safe.ps1"
 $script:quickCleanupScript = Join-Path $script:scriptRoot "quick-cleanup-safe.ps1"
 $script:analyzerScript = Join-Path $script:scriptRoot "analyze-garbage-hotspots.ps1"
-$script:computeAnalyzerScript = Join-Path $script:scriptRoot "analyze-compute-resources.ps1"
+$script:computeAnalyzerScript = Join-Path $script:scriptRoot "analyze-process-pressure.ps1"
 $script:coreScript = Join-Path $script:scriptRoot "ensure-powershell-core.ps1"
 $script:monitorInstaller = Join-Path $script:scriptRoot "install-monitor-task.ps1"
 $script:cleanupInstaller = Join-Path $script:scriptRoot "install-cleanup-task.ps1"
@@ -2238,7 +2238,10 @@ function Poll-ComputeAnalysis {
             Show-Toast -Title "Compute Done" -Body ("Observed $([int]$computeResult.TotalProcessesObserved) processes in ${durationSec}s") -Level "Success"
 
             foreach ($proc in ($topRows | Select-Object -First 5)) {
-                $computeSummary = "Compute Top PID={0} Name={1} Score={2} CPU={3}% RAM={4}MB IO={5}MB/s Pressure={6} Action={7}" -f 
+                $priority = if ($proc.PSObject.Properties['Priority']) { [string]$proc.Priority } else { 'Review' }
+                $necessity = if ($proc.PSObject.Properties['Necessity']) { [string]$proc.Necessity } else { 'Unknown' }
+                $rec = if ($proc.PSObject.Properties['Recommendation']) { [string]$proc.Recommendation } else { 'Observe' }
+                $computeSummary = "Compute Top PID={0} Name={1} Score={2} CPU={3}% RAM={4}MB IO={5}MB/s Pressure={6} Necessity={7} Priority={8} Action={9}" -f 
                     [int]$proc.PID,
                     [string]$proc.ProcessName,
                     [decimal]$proc.Score,
@@ -2246,8 +2249,15 @@ function Poll-ComputeAnalysis {
                     [decimal]$proc.WorkingSetMB,
                     [decimal]$proc.IoMBps,
                     [string]$proc.DominantPressure,
-                    [string]$proc.Recommendation
+                    $necessity,
+                    $priority,
+                    $rec
                 Append-Status $computeSummary
+            }
+            if ($computeResult.PSObject.Properties['Summary']) {
+                $s = $computeResult.Summary
+                Append-Status ("Process pressure summary: high={0} vital={1} autoEligible={2} hitl={3}" -f `
+                    [int]$s.HighPressureCount, [int]$s.VitalPreserved, [int]$s.AutoEligibleCount, [int]$s.HitlRequiredCount)
             }
         } catch {
             Append-Status ("Compute analysis completed in {0}s but result parse failed: {1}" -f $durationSec, $_.Exception.Message)
@@ -3839,7 +3849,8 @@ function Run-ComputeAnalysis {
             "-File", $script:computeAnalyzerScript,
             "-DurationSec", $durationStr,
             "-Top", $topStr,
-            "-OutputJson", $script:computeJson
+            "-OutputJson", $script:computeJson,
+            "-IncludeResearch"
         )
 
         $script:computeStartedAt = Get-Date

@@ -1,3 +1,27 @@
+## 2026-08-28 — Process Pressure Intelligence v3.3.0 (cross-platform analyze)
+
+### Obiettivo
+Rilevamento deterministico processi hog CPU/RAM/IO, classificazione vitali vs tunable, ricerca catalogo, azioni safe vs HITL, packaging Windows + Linux.
+
+### Task
+- Core lib + catalog + analyze/apply Windows
+- Linux analyzer + package-linux-suite
+- GUI compute → analyze-process-pressure.ps1
+- Smoke gate + KB/ADR
+
+### Modifiche
+- `config/process-intelligence.json`, `scripts/lib/process-pressure-core.ps1`
+- `scripts/analyze-process-pressure.ps1`, `apply-process-pressure-safe.ps1`
+- `scripts/linux/analyze-process-pressure.sh`, `package-linux-suite.ps1`
+- GUI v3.3.0, sys-maintenance ProcessPressure section, command-catalog update
+
+### Decisioni
+- ADR-0004: layered PPI stack; live web scrape rejected (catalog/static refs)
+- Apply default Safe only (LowerProcessPriority); Keep never touched
+
+### Esito
+Pending smoke + deploy EXE/Linux package + push.
+
 ## 2026-06-25 — DD-WRT hotspot→switch: tuning permanente + KB + repo sync
 
 ### Obiettivo
