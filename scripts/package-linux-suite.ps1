@@ -1,0 +1,57 @@
+[CmdletBinding()]
+param(
+    [string]$OutputDir
+)
+
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+
+$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$hubRoot = Split-Path -Parent $scriptDir
+$configDir = Join-Path $hubRoot 'config'
+$linuxDir = Join-Path $scriptDir 'linux'
+
+if (-not $OutputDir -or $OutputDir.Trim() -eq '') {
+    $OutputDir = Join-Path $hubRoot 'dist\LinuxOptimizer'
+}
+
+$targetScripts = Join-Path $OutputDir 'scripts'
+$targetConfig = Join-Path $OutputDir 'config'
+New-Item -Path $targetScripts -ItemType Directory -Force | Out-Null
+New-Item -Path (Join-Path $targetScripts 'linux') -ItemType Directory -Force | Out-Null
+New-Item -Path $targetConfig -ItemType Directory -Force | Out-Null
+
+$items = @(
+    (Join-Path $linuxDir 'analyze-process-pressure.sh'),
+    (Join-Path $configDir 'process-intelligence.json')
+)
+
+foreach ($item in $items) {
+    if (-not (Test-Path -LiteralPath $item)) {
+        Write-Warning "Missing: $item"
+        continue
+    }
+    if ($item -match '[\\/]config[\\/]') {
+        Copy-Item -LiteralPath $item -Destination $targetConfig -Force
+    } else {
+        Copy-Item -LiteralPath $item -Destination (Join-Path $targetScripts 'linux') -Force
+    }
+}
+
+$readme = @"
+Linux Optimizer — Process Pressure Intelligence
+
+Analyze top CPU/RAM/IO processes (deterministic two-snapshot scoring):
+
+  chmod +x scripts/linux/analyze-process-pressure.sh
+  ./scripts/linux/analyze-process-pressure.sh 6 8 /tmp/process-pressure.json
+
+Arguments: DURATION_SEC TOP OUTPUT_JSON [CATALOG_PATH]
+
+Catalog: config/process-intelligence.json (shared knowledge base with Windows build).
+
+Safe apply on Linux is manual/HITL for now — review TopProcesses Priority and Recommendation.
+"@
+
+Set-Content -LiteralPath (Join-Path $OutputDir 'README.txt') -Value $readme -Encoding UTF8
+Write-Host "Linux package ready at: $OutputDir"

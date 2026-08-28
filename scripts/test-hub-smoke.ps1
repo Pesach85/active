@@ -169,6 +169,24 @@ Write-Output "OK"
     $failures.Add(("async-worker-registry exception: {0}" -f $_.Exception.Message))
 }
 
+$pressureOut = Join-Path $logs 'smoke-process-pressure.json'
+Invoke-SmokeStep -Name 'process-pressure' `
+    -ScriptPath (Join-Path $scriptDir 'analyze-process-pressure.ps1') `
+    -Arguments @('-DurationSec', '2', '-Top', '5', '-OutputJson', $pressureOut) `
+    -OutputPath $pressureOut `
+    -Validate {
+        param($path)
+        $j = Get-Content -LiteralPath $path -Raw | ConvertFrom-Json
+        $schema = [string]$j.SchemaVersion
+        if ($schema -notmatch 'ProcessPressureReport') { throw "Unexpected schema: $schema" }
+        if ($null -eq $j.TopProcesses) { throw 'TopProcesses missing' }
+        if ($null -eq $j.Summary) { throw 'Summary missing' }
+        $sample = @($j.TopProcesses) | Select-Object -First 1
+        if ($null -ne $sample -and -not $sample.PSObject.Properties['DominantPressure']) {
+            throw 'TopProcesses missing DominantPressure'
+        }
+    }
+
 if ($failures.Count -gt 0) {
     Write-Host '[SMOKE] FAILED'
     $failures | ForEach-Object { Write-Host ("  - {0}" -f $_) }

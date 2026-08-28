@@ -31,6 +31,10 @@ $items = @(
     (Join-Path $scriptDir "audit-disk-hotspots.ps1"),
     (Join-Path $scriptDir "analyze-garbage-hotspots.ps1"),
     (Join-Path $scriptDir "analyze-compute-resources.ps1"),
+    (Join-Path $scriptDir "analyze-process-pressure.ps1"),
+    (Join-Path $scriptDir "apply-process-pressure-safe.ps1"),
+    (Join-Path $scriptDir "lib\process-pressure-core.ps1"),
+    (Join-Path $configDir "process-intelligence.json"),
     (Join-Path $scriptDir "analyze-nvme-readonly-plan.ps1"),
     (Join-Path $scriptDir "analyze-recovery-partition-legacy.ps1"),
     (Join-Path $scriptDir "privacy-scan-secrets.ps1"),
@@ -52,13 +56,17 @@ if (-not (Test-Path -LiteralPath $OutputDir)) {
 
 $targetScripts = Join-Path $OutputDir "scripts"
 $targetConfig = Join-Path $OutputDir "config"
+$targetLib = Join-Path $targetScripts "lib"
 New-Item -Path $targetScripts -ItemType Directory -Force | Out-Null
+New-Item -Path $targetLib -ItemType Directory -Force | Out-Null
 New-Item -Path $targetConfig -ItemType Directory -Force | Out-Null
 
 foreach ($item in $items) {
     if (Test-Path -LiteralPath $item) {
         if ($item -match '[\\/]config[\\/]') {
             Copy-Item -LiteralPath $item -Destination $targetConfig -Force
+        } elseif ($item -match '[\\/]lib[\\/]') {
+            Copy-Item -LiteralPath $item -Destination $targetLib -Force
         } else {
             Copy-Item -LiteralPath $item -Destination $targetScripts -Force
         }
@@ -121,8 +129,14 @@ Uninstall:
 Build GUI EXE:
   powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\build-gui-exe.ps1 -SourceScript .\\scripts\\system-optimizer-gui.ps1 -OutputExe .\\WindowsOptimizer.exe
 
-Analyze Compute Resources:
+Analyze Compute Resources (legacy wrapper):
     powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\analyze-compute-resources.ps1 -DurationSec 8 -Top 8
+
+Process Pressure Intelligence (full report):
+    powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\analyze-process-pressure.ps1 -DurationSec 8 -Top 8 -IncludeResearch -OutputJson .\\logs\\process-pressure-latest.json
+
+Apply safe auto-actions (audit-first):
+    powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\apply-process-pressure-safe.ps1 -InputJson .\\logs\\process-pressure-latest.json -OutputJson .\\logs\\process-pressure-apply.json -MaxLevel Safe
 
 Quick Cleanup (safe targets):
     powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\quick-cleanup-safe.ps1 -Execute -RetentionDays 2 -MaxFilesPerTarget 2000

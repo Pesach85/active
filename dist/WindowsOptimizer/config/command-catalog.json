@@ -163,26 +163,26 @@
       }
     },
     "compute": {
-      "scripts": ["analyze-compute-resources.ps1"],
-      "efficacy": 34,
-      "effortImpact": 38,
+      "scripts": ["analyze-process-pressure.ps1", "analyze-compute-resources.ps1", "apply-process-pressure-safe.ps1"],
+      "efficacy": 52,
+      "effortImpact": 45,
       "risk": "Low",
       "writesSystem": false,
       "en": {
-        "title": "Compute Load",
-        "summary": "Short snapshot of top CPU/RAM/IO processes.",
-        "does": "Two Get-Process samples ~8s apart; scores and exports JSON.",
-        "doesNot": "Does not throttle or kill processes (unlike background monitor task).",
-        "expect": "Advisory list only — recommendations are labels, not auto-applied.",
-        "tip": "For continuous throttling see Automation / monitor task (review risk first)."
+        "title": "Process Pressure Intelligence",
+        "summary": "Deterministic CPU/RAM/IO hog detection with vital-process preservation and safe auto/HITL actions.",
+        "does": "Two-snapshot scoring, necessity classification (Keep/Tune/Review), catalog research links, optional safe priority throttle via apply script.",
+        "doesNot": "Does not terminate vital/security processes; aggressive actions require HITL.",
+        "expect": "ProcessPressureReport.v1 JSON with Summary and RecommendedActions.",
+        "tip": "Run apply-process-pressure-safe.ps1 -MaxLevel Safe after review for reversible throttles only."
       },
       "it": {
-        "title": "Carico Compute",
-        "summary": "Snapshot breve dei processi top CPU/RAM/IO.",
-        "does": "Due campioni Get-Process ~8s; score ed export JSON.",
-        "doesNot": "Non limita né termina processi (a differenza del task monitor in background).",
-        "expect": "Solo elenco consultivo — raccomandazioni non auto-applicate.",
-        "tip": "Per throttling continuo vedi Automazione / task monitor (valuta rischio)."
+        "title": "Process Pressure Intelligence",
+        "summary": "Rilevamento deterministico hog CPU/RAM/IO con preservazione processi vitali e azioni safe/HITL.",
+        "does": "Scoring a due snapshot, classificazione necessità (Keep/Tune/Review), link ricerca catalogo, throttle priorità reversibile opzionale.",
+        "doesNot": "Non termina processi vitali/sicurezza; azioni aggressive richiedono HITL.",
+        "expect": "JSON ProcessPressureReport.v1 con Summary e RecommendedActions.",
+        "tip": "Dopo review esegui apply-process-pressure-safe.ps1 -MaxLevel Safe solo per throttle reversibili."
       }
     },
     "nvme_plan": {

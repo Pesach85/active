@@ -81,6 +81,17 @@
     "ShowAdvancedTools": false,
     "Language": "it"
   },
+  "ProcessPressure": {
+    "Enabled": true,
+    "DurationSec": 6,
+    "Top": 8,
+    "ScoreAutoApplyThreshold": 40,
+    "CatalogPath": "config/process-intelligence.json",
+    "OutputPath": "logs/process-pressure-latest.json",
+    "AutoApplySafeActions": false,
+    "MaxApplyLevel": "Safe",
+    "PreservePriorityKeep": true
+  },
   "Privacy": {
     "MaxFileSizeKb": 512,
     "MaxFindings": 500,
