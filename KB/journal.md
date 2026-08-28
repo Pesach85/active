@@ -20,7 +20,7 @@ Rilevamento deterministico processi hog CPU/RAM/IO, classificazione vitali vs tu
 - Apply default Safe only (LowerProcessPriority); Keep never touched
 
 ### Esito
-Pending smoke + deploy EXE/Linux package + push.
+Smoke ALL PASSED; package Windows + Linux; EXE rebuilt local (`dist/WindowsOptimizer/WindowsOptimizer.exe` v3.3.0, gitignored). Push `454afa2`.
 
 ## 2026-06-25 — DD-WRT hotspot→switch: tuning permanente + KB + repo sync
 
