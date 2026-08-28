@@ -170,6 +170,8 @@ $script:healthAuditStdOut  = Join-Path $script:hubRoot "logs\health-audit-live.o
 $script:healthAuditStdErr  = Join-Path $script:hubRoot "logs\health-audit-live.err.log"
 $script:healthAuditStartedAt = $null
 $script:healthAuditTimeoutSec = 90
+$script:healthApplyTimeoutSec = 600
+$script:healthApplyInProgress = $false
 $script:healthAuditSoftTimeoutWarned = $false
 $script:healthAuditApplyAfter = $false
 $script:healthAuditMaxLevel   = 'Safe'
@@ -2390,16 +2392,21 @@ function Poll-QuickCleanup {
 function Update-HealthAuditProgress {
     if (-not $script:healthAuditStartedAt) { return }
     $elapsedSec = [math]::Round(((Get-Date) - $script:healthAuditStartedAt).TotalSeconds, 0)
-    $timeoutSec = [math]::Max(1, $script:healthAuditTimeoutSec)
+    $timeoutSec = if ($script:healthApplyInProgress) {
+        [math]::Max(1, $script:healthApplyTimeoutSec)
+    } else {
+        [math]::Max(1, $script:healthAuditTimeoutSec)
+    }
+    $label = if ($script:healthApplyInProgress) { 'Applying fixes' } else { 'Health Audit' }
     $pct = [math]::Min(95, [int](($elapsedSec / $timeoutSec) * 100))
     if ($pct -lt $progressAnalysis.Minimum) { $pct = $progressAnalysis.Minimum }
     if ($pct -gt $progressAnalysis.Maximum) { $pct = $progressAnalysis.Maximum }
     $progressAnalysis.Value = $pct
     $script:spinIdx = ($script:spinIdx + 1) % $script:spinFrames.Count
-    $lblAnalysisState.Text = ("Health Audit{0}  {1}s / {2}s" -f $script:spinFrames[$script:spinIdx], $elapsedSec, $timeoutSec)
+    $lblAnalysisState.Text = ("{0}{1}  {2}s / {3}s" -f $label, $script:spinFrames[$script:spinIdx], $elapsedSec, $timeoutSec)
     if (($elapsedSec -gt $timeoutSec) -and (-not $script:healthAuditSoftTimeoutWarned)) {
         $script:healthAuditSoftTimeoutWarned = $true
-        Append-Status ("Health Audit exceeded expected time ({0}s). No forced stop; cancel manually if needed." -f $timeoutSec)
+        Append-Status ("{0} exceeded expected time ({1}s). No forced stop; cancel manually if needed." -f $label, $timeoutSec)
     }
 }
 
@@ -2408,19 +2415,21 @@ function Stop-HealthAudit {
     if ($script:healthAuditProcess -and (-not $script:healthAuditProcess.HasExited)) {
         try {
             Stop-Process -Id $script:healthAuditProcess.Id -Force -ErrorAction Stop
-            Append-Status ("Health Audit stopped. Reason: {0}" -f $Reason)
+            Append-Status ($(if ($script:healthApplyInProgress) { "Apply fixes stopped. Reason: {0}" } else { "Health Audit stopped. Reason: {0}" }) -f $Reason)
         } catch {
-            Append-Status ("Unable to stop Health Audit cleanly: {0}" -f $_.Exception.Message)
+            Append-Status ("Unable to stop health worker cleanly: {0}" -f $_.Exception.Message)
         }
     }
     $healthAuditTimer.Stop()
+    $healthApplyTimer.Stop()
     $script:healthAuditProcess = $null
     $script:healthAuditStartedAt = $null
     $script:healthAuditSoftTimeoutWarned = $false
     $script:healthAuditApplyAfter = $false
     $script:healthAuditApplyPackagesOnly = $false
     $script:healthAuditApplyFindingIds = @()
-    Set-AnalysisUiState -IsBusy:$false -StateText "Health Audit idle"
+    $script:healthApplyInProgress = $false
+    Set-AnalysisUiState -IsBusy:$false -StateText "Health idle"
 }
 
 function Poll-HealthAudit {
@@ -2540,6 +2549,7 @@ function Run-HealthAudit {
         $script:healthAuditApplyAfter = [bool]$ApplyAfter
         $script:healthAuditApplyPackagesOnly = [bool]$ApplyPackagesOnly
         $script:healthAuditApplyFindingIds = @()
+        $script:healthApplyInProgress = $false
         $script:healthAuditMaxLevel = if ($ApplyPackagesOnly) { 'Safe' } else { [string]$cmbFixLevel.SelectedItem }
 
         $started = $false
@@ -2632,6 +2642,7 @@ function Run-HealthApply {
         $script:healthAuditApplyAfter = $false
         $script:healthAuditApplyPackagesOnly = $false
         $script:healthAuditApplyFindingIds = @()
+        $script:healthApplyInProgress = $true
         $script:healthAuditProcess = Start-Process -FilePath $script:psHost -ArgumentList $args -WindowStyle Hidden -RedirectStandardOutput $script:healthAuditStdOut -RedirectStandardError $script:healthAuditStdErr -PassThru
         $progressAnalysis.Value = 1
         Set-AnalysisUiState -IsBusy:$true -StateText ("Applying {0} fixes..." -f $MaxLevel)
@@ -2668,6 +2679,7 @@ function Poll-HealthApply {
         $script:healthAuditProcess = $null
         $script:healthAuditStartedAt = $null
         $script:healthAuditSoftTimeoutWarned = $false
+        $script:healthApplyInProgress = $false
         Set-AnalysisUiState -IsBusy:$false -StateText "Apply fixes idle"
         return
     }
@@ -2697,6 +2709,7 @@ function Poll-HealthApply {
     $script:healthAuditProcess = $null
     $script:healthAuditStartedAt = $null
     $script:healthAuditSoftTimeoutWarned = $false
+    $script:healthApplyInProgress = $false
     Set-AnalysisUiState -IsBusy:$false -StateText ("Fixes applied in {0}s." -f $durationSec)
 }
 

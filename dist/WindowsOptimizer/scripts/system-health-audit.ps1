@@ -364,7 +364,8 @@ foreach ($pd in $physDisks) {
                 (New-Solution -Level 'Moderate' -Label 'Create full system backup now' `
                     -Command 'wbadmin start backup -backupTarget:D: -include:C: -quiet 2>&1' `
                     -Rollback 'N/A (backup only)' `
-                    -RiskNote 'Requires D: has free space. Long running.'),
+                    -RiskNote 'Requires D: has free space. Long running (hours). Manual/HITL only.' `
+                    -Kind 'Review'),
                 (New-Solution -Level 'Aggressive' -Label 'Plan disk replacement (manual)' `
                     -Command 'Write-Host "ACTION REQUIRED: Purchase replacement NVMe SSD and clone with Clonezilla or Macrium Reflect."' `
                     -Rollback 'N/A' `
