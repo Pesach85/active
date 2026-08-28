@@ -2,6 +2,16 @@
 
 ## 2026-08-27 - EXE: HubWorkers unset under StrictMode (ps2exe)
 
+### Bug 29
+- **Sintomo**: KEEP Defender wizard crash: `L'espressione che segue '&'…`
+- **Causa**: `& $OnStatus.Invoke(...)` — call operator su risultato Invoke, non su scriptblock.
+- **Fix**: `Write-KeepWizardStatus` → `& $OnStatus $Message`. GUI **v3.5.1**.
+
+### Bug 30
+- **Sintomo**: Health Scan+Apply Moderate bloccato 600s+ con label "Health Audit"; `wbadmin` backup al 20%.
+- **Causa**: `apply-safe-fixes.ps1` sceglieva soluzione **più invasiva** entro MaxLevel (wbadmin ore) invece di Safe-first; progress GUI non distingueva fase apply.
+- **Fix**: Safe-first selection; skip Review/OpenLink e `wbadmin start backup` in auto-apply; DISK-HEALTH-001 backup → Kind Review; GUI fase "Applying fixes" + timeout 600s. **v3.5.2**.
+
 ### Bug 28
 - **Sintomo**: dialog all'avvio/uso EXE: `Impossibile recuperare la variabile $Script:HubWorkers perché non è stata impostata.`
 - **Causa**: `async-worker.ps1` usava `$script:HubWorkers` con check `if (-not $script:HubWorkers)` dopo `Set-StrictMode` da `hub-common`; sotto ps2exe lo scope script del file dot-sourced non coincide con l'host EXE.

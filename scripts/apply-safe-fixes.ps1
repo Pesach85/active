@@ -29,7 +29,8 @@ param(
     [Parameter(Mandatory)][string]$OutputJson,
     [ValidateSet('Safe','Moderate','Aggressive')][string]$MaxLevel = 'Safe',
     [string[]]$FindingIds,
-    [switch]$DryRun
+    [switch]$DryRun,
+    [switch]$AllowLongRunning
 )
 
 $ErrorActionPreference = 'Continue'
@@ -112,18 +113,22 @@ foreach ($finding in $report.Findings) {
         continue
     }
 
-    # Pick ONE solution per finding: highest invasiveness still within MaxLevel.
-    # At equal level prefer Install > Script > Review > OpenLink (never treat OpenLink as install).
+    # Pick ONE solution per finding: lowest invasiveness within MaxLevel (Safe-first).
+    # Skip Review/OpenLink unless explicit FindingIds. Skip long-running commands unless -AllowLongRunning.
     $kindRank = @{ Install = 4; Script = 3; Review = 2; OpenLink = 1 }
     $bestSolution = $null
-    $bestOrder = -1
+    $bestOrder = 999
     $bestKind = -1
+    $explicitIds = ($FindingIds -and $FindingIds.Count -gt 0)
     foreach ($sol in $finding.Solutions) {
         $solLevel = $levelOrder[$sol.Level]
         if ($solLevel -lt 0 -or $solLevel -gt $levelOrder[$MaxLevel]) { continue }
         $kind = if ($sol.Kind) { [string]$sol.Kind } else { 'Script' }
+        if (-not $explicitIds -and ($kind -eq 'Review' -or $kind -eq 'OpenLink')) { continue }
+        $cmd = [string]$sol.Command
+        if (-not $AllowLongRunning -and $cmd -match '(?i)wbadmin\s+start\s+backup') { continue }
         $kr = if ($kindRank.ContainsKey($kind)) { [int]$kindRank[$kind] } else { 3 }
-        if ($solLevel -gt $bestOrder -or ($solLevel -eq $bestOrder -and $kr -gt $bestKind)) {
+        if ($solLevel -lt $bestOrder -or ($solLevel -eq $bestOrder -and $kr -gt $bestKind)) {
             $bestSolution = $sol
             $bestOrder = $solLevel
             $bestKind = $kr
