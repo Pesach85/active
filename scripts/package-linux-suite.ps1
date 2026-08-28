@@ -23,6 +23,7 @@ New-Item -Path $targetConfig -ItemType Directory -Force | Out-Null
 
 $items = @(
     (Join-Path $linuxDir 'analyze-process-pressure.sh'),
+    (Join-Path $linuxDir 'apply-process-pressure-safe.sh'),
     (Join-Path $configDir 'process-intelligence.json')
 )
 
@@ -50,7 +51,10 @@ Arguments: DURATION_SEC TOP OUTPUT_JSON [CATALOG_PATH]
 
 Catalog: config/process-intelligence.json (shared knowledge base with Windows build).
 
-Safe apply on Linux is manual/HITL for now — review TopProcesses Priority and Recommendation.
+Safe apply on Linux (renice, reversible):
+
+  chmod +x scripts/linux/apply-process-pressure-safe.sh
+  ./scripts/linux/apply-process-pressure-safe.sh /tmp/process-pressure.json /tmp/apply.json
 "@
 
 Set-Content -LiteralPath (Join-Path $OutputDir 'README.txt') -Value $readme -Encoding UTF8

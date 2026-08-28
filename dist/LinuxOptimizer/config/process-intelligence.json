@@ -75,5 +75,32 @@
     "DisableStartupEntry": { "level": "Moderate", "requiresHitl": true, "reversible": true },
     "PauseSyncClient": { "level": "Moderate", "requiresHitl": true, "reversible": true },
     "TerminateProcess": { "level": "Aggressive", "requiresHitl": true, "reversible": false }
+  },
+  "extremeNecessityDefender": {
+    "neverAutoApply": true,
+    "escalationOrder": ["Observe", "TuneExclusions", "TemporaryRealtimeOff", "ExtremeServiceDisable"],
+    "tiers": {
+      "Observe": { "minCompositeScore": 0, "maxCompositeScore": 54, "level": "Safe", "description": "Monitor only — pressure within normal tuning range." },
+      "TuneExclusions": { "minCompositeScore": 55, "maxCompositeScore": 69, "level": "Moderate", "description": "Add path exclusions and off-hours scan schedule before any disable." },
+      "TemporaryRealtimeOff": { "minCompositeScore": 70, "maxCompositeScore": 84, "level": "Aggressive", "maxDurationMinutes": 60, "description": "Time-boxed real-time protection off — requires Tamper Protection off + explicit HITL." },
+      "ExtremeServiceDisable": { "minCompositeScore": 85, "level": "Aggressive", "maxDurationMinutes": 120, "description": "Last resort: stop WinDefend service — double HITL, mandatory rollback timer." }
+    },
+    "reasonCodes": {
+      "DevBuild": "Trusted dev/build workload blocked by scan I/O",
+      "EmergencyPerf": "System unusable until immediate relief",
+      "ForensicCapture": "Controlled capture with secondary AV",
+      "VendorSupport": "Microsoft/vendor guided troubleshooting"
+    },
+    "weights": {
+      "pressureScore": 0.35,
+      "cpuPercent": 0.25,
+      "ioMbPerSec": 0.20,
+      "workingSetMb": 0.10,
+      "dominantPressureMatch": 0.10
+    },
+    "references": [
+      "https://learn.microsoft.com/en-us/microsoft-365/security/defender-endpoint/",
+      "https://learn.microsoft.com/en-us/powershell/module/defender/set-mppreference"
+    ]
   }
 }

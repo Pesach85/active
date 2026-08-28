@@ -100,6 +100,8 @@ $script:cleanupScript = Join-Path $script:scriptRoot "cleanup-storage-safe.ps1"
 $script:quickCleanupScript = Join-Path $script:scriptRoot "quick-cleanup-safe.ps1"
 $script:analyzerScript = Join-Path $script:scriptRoot "analyze-garbage-hotspots.ps1"
 $script:computeAnalyzerScript = Join-Path $script:scriptRoot "analyze-process-pressure.ps1"
+$script:applyPressureScript = Join-Path $script:scriptRoot "apply-process-pressure-safe.ps1"
+$script:evaluateDefenderScript = Join-Path $script:scriptRoot "evaluate-defender-extreme-necessity.ps1"
 $script:coreScript = Join-Path $script:scriptRoot "ensure-powershell-core.ps1"
 $script:monitorInstaller = Join-Path $script:scriptRoot "install-monitor-task.ps1"
 $script:cleanupInstaller = Join-Path $script:scriptRoot "install-cleanup-task.ps1"
@@ -139,6 +141,9 @@ $script:startupAnalyzeDepth = "Quick"
 $script:startupAnalyzeTop = 15
 $script:computeAnalyzeDurationSec = 8
 $script:computeAnalyzeTop = 8
+$script:offerSafeThrottleAfterCompute = $true
+$script:showDefenderReviewAfterCompute = $true
+$script:defenderMinScoreForPrompt = 55
 $script:quickCleanupRetentionDays = 2
 $script:quickCleanupMaxFilesPerTarget = 2000
 $script:diagnosticRetentionDays = 7
@@ -439,9 +444,11 @@ $btnPkgFix        = New-Btn "Pkg Prereq Fix" $clrTeal    148 38
 $btnNvmePlan      = New-Btn "NVMe Plan"       $clrAmber   138 38
 $btnDeepScanJump  = New-Btn "Health Tab"     $clrPurple  118 38
 $btnPartitionPlan = New-Btn "Partition Plan"  $clrCyan    148 38
-$btnCompute       = New-Btn "Compute"         $clrPurple  128 38
-$btnAudit         = New-Btn "Storage Audit"   $clrCyan    132 38
-$btnExecute       = New-Btn "Storage Clean"   $clrRed     138 38
+$btnCompute       = New-Btn "Compute"         $clrPurple  118 38
+$btnApplyThrottle = New-Btn "Safe Throttle"   $clrGreen   118 38
+$btnDefenderReview = New-Btn "Defender"      $clrAmber   108 38
+$btnAudit         = New-Btn "Storage Audit"   $clrCyan    120 38
+$btnExecute       = New-Btn "Storage Clean"   $clrRed     120 38
 $btnDiagnostics   = New-Btn "Diagnostics"    $clrAmber   128 38
 $btnCancelAnalyze = New-Btn "Cancel"          $clrRaised   96 38
 
@@ -481,13 +488,15 @@ $btnDeepScanJump.Location  = New-Object System.Drawing.Point(510, 30)
 $btnPartitionPlan.Location = New-Object System.Drawing.Point(636, 30)
 $btnDiagnostics.Location   = New-Object System.Drawing.Point(792, 30)
 $btnCompute.Location       = New-Object System.Drawing.Point(12, 74)
-$btnAudit.Location         = New-Object System.Drawing.Point(148, 74)
-$btnExecute.Location       = New-Object System.Drawing.Point(288, 74)
+$btnApplyThrottle.Location = New-Object System.Drawing.Point(136, 74)
+$btnDefenderReview.Location = New-Object System.Drawing.Point(260, 74)
+$btnAudit.Location         = New-Object System.Drawing.Point(376, 74)
+$btnExecute.Location       = New-Object System.Drawing.Point(504, 74)
 
 $pnlAdvancedTools.Controls.AddRange(@(
     $lblAdvancedActions,
     $btnHealthApply, $btnPkgFix, $btnNvmePlan, $btnDeepScanJump, $btnPartitionPlan, $btnDiagnostics,
-    $btnCompute, $btnAudit, $btnExecute
+    $btnCompute, $btnApplyThrottle, $btnDefenderReview, $btnAudit, $btnExecute
 ))
 
 $btnCancelAnalyze.Enabled  = $false
@@ -1289,6 +1298,8 @@ function Apply-GuiLanguage {
     $btnDeepScanJump.Text = Get-I18n 'buttons.health_tab'
     $btnPartitionPlan.Text = Get-I18n 'buttons.partition_plan'
     $btnCompute.Text = Get-I18n 'buttons.compute'
+    $btnApplyThrottle.Text = Get-I18n 'buttons.apply_throttle'
+    $btnDefenderReview.Text = Get-I18n 'buttons.defender_review'
     $btnAudit.Text = Get-I18n 'buttons.storage_audit'
     $btnExecute.Text = Get-I18n 'buttons.storage_execute'
     $btnDiagnostics.Text = Get-I18n 'buttons.diagnostics'
@@ -1332,6 +1343,8 @@ function Initialize-GuiCommandHelp {
         $btnAudit         = 'storage_audit'
         $btnExecute       = 'storage_execute'
         $btnCompute       = 'compute'
+        $btnApplyThrottle = 'apply_throttle'
+        $btnDefenderReview = 'defender_review'
         $btnNvmePlan      = 'nvme_plan'
         $btnPartitionPlan = 'partition_plan'
         $btnPkgFix        = 'pkg_fix'
@@ -1360,10 +1373,12 @@ function Load-GuiPreferences {
             $cfg = Get-MaintenanceConfig -ConfigPath $script:configPath
             $gui = Get-ConfigSection -Config $cfg -SectionName 'Gui'
             $cleanup = Get-ConfigSection -Config $cfg -SectionName 'Cleanup'
+            $pp = Get-ConfigSection -Config $cfg -SectionName 'ProcessPressure'
         } else {
             $raw = Get-Content -LiteralPath $script:configPath -Raw -ErrorAction Stop | ConvertFrom-Json
             $gui = if ($raw.Gui) { $raw.Gui } else { $null }
             $cleanup = if ($raw.Cleanup) { $raw.Cleanup } else { $null }
+            $pp = if ($raw.ProcessPressure) { $raw.ProcessPressure } else { $null }
             $cfg = $raw
         }
     } catch {
@@ -1456,6 +1471,18 @@ function Load-GuiPreferences {
             $t2s = if ($t2 -is [hashtable]) { $t2['SimulateOnly'] } else { $t2.SimulateOnly }
             if ($null -ne $t2e) { $script:cfgTier2Enabled = [bool]$t2e }
             if ($null -ne $t2s) { $script:cfgTier2SimulateOnly = [bool]$t2s }
+        }
+    }
+
+    if ($pp) {
+        $ost = if ($pp -is [hashtable]) { $pp['OfferSafeThrottleAfterCompute'] } else { $pp.OfferSafeThrottleAfterCompute }
+        if ($null -ne $ost) { $script:offerSafeThrottleAfterCompute = [bool]$ost }
+        $sdr = if ($pp -is [hashtable]) { $pp['DefenderExtreme'] } else { $pp.DefenderExtreme }
+        if ($sdr) {
+            $show = if ($sdr -is [hashtable]) { $sdr['ShowReviewAfterCompute'] } else { $sdr.ShowReviewAfterCompute }
+            if ($null -ne $show) { $script:showDefenderReviewAfterCompute = [bool]$show }
+            $minSc = if ($sdr -is [hashtable]) { $sdr['MinCompositeScoreForPrompt'] } else { $sdr.MinCompositeScoreForPrompt }
+            if ($null -ne $minSc) { $script:defenderMinScoreForPrompt = [int]$minSc }
         }
     }
 }
@@ -1752,6 +1779,8 @@ function Set-AnalysisUiState {
     $btnAudit.Enabled = -not $IsBusy
     $btnExecute.Enabled = -not $IsBusy
     $btnCompute.Enabled = -not $IsBusy
+    $btnApplyThrottle.Enabled = -not $IsBusy
+    $btnDefenderReview.Enabled = -not $IsBusy
     $btnQuickClean.Enabled = -not $IsBusy
     $btnHealthAudit.Enabled = -not $IsBusy
     $btnPkgFix.Enabled = -not $IsBusy
@@ -2258,6 +2287,22 @@ function Poll-ComputeAnalysis {
                 $s = $computeResult.Summary
                 Append-Status ("Process pressure summary: high={0} vital={1} autoEligible={2} hitl={3}" -f `
                     [int]$s.HighPressureCount, [int]$s.VitalPreserved, [int]$s.AutoEligibleCount, [int]$s.HitlRequiredCount)
+
+                if ($script:offerSafeThrottleAfterCompute -and [int]$s.AutoEligibleCount -gt 0) {
+                    $msg = if ($script:guiLanguage -eq 'it') {
+                        "Trovati {0} processi con throttle safe reversibile.`n`nApplicare ora (solo BelowNormal, esclusi vitali)?" -f [int]$s.AutoEligibleCount
+                    } else {
+                        "Found {0} process(es) eligible for reversible safe throttle.`n`nApply now (BelowNormal only, vitals excluded)?" -f [int]$s.AutoEligibleCount
+                    }
+                    $ans = [System.Windows.Forms.MessageBox]::Show($msg, (Get-I18n 'buttons.apply_throttle'), "YesNo", "Question")
+                    if ($ans -eq 'Yes') { Run-ApplySafeThrottle -SkipConfirm }
+                }
+            }
+
+            $defRow = $topRows | Where-Object { [string]$_.ProcessName -eq 'MsMpEng' } | Select-Object -First 1
+            if ($defRow -and $script:showDefenderReviewAfterCompute -and [double]$defRow.Score -ge $script:defenderMinScoreForPrompt) {
+                Append-Status ("Defender MsMpEng elevated: Score={0} CPU={1}% IO={2}MB/s — use Defender button for deterministic tier review." -f `
+                    [decimal]$defRow.Score, [decimal]$defRow.CpuPercent, [decimal]$defRow.IoMBps)
             }
         } catch {
             Append-Status ("Compute analysis completed in {0}s but result parse failed: {1}" -f $durationSec, $_.Exception.Message)
@@ -3825,6 +3870,96 @@ function Run-Cleanup {
     }
 }
 
+function Run-ApplySafeThrottle {
+    param([switch]$SkipConfirm)
+
+    if (-not (Test-Path -LiteralPath $script:applyPressureScript)) {
+        Append-Status "Apply pressure script not found: $script:applyPressureScript"
+        return
+    }
+    if (-not (Test-Path -LiteralPath $script:computeJson)) {
+        Append-Status "Run Compute analysis first — no pressure report found."
+        return
+    }
+    if (Test-AnyOperationRunning) {
+        Append-Status "Another operation is already running."
+        return
+    }
+
+    if (-not $SkipConfirm) {
+        $msg = if ($script:guiLanguage -eq 'it') {
+            "Applica throttle safe reversibile (BelowNormal) ai processi idonei nel report?`n`nMsMpEng e processi vitali sono esclusi."
+        } else {
+            "Apply reversible safe throttle (BelowNormal) to eligible processes in the report?`n`nMsMpEng and vital processes are excluded."
+        }
+        $ans = [System.Windows.Forms.MessageBox]::Show($msg, (Get-I18n 'buttons.apply_throttle'), "YesNo", "Question")
+        if ($ans -ne 'Yes') { return }
+    }
+
+    $applyOut = Join-Path $script:hubRoot 'logs\process-pressure-apply-live.json'
+    try {
+        $args = @(
+            '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $script:applyPressureScript,
+            '-InputJson', $script:computeJson,
+            '-OutputJson', $applyOut,
+            '-MaxLevel', 'Safe'
+        )
+        $p = Start-Process -FilePath $script:psHost -ArgumentList $args -Wait -PassThru -WindowStyle Hidden
+        if ($p.ExitCode -ne 0) {
+            Append-Status ("Safe throttle apply failed exit {0}" -f $p.ExitCode)
+            return
+        }
+        if (Test-Path -LiteralPath $applyOut) {
+            $res = Get-Content -LiteralPath $applyOut -Raw | ConvertFrom-Json
+            Append-Status ("Safe throttle: applied={0} skipped={1} rollback={2}" -f `
+                @($res.Applied).Count, @($res.Skipped).Count, [string]$res.RollbackPath)
+            Show-Toast -Title "Throttle Applied" -Body ("Applied $(@($res.Applied).Count) reversible priority change(s)") -Level "Success"
+        }
+    } catch {
+        Append-Status ("Safe throttle error: {0}" -f $_.Exception.Message)
+    }
+}
+
+function Run-DefenderExtremeReview {
+    if (-not (Test-Path -LiteralPath $script:evaluateDefenderScript)) {
+        Append-Status "Defender evaluation script not found: $script:evaluateDefenderScript"
+        return
+    }
+    if (Test-AnyOperationRunning) {
+        Append-Status "Another operation is already running."
+        return
+    }
+
+    $evalOut = Join-Path $script:hubRoot 'logs\defender-extreme-necessity-eval.json'
+    try {
+        $inputArg = if (Test-Path -LiteralPath $script:computeJson) { $script:computeJson } else { '' }
+        $args = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $script:evaluateDefenderScript, '-OutputJson', $evalOut)
+        if ($inputArg) { $args += @('-InputJson', $inputArg) }
+        $p = Start-Process -FilePath $script:psHost -ArgumentList $args -Wait -PassThru -WindowStyle Hidden
+        if ($p.ExitCode -ne 0) {
+            Append-Status ("Defender evaluation failed exit {0}" -f $p.ExitCode)
+            return
+        }
+        if (-not (Test-Path -LiteralPath $evalOut)) {
+            Append-Status 'Defender evaluation produced no output.'
+            return
+        }
+        $ev = Get-Content -LiteralPath $evalOut -Raw | ConvertFrom-Json
+        $blockers = @($ev.Blockers) -join "`n- "
+        $body = if ($script:guiLanguage -eq 'it') {
+            "Tier consigliato: {0}`nScore composito: {1}`nConsentito: {2}`n`n{3}`n`nBlocchi:`n- {4}`n`nApply CLI (admin): apply-defender-extreme-necessity.ps1" -f `
+                $ev.RecommendedTier, $ev.CompositeScore, $ev.AllowedToProceed, $ev.Rationale, $blockers
+        } else {
+            "Recommended tier: {0}`nComposite score: {1}`nAllowed: {2}`n`n{3}`n`nBlockers:`n- {4}`n`nApply via CLI (admin): apply-defender-extreme-necessity.ps1" -f `
+                $ev.RecommendedTier, $ev.CompositeScore, $ev.AllowedToProceed, $ev.Rationale, $blockers
+        }
+        Append-Status ("Defender review: tier={0} composite={1} allowed={2}" -f $ev.RecommendedTier, $ev.CompositeScore, $ev.AllowedToProceed)
+        [void][System.Windows.Forms.MessageBox]::Show($body, (Get-I18n 'buttons.defender_review'), 'OK', 'Warning')
+    } catch {
+        Append-Status ("Defender review error: {0}" -f $_.Exception.Message)
+    }
+}
+
 function Run-ComputeAnalysis {
     if (-not (Test-Path -LiteralPath $script:computeAnalyzerScript)) {
         Append-Status "Compute analyzer script not found: $script:computeAnalyzerScript"
@@ -4070,6 +4205,8 @@ $btnExecute.Add_Click({
     }
 })
 $btnCompute.Add_Click({ Run-ComputeAnalysis })
+$btnApplyThrottle.Add_Click({ Run-ApplySafeThrottle })
+$btnDefenderReview.Add_Click({ Run-DefenderExtremeReview })
 $btnQuickClean.Add_Click({
     $confirm = [System.Windows.Forms.MessageBox]::Show("Run quick safe cleanup now?", "Confirm", "YesNo", "Question")
     if ($confirm -eq "Yes") {

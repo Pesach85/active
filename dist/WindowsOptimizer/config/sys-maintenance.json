@@ -90,7 +90,15 @@
     "OutputPath": "logs/process-pressure-latest.json",
     "AutoApplySafeActions": false,
     "MaxApplyLevel": "Safe",
-    "PreservePriorityKeep": true
+    "PreservePriorityKeep": true,
+    "DefenderExtreme": {
+      "Enabled": true,
+      "NeverAutoApply": true,
+      "ShowReviewAfterCompute": true,
+      "MinCompositeScoreForPrompt": 55,
+      "EvaluationOutputPath": "logs/defender-extreme-necessity-eval.json"
+    },
+    "OfferSafeThrottleAfterCompute": true
   },
   "Privacy": {
     "MaxFileSizeKb": 512,

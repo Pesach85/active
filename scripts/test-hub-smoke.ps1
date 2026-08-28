@@ -187,6 +187,19 @@ Invoke-SmokeStep -Name 'process-pressure' `
         }
     }
 
+$defenderEval = Join-Path $logs 'smoke-defender-eval.json'
+Invoke-SmokeStep -Name 'defender-extreme-eval' `
+    -ScriptPath (Join-Path $scriptDir 'evaluate-defender-extreme-necessity.ps1') `
+    -Arguments @('-OutputJson', $defenderEval) `
+    -OutputPath $defenderEval `
+    -Validate {
+        param($path)
+        $j = Get-Content -LiteralPath $path -Raw | ConvertFrom-Json
+        if ([string]$j.SchemaVersion -notmatch 'DefenderExtremeNecessityEvaluation') { throw 'Unexpected schema' }
+        if ($null -eq $j.RecommendedTier) { throw 'RecommendedTier missing' }
+        if ($null -eq $j.CompositeScore) { throw 'CompositeScore missing' }
+    }
+
 if ($failures.Count -gt 0) {
     Write-Host '[SMOKE] FAILED'
     $failures | ForEach-Object { Write-Host ("  - {0}" -f $_) }

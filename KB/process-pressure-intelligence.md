@@ -58,6 +58,30 @@ Compute button runs `analyze-process-pressure.ps1` with `-IncludeResearch`. Stat
 4. Apply without `-DryRun` if satisfied
 5. Rollback: restore priorities from rollback JSON if needed
 
+## Microsoft Defender / MsMpEng — extreme necessity
+
+**Can you disable MsMpEng/Defender?** Yes, **only** through the gated HITL ladder — never auto.
+
+| Tier | Composite score | Action | Risk |
+|------|-----------------|--------|------|
+| Observe | &lt; 55 | Monitor only | None |
+| TuneExclusions | 55–69 | `Add-MpPreference -ExclusionPath` + scan schedule | Low (AV stays on) |
+| TemporaryRealtimeOff | 70–84 | `Set-MpPreference -DisableRealtimeMonitoring` (max 60 min) | High — needs Tamper Protection off |
+| ExtremeServiceDisable | ≥ 85 | `Stop-Service WinDefend` (max 120 min) | Critical — double confirm + rollback timer |
+
+Scripts: `evaluate-defender-extreme-necessity.ps1` → `apply-defender-extreme-necessity.ps1` → `restore-defender-from-rollback.ps1`
+
+GUI: **Defender Review** button (Advanced tools) shows tier, blockers, and CLI path.
+
+## Overcoming prior limits (v3.4.0)
+
+| Limit | Resolution |
+|-------|------------|
+| Linux apply manual | `scripts/linux/apply-process-pressure-safe.sh` (renice + rollback JSON) |
+| No GUI apply | **Safe Throttle** button + post-compute prompt |
+| Defender disable blocked | Deterministic evaluation + tiered HITL apply |
+| Research static only | Catalog `extremeNecessityDefender` + escalation ladder in eval JSON |
+
 ## References
 
 - Microsoft Defender tuning: catalog `MsMpEng.references`
