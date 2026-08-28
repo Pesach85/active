@@ -2039,4 +2039,4 @@ Bug 28 global HubWorkers; smoke async-worker-registry; package; build EXE; commi
 - Mai usare `$script:HubWorkers` con StrictMode/ps2exe; smoke gate su ogni fix GUI/EXE
 
 ### Esito
-Smoke ALL PASSED (incl. async-worker-registry); package + EXE v3.2.1 
+Smoke ALL PASSED (incl. async-worker-registry); package + EXE v3.2.1 ricostruito in dist/
