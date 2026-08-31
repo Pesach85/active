@@ -130,7 +130,7 @@ if ($Action -eq 'Advisory') {
     $result.Message = 'No action taken - review Advisory.RecommendedActionId'
 }
 else {
-    if ($snap.NotRunning) {
+    if (Test-ProcessSnapshotNotRunning -Snapshot $snap) {
         $result.Outcome = 'ProcessNotRunning'
         $result.Message = 'Process is not running - cannot apply this action. Refresh the list and pick a live process.'
     }
