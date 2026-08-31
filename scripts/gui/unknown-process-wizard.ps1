@@ -228,21 +228,38 @@ function Show-UnknownProcessResolutionWizard {
         $pwd = Get-AuthPassword -Purpose $purpose
         if (-not $pwd) { return $false }
 
+        $authLib = Join-Path $ScriptRoot 'lib\operator-auth.ps1'
+        if (Test-Path -LiteralPath $authLib) { . $authLib }
+
         $a = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $resolveScript,
-            '-Action', $ActionName, '-OutputJson', $outJson, '-WindowsPassword', $pwd)
+            '-Action', $ActionName, '-OutputJson', $outJson)
         if ($ProcessId -gt 0) { $a += @('-ProcessId', "$ProcessId") }
         if ($ProcessName) { $a += @('-ProcessName', $ProcessName) }
         if ($Confirm) { $a += @('-ConfirmPhrase', $Confirm) }
+        $a += @('-WindowsPassword', $pwd)
 
-        $proc = Start-Process -FilePath $PsHost -ArgumentList $a -Wait -PassThru -WindowStyle Hidden
-        if ($proc.ExitCode -ne 0) {
-            [void][System.Windows.Forms.MessageBox]::Show(
-                $(if ($it) { 'Azione fallita — vedi logs/process-resolution-latest.json' } else { 'Action failed — see logs/process-resolution-latest.json' }),
-                'Resolve', 'OK', 'Error')
-            return $false
+        $pwdFile = $null
+        if (Get-Command Resolve-HubProcessScriptArguments -ErrorAction SilentlyContinue) {
+            $resolved = Resolve-HubProcessScriptArguments -ArgumentList $a -LogsDir (Join-Path $HubRoot 'logs')
+            $a = $resolved.ArgumentList
+            $pwdFile = $resolved.PasswordFile
         }
-        if ($OnStatus) { & $OnStatus ("Process resolution: $ActionName") }
-        return $true
+
+        try {
+            $proc = Start-Process -FilePath $PsHost -ArgumentList $a -Wait -PassThru -WindowStyle Hidden
+            if ($proc.ExitCode -ne 0) {
+                [void][System.Windows.Forms.MessageBox]::Show(
+                    $(if ($it) { 'Azione fallita — vedi logs/process-resolution-latest.json' } else { 'Action failed — see logs/process-resolution-latest.json' }),
+                    'Resolve', 'OK', 'Error')
+                return $false
+            }
+            if ($OnStatus) { & $OnStatus ("Process resolution: $ActionName") }
+            return $true
+        } finally {
+            if (Get-Command Clear-OperatorPasswordFile -ErrorAction SilentlyContinue) {
+                Clear-OperatorPasswordFile -PasswordFile $pwdFile
+            }
+        }
     }
 
     function Show-PhrasePrompt {
@@ -307,6 +324,9 @@ function Show-UnknownProcessResolutionWizard {
         if (-not $pwd) { return }
 
         $idOut = Join-Path $HubRoot 'logs\process-identify-wizard.json'
+        $authLib = Join-Path $ScriptRoot 'lib\operator-auth.ps1'
+        if (Test-Path -LiteralPath $authLib) { . $authLib }
+
         $ia = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $identifyScript,
             '-WhatItIs', $tbWhatIs.Text.Trim(), '-WhatItDoes', $tbWhatDoes.Text.Trim(),
             '-SuggestedCategory', ([string]$cmbCat.SelectedItem), '-SuggestedPriority', ([string]$cmbPri.SelectedItem),
@@ -315,10 +335,23 @@ function Show-UnknownProcessResolutionWizard {
         if ($ProcessId -gt 0) { $ia += @('-ProcessId', "$ProcessId") }
         if ($ProcessName) { $ia += @('-ProcessName', $ProcessName) }
 
-        $proc = Start-Process -FilePath $PsHost -ArgumentList $ia -Wait -PassThru -WindowStyle Hidden
-        if ($proc.ExitCode -ne 0) {
-            [void][System.Windows.Forms.MessageBox]::Show('Identify failed.', 'Identify', 'OK', 'Error')
-            return
+        $pwdFile = $null
+        if (Get-Command Resolve-HubProcessScriptArguments -ErrorAction SilentlyContinue) {
+            $resolved = Resolve-HubProcessScriptArguments -ArgumentList $ia -LogsDir (Join-Path $HubRoot 'logs')
+            $ia = $resolved.ArgumentList
+            $pwdFile = $resolved.PasswordFile
+        }
+
+        try {
+            $proc = Start-Process -FilePath $PsHost -ArgumentList $ia -Wait -PassThru -WindowStyle Hidden
+            if ($proc.ExitCode -ne 0) {
+                [void][System.Windows.Forms.MessageBox]::Show('Identify failed.', 'Identify', 'OK', 'Error')
+                return
+            }
+        } finally {
+            if (Get-Command Clear-OperatorPasswordFile -ErrorAction SilentlyContinue) {
+                Clear-OperatorPasswordFile -PasswordFile $pwdFile
+            }
         }
         if ($OnStatus) { & $OnStatus ("Identified: $ProcessName") }
         [void][System.Windows.Forms.MessageBox]::Show(

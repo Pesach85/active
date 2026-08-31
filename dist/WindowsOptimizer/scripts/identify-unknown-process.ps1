@@ -12,6 +12,7 @@ param(
     [string]$BusinessHint = '',
     [string]$OperatorNote = '',
     [string]$WindowsPassword = '',
+    [string]$WindowsPasswordFile = '',
     [string]$OutputJson = '',
     [string]$HubRoot = '',
     [switch]$SkipAuth,
@@ -35,6 +36,9 @@ $hub = Get-HubPaths -HubRoot $HubRoot
 $knowCfg = Get-ProcessKnowledgeConfig -HubRoot $HubRoot
 $resCfg = Get-ProcessResolutionConfig -HubRoot $HubRoot
 
+$WindowsPassword = Get-OperatorPasswordFromParam -Password $WindowsPassword -PasswordFile $WindowsPasswordFile
+
+try {
 [void](Assert-OperatorWindowsPassword -Password $WindowsPassword -SkipAuth:$SkipAuth)
 
 $snap = Get-ProcessLiveSnapshot -ProcessId $ProcessId -ProcessName $ProcessName
@@ -106,3 +110,21 @@ if (-not $Quiet) {
 }
 
 $result
+} catch {
+    $fail = [ordered]@{
+        SchemaVersion = 'ProcessIdentifyResult.v1'
+        GeneratedAt = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss')
+        Outcome = 'Failed'
+        Message = $_.Exception.Message
+    }
+    if (-not $OutputJson) {
+        $OutputJson = Join-Path $hub.Logs 'process-identify-latest.json'
+    }
+    $dir = Split-Path -Parent $OutputJson
+    if ($dir -and -not (Test-Path -LiteralPath $dir)) { New-Item -Path $dir -ItemType Directory -Force | Out-Null }
+    ($fail | ConvertTo-Json -Depth 6) | Out-File -LiteralPath $OutputJson -Encoding utf8 -Force
+    if (-not $Quiet) { Write-Error $_.Exception.Message }
+    exit 1
+} finally {
+    Clear-OperatorPasswordFile -PasswordFile $WindowsPasswordFile
+}

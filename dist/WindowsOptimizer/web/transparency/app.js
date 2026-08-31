@@ -292,7 +292,7 @@ async function postAction(action, extra = {}) {
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    setWizardStatus(data.result?.Message || data.error || 'Azione fallita', true);
+    setWizardStatus(data.message || data.result?.Message || data.error || 'Azione fallita', true);
     return null;
   }
   setWizardStatus(data.Message || 'OK');
@@ -364,7 +364,8 @@ document.getElementById('btnSaveIdentify').addEventListener('click', async () =>
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    setWizardStatus(data.error || 'Identificazione fallita', true);
+    const detail = data.message || data.result?.Message || data.error || 'Identificazione fallita';
+    setWizardStatus(detail, true);
     return;
   }
   setWizardStatus('Identificazione salvata in KB cache.');

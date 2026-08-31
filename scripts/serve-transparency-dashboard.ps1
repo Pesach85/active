@@ -170,14 +170,27 @@ function Invoke-HubProcessScript {
         [string[]]$ArgumentList
     )
     $tmpOut = Join-Path $hub.Logs ("web-api-{0}.json" -f ([guid]::NewGuid().ToString('N')))
-    $args = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $ScriptPath) + $ArgumentList + @('-OutputJson', $tmpOut, '-Quiet')
-    $proc = Start-Process -FilePath $pwshExe -ArgumentList $args -Wait -PassThru -WindowStyle Hidden
-    $payload = $null
-    if (Test-Path -LiteralPath $tmpOut) {
-        try { $payload = Get-Content -LiteralPath $tmpOut -Raw | ConvertFrom-Json } catch { }
-        Remove-Item -LiteralPath $tmpOut -Force -ErrorAction SilentlyContinue
+    $errLog = Join-Path $hub.Logs ("web-api-{0}.err" -f ([guid]::NewGuid().ToString('N')))
+    . (Join-Path $scriptDir 'lib\operator-auth.ps1')
+    $resolved = Resolve-HubProcessScriptArguments -ArgumentList $ArgumentList -LogsDir $hub.Logs
+    $args = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $ScriptPath) + $resolved.ArgumentList + @('-OutputJson', $tmpOut, '-Quiet')
+    try {
+        $proc = Start-Process -FilePath $pwshExe -ArgumentList $args -Wait -PassThru -WindowStyle Hidden `
+            -RedirectStandardError $errLog -WorkingDirectory $hubRoot
+        $payload = $null
+        if (Test-Path -LiteralPath $tmpOut) {
+            try { $payload = Get-Content -LiteralPath $tmpOut -Raw | ConvertFrom-Json } catch { }
+            Remove-Item -LiteralPath $tmpOut -Force -ErrorAction SilentlyContinue
+        }
+        $stderr = ''
+        if (Test-Path -LiteralPath $errLog) {
+            $stderr = (Get-Content -LiteralPath $errLog -Raw -ErrorAction SilentlyContinue).Trim()
+            Remove-Item -LiteralPath $errLog -Force -ErrorAction SilentlyContinue
+        }
+        return @{ ExitCode = $proc.ExitCode; Payload = $payload; Stderr = $stderr }
+    } finally {
+        Clear-OperatorPasswordFile -PasswordFile $resolved.PasswordFile
     }
-    return @{ ExitCode = $proc.ExitCode; Payload = $payload }
 }
 
 try {
@@ -301,7 +314,15 @@ try {
             if ($body.processName) { $args += @('-ProcessName', [string]$body.processName) }
             $run = Invoke-HubProcessScript -ScriptPath $identifyScript -ArgumentList $args
             if ($run.ExitCode -ne 0) {
-                Send-JsonResponse -Context $context -StatusCode 403 -Payload @{ error = 'identify_failed'; exitCode = $run.ExitCode }
+                $msg = $null
+                if ($run.Payload -and $run.Payload.Message) { $msg = [string]$run.Payload.Message }
+                elseif ($run.Stderr) { $msg = [string]$run.Stderr }
+                Send-JsonResponse -Context $context -StatusCode 403 -Payload @{
+                    error = if ($msg -match 'password verification failed') { 'auth_failed' } else { 'identify_failed' }
+                    exitCode = $run.ExitCode
+                    message = $msg
+                    result = $run.Payload
+                }
             } else {
                 Send-JsonResponse -Context $context -Payload $run.Payload
             }

@@ -7,6 +7,7 @@ param(
     [string]$ConfirmPhrase = '',
     [string]$OperatorNote = '',
     [string]$WindowsPassword = '',
+    [string]$WindowsPasswordFile = '',
     [string]$OutputJson = '',
     [string]$HubRoot = '',
     [switch]$DryRun,
@@ -31,6 +32,7 @@ if (-not $HubRoot) { $HubRoot = Split-Path -Parent $scriptDir }
 $hub = Get-HubPaths -HubRoot $HubRoot
 $resCfg = Get-ProcessResolutionConfig -HubRoot $HubRoot
 $knowCfg = Get-ProcessKnowledgeConfig -HubRoot $HubRoot
+$WindowsPassword = Get-OperatorPasswordFromParam -Password $WindowsPassword -PasswordFile $WindowsPasswordFile
 $catalog = Get-ProcessIntelligenceCatalog -CatalogPath (Join-Path $HubRoot 'config\process-intelligence.json')
 $maintenanceConfig = $null
 if (Test-Path -LiteralPath $hub.ConfigFile) {
@@ -223,3 +225,4 @@ if (-not $Quiet) {
 }
 
 $result
+Clear-OperatorPasswordFile -PasswordFile $WindowsPasswordFile
