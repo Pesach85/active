@@ -1,4 +1,4 @@
-﻿# WinForms "Controllo & Trasparenza" tab â€” dot-source from system-optimizer-gui.ps1
+﻿# WinForms "Controllo & Trasparenza" tab - dot-source from system-optimizer-gui.ps1
 
 function New-TransparencyTab {
     param(
@@ -28,14 +28,14 @@ function New-TransparencyTab {
     $btnRunReport = New-Btn 'Full Audit' $clrPurple 120 38
     $btnRunReport.Location = New-Object System.Drawing.Point(288, 14)
 
-    $btnResolve = New-Btn 'Resolveâ€¦' $clrRed 100 38
+    $btnResolve = New-Btn 'Resolve...' $clrRed 100 38
     $btnResolve.Location = New-Object System.Drawing.Point(414, 14)
 
-    $btnIdentify = New-Btn 'Identifyâ€¦' $clrPurple 100 38
+    $btnIdentify = New-Btn 'Identify...' $clrPurple 100 38
     $btnIdentify.Location = New-Object System.Drawing.Point(520, 14)
 
     $lblPosture = New-Object System.Windows.Forms.Label
-    $lblPosture.Text = 'Posture: â€”'
+    $lblPosture.Text = 'Posture: -'
     $lblPosture.Font = $fntH2
     $lblPosture.ForeColor = $clrAccent
     $lblPosture.AutoSize = $true
@@ -43,7 +43,7 @@ function New-TransparencyTab {
     $lblPosture.BackColor = [System.Drawing.Color]::Transparent
 
     $lblTransDesc = New-Object System.Windows.Forms.Label
-    $lblTransDesc.Text = 'Human + AI shared control contract. T3 = unknown â€” classify before auto-action.'
+    $lblTransDesc.Text = 'Human + AI shared control contract. T3 = unknown - classify before auto-action.'
     $lblTransDesc.Font = $fntSmall
     $lblTransDesc.ForeColor = $clrMuted
     $lblTransDesc.AutoSize = $true
@@ -209,13 +209,13 @@ function New-TransparencyTab {
 
         $lines = [System.Collections.Generic.List[string]]::new()
         [void]$lines.Add('=== Delegation contract ===')
-        foreach ($pr in @($Report.DelegationManifest.Principles)) { [void]$lines.Add("â€¢ $pr") }
+        foreach ($pr in @($Report.DelegationManifest.Principles)) { [void]$lines.Add("* $pr") }
         [void]$lines.Add('')
         [void]$lines.Add('=== Human only ===')
-        foreach ($h in @($Report.DelegationManifest.HumanOnly)) { [void]$lines.Add("â€¢ $h") }
+        foreach ($h in @($Report.DelegationManifest.HumanOnly)) { [void]$lines.Add("* $h") }
         [void]$lines.Add('')
         [void]$lines.Add('=== AI delegated (when enabled) ===')
-        foreach ($d in @($Report.DelegationManifest.AiDelegatedWhenEnabled)) { [void]$lines.Add("â€¢ $d") }
+        foreach ($d in @($Report.DelegationManifest.AiDelegatedWhenEnabled)) { [void]$lines.Add("* $d") }
         [void]$lines.Add('')
         [void]$lines.Add('=== Recent automated actions ===')
         foreach ($act in @($Report.RecentAutomatedActions | Select-Object -Last 15)) {
@@ -234,7 +234,7 @@ function New-TransparencyTab {
             $ns = $Report.Network.Summary
             [void]$lines.Add(("{0} established | {1} listen | T3: {2} | hidden small: {3}" -f $ns.Established, $ns.Listen, $ns.UnknownTrustCount, $ns.HiddenNetworkProcessCount))
             foreach ($h in @($Report.Network.HiddenNetworkProcesses | Select-Object -First 8)) {
-                [void]$lines.Add(("{0} PID={1} {2}MB ext={3} â€” {4}" -f $h.Name, $h.PID, $h.RamMb, $h.ExternalConnections, $h.TrustReason))
+                [void]$lines.Add(("{0} PID={1} {2}MB ext={3} - {4}" -f $h.Name, $h.PID, $h.RamMb, $h.ExternalConnections, $h.TrustReason))
             }
             foreach ($nc in @($Report.Network.Connections | Where-Object { $_.TrustLevel -eq 'T3_Unknown' } | Select-Object -First 8)) {
                 [void]$lines.Add(("[T3 NET] {0} {1} -> {2}" -f $nc.ProcessName, $nc.Local, $nc.Remote))
@@ -244,7 +244,7 @@ function New-TransparencyTab {
             [void]$lines.Add('')
             [void]$lines.Add('=== Classification hints (deterministic + KB + AI-assisted) ===')
             foreach ($h in @($Report.ClassificationHints | Select-Object -First 6)) {
-                [void]$lines.Add(("{0} [{1}] conf={2} â€” {3}" -f $h.ProcessName, $h.SuggestedCategory, $h.Confidence, $h.WhatItIs))
+                [void]$lines.Add(("{0} [{1}] conf={2} - {3}" -f $h.ProcessName, $h.SuggestedCategory, $h.Confidence, $h.WhatItIs))
                 [void]$lines.Add(("  Does: {0}" -f $h.WhatItDoes))
                 if ($h.BusinessHint) { [void]$lines.Add(("  Hint: {0}" -f $h.BusinessHint)) }
             }
@@ -321,7 +321,7 @@ function New-TransparencyTab {
 
     $btnRefresh.Add_Click({
         $st = $tab.Tag
-        if ($st.OnStatus) { & $st.OnStatus 'Refreshing transparency reportâ€¦' }
+        if ($st.OnStatus) { & $st.OnStatus 'Refreshing transparency report...' }
         $r = & $st.BuildReport
         if ($r) {
             & $st.ShowReport $r
@@ -333,7 +333,7 @@ function New-TransparencyTab {
 
     $btnRunReport.Add_Click({
         $st = $tab.Tag
-        if ($st.OnStatus) { & $st.OnStatus 'Running full transparency auditâ€¦' }
+        if ($st.OnStatus) { & $st.OnStatus 'Running full transparency audit...' }
         $r = & $st.BuildReport
         if ($r) {
             & $st.ShowReport $r
@@ -350,7 +350,7 @@ function New-TransparencyTab {
             if ($st.OnStatus) { & $st.OnStatus 'Web dashboard ready at http://127.0.0.1:8765/' }
         } catch {
             [System.Windows.Forms.MessageBox]::Show($_.Exception.Message, 'Web Dashboard') | Out-Null
-            if ($st.OnStatus) { & $st.OnStatus 'Web dashboard failed â€” see logs/transparency-web.log' }
+            if ($st.OnStatus) { & $st.OnStatus 'Web dashboard failed - see logs/transparency-web.log' }
         }
     })
 

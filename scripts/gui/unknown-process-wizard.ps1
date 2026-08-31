@@ -1,4 +1,4 @@
-# HITL wizard: resolve + manually identify unknown processes — no terminal required.
+﻿# HITL wizard: resolve + manually identify unknown processes - no terminal required.
 
 function Show-UnknownProcessResolutionWizard {
     param(
@@ -81,7 +81,7 @@ function Show-UnknownProcessResolutionWizard {
     [void]$lines.Add("=== $(if ($it) { 'PROCESSO' } else { 'PROCESS' }) ===")
     [void]$lines.Add(("{0} PID={1} RAM={2}MB" -f $data.Process.ProcessName, $data.Process.PID, $data.Process.RamMb))
     if ($data.Process.PSObject.Properties['NotRunning'] -and $data.Process.NotRunning) {
-        [void]$lines.Add($(if ($it) { '⚠ Processo non in esecuzione — azioni mutanti non disponibili.' } else { '⚠ Process not running — mutating actions unavailable.' }))
+        [void]$lines.Add($(if ($it) { '! Processo non in esecuzione - azioni mutanti non disponibili.' } else { '! Process not running - mutating actions unavailable.' }))
     }
     [void]$lines.Add('')
     [void]$lines.Add('=== AI / KB (Cursor aided) ===')
@@ -91,12 +91,12 @@ function Show-UnknownProcessResolutionWizard {
     if ($hint.BusinessHint) { [void]$lines.Add("Hint: $($hint.BusinessHint)") }
     [void]$lines.Add('')
     [void]$lines.Add('=== WARNINGS ===')
-    foreach ($w in @($adv.Warnings)) { [void]$lines.Add("• $w") }
+    foreach ($w in @($adv.Warnings)) { [void]$lines.Add("* $w") }
     [void]$lines.Add('')
     [void]$lines.Add(">>> RECOMMENDED: $($adv.RecommendedActionId)")
     [void]$lines.Add('')
     foreach ($o in @($adv.Options)) {
-        [void]$lines.Add(("[{0}] {1} — cost={2}" -f $o.ActionId, $o.Label, $o.EfficiencyCost))
+        [void]$lines.Add(("[{0}] {1} - cost={2}" -f $o.ActionId, $o.Label, $o.EfficiencyCost))
     }
     $txt.Text = ($lines -join [Environment]::NewLine)
 
@@ -111,7 +111,7 @@ function Show-UnknownProcessResolutionWizard {
     $btnThrottle.Location = New-Object System.Drawing.Point(118, 8)
     $btnKeep = New-Btn $(if ($it) { 'Necessario' } else { 'Work OK' }) $clrCyan 100 36
     $btnKeep.Location = New-Object System.Drawing.Point(224, 8)
-    $btnStop = New-Btn 'Stop…' $clrRed 90 36
+    $btnStop = New-Btn 'Stop...' $clrRed 90 36
     $btnStop.Location = New-Object System.Drawing.Point(330, 8)
 
     $notRunning = $false
