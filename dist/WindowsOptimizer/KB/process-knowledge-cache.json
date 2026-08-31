@@ -1,22 +1,26 @@
 {
+  "UpdatedAt": "2026-08-31T12:43:33.7127737+02:00",
+  "SchemaVersion": "ProcessKnowledgeCache.v1",
   "Entries": {
-    "mkssandbox": {
-      "ProcessName": "mksSandbox",
-      "WhatItIs": "VMware VMX sandbox helper (isolated GUI/input for guest)",
-      "WhatItDoes": "Supports VMware guest display and input isolation",
-      "SuggestedCategory": "Virtualization",
-      "SuggestedPriority": "Tune",
-      "ResourceProfile": "MemoryHeavy",
-      "BusinessHint": "Child of VMware stack â€” classify with vmware-vmx",
+    "smoketestprocxyz": {
+      "ProcessName": "SmokeTestProcXYZ",
+      "WhatItIs": "SmokeTestProcess",
+      "WhatItDoes": "ValidatesManualIdentify",
+      "SuggestedCategory": "Other",
+      "SuggestedPriority": "Review",
+      "ResourceProfile": "Mixed",
+      "BusinessHint": "",
       "SuggestedActions": [
-        "Treat as part of VMware VM lifecycle",
-        "Stops when VM is powered off"
+        "Operator manual identification — review catalog merge separately"
       ],
-      "Confidence": 0.9,
+      "Confidence": 0.98,
       "Sources": [
-        "kb-seed"
+        "operator-manual",
+        "PID=0"
       ],
-      "LearnedAt": "2026-08-31T10:00:00"
+      "LearnedAt": "2026-08-31T12:42:12.4051606+02:00",
+      "OperatorNote": "",
+      "ImagePath": ""
     },
     "vmware-vmx": {
       "ProcessName": "vmware-vmx",
@@ -34,7 +38,7 @@
         "operator-manual",
         "PID=8480"
       ],
-      "LearnedAt": "2026-08-31T12:35:10.31253+02:00",
+      "LearnedAt": "2026-08-31T12:43:33.5878452+02:00",
       "OperatorNote": "",
       "ImagePath": "C:\\Program Files (x86)\\VMware\\VMware Workstation\\x64\\vmware-vmx.exe"
     },
@@ -78,27 +82,23 @@
       ],
       "LearnedAt": "2026-08-31T10:00:00"
     },
-    "smoketestprocxyz": {
-      "ProcessName": "SmokeTestProcXYZ",
-      "WhatItIs": "SmokeTestProcess",
-      "WhatItDoes": "ValidatesManualIdentify",
-      "SuggestedCategory": "Other",
-      "SuggestedPriority": "Review",
-      "ResourceProfile": "Mixed",
-      "BusinessHint": "",
+    "mkssandbox": {
+      "ProcessName": "mksSandbox",
+      "WhatItIs": "VMware VMX sandbox helper (isolated GUI/input for guest)",
+      "WhatItDoes": "Supports VMware guest display and input isolation",
+      "SuggestedCategory": "Virtualization",
+      "SuggestedPriority": "Tune",
+      "ResourceProfile": "MemoryHeavy",
+      "BusinessHint": "Child of VMware stack â€” classify with vmware-vmx",
       "SuggestedActions": [
-        "Operator manual identification — review catalog merge separately"
+        "Treat as part of VMware VM lifecycle",
+        "Stops when VM is powered off"
       ],
-      "Confidence": 0.98,
+      "Confidence": 0.9,
       "Sources": [
-        "operator-manual",
-        "PID=0"
+        "kb-seed"
       ],
-      "LearnedAt": "2026-08-31T12:42:12.4051606+02:00",
-      "OperatorNote": "",
-      "ImagePath": ""
+      "LearnedAt": "2026-08-31T10:00:00"
     }
-  },
-  "UpdatedAt": "2026-08-31T12:42:12.5010029+02:00",
-  "SchemaVersion": "ProcessKnowledgeCache.v1"
+  }
 }

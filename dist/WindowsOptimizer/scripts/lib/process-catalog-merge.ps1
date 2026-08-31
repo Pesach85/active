@@ -241,18 +241,18 @@ function Invoke-PostIdentifyCatalogPipeline {
         $maintenanceConfig = Get-MaintenanceConfig -ConfigPath $hub.ConfigFile
     }
 
-    $pid = 0
+    $targetProcessId = 0
     $ramMb = 0.0
     $imagePath = [string](Get-JsonPropertySafe $CacheEntry 'ImagePath')
     if ($ProcessSnapshot) {
-        if ($ProcessSnapshot.PID) { $pid = [int]$ProcessSnapshot.PID }
+        if ($ProcessSnapshot.PID) { $targetProcessId = [int]$ProcessSnapshot.PID }
         if ($ProcessSnapshot.RamMb) { $ramMb = [double]$ProcessSnapshot.RamMb }
         if ($ProcessSnapshot.Path) { $imagePath = [string]$ProcessSnapshot.Path }
     }
 
     $hint = Build-ProcessKnowledgeHint `
         -ProcessName $ProcessName `
-        -ProcessId $pid `
+        -ProcessId $targetProcessId `
         -ImagePath $imagePath `
         -RamMb $ramMb `
         -HubRoot $HubRoot `
