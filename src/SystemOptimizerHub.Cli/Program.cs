@@ -6,6 +6,9 @@ using SystemOptimizerHub.Core;
 using SystemOptimizerHub.Core.Catalog;
 using SystemOptimizerHub.Core.Models;
 using SystemOptimizerHub.Core.Config;
+using SystemOptimizerHub.Core.Identify;
+using SystemOptimizerHub.Core.Pressure;
+using SystemOptimizerHub.Core.Transparency;
 using SystemOptimizerHub.Core.Resolution;
 using SystemOptimizerHub.Core.Scoring;
 using SystemOptimizerHub.Linux;
@@ -71,6 +74,103 @@ internal static class Program
             Console.WriteLine(JsonSerializer.Serialize(new { necessity = nec, block }, JsonOut));
         }, nameOpt, actionOpt, catalogOpt);
         catalogCmd.AddCommand(blockCmd);
+
+        var buildEntryCmd = new Command("build-entry", "Build catalog entry draft from cache+hint (parity)");
+        var mergeNameOpt = new Option<string>("--name", "Process name") { IsRequired = true };
+        var catalogInputOpt = new Option<FileInfo>("--input", "CatalogMergeInput JSON") { IsRequired = true };
+        buildEntryCmd.AddOption(mergeNameOpt);
+        buildEntryCmd.AddOption(catalogInputOpt);
+        buildEntryCmd.SetHandler((name, inputFile) =>
+        {
+            var input = DeserializeMergeInput(inputFile.FullName);
+            var entry = CatalogMergeService.BuildCatalogEntryFromSources(
+                name, input.Hint, input.CacheEntry);
+            Console.WriteLine(JsonSerializer.Serialize(entry, JsonOut));
+        }, mergeNameOpt, catalogInputOpt);
+
+        var hubRootOpt = new Option<string?>("--hub-root", () => null, "Hub repository root");
+        var pwdFileOpt = new Option<FileInfo?>("--password-file", () => null, "Password file (temp, deleted after read)");
+        var skipAuthOpt = new Option<bool>("--skip-auth", () => false, "Skip auth (smoke/tests only)");
+
+        var mergeDirectCmd = new Command("merge-direct", "Direct catalog merge (parity/smoke, no HITL pipeline gate)");
+        mergeDirectCmd.AddOption(mergeNameOpt);
+        mergeDirectCmd.AddOption(catalogInputOpt);
+        mergeDirectCmd.AddOption(catalogOpt);
+        mergeDirectCmd.AddOption(hubRootOpt);
+        mergeDirectCmd.SetHandler((name, inputFile, catalogFile, hubRootArg) =>
+        {
+            var hubRoot = ResolveHubRoot(hubRootArg);
+            var input = DeserializeMergeInput(inputFile.FullName);
+            var catalogPath = catalogFile?.Exists == true
+                ? catalogFile.FullName
+                : ResolveCatalogPath(null);
+            var entry = CatalogMergeService.BuildCatalogEntryFromSources(
+                name, input.Hint, input.CacheEntry);
+            var merge = CatalogMergeService.MergeProcessIntoCatalog(
+                hubRoot, name, entry, catalogPath, input.Confidence);
+            Console.WriteLine(JsonSerializer.Serialize(merge, JsonOut));
+            if (!merge.Ok)
+                Environment.ExitCode = 1;
+        }, mergeNameOpt, catalogInputOpt, catalogOpt, hubRootOpt);
+
+        var mergeCmd = new Command("merge", "Merge operator-identified process into catalog (HITL pipeline)");
+        mergeCmd.AddOption(catalogInputOpt);
+        mergeCmd.AddOption(catalogOpt);
+        mergeCmd.AddOption(hubRootOpt);
+        mergeCmd.AddOption(pwdFileOpt);
+        mergeCmd.AddOption(skipAuthOpt);
+        mergeCmd.SetHandler((inputFile, catalogFile, hubRootArg, pwdFile, skipAuth) =>
+        {
+            if (!OperatingSystem.IsWindows())
+            {
+                Console.Error.WriteLine("catalog merge requires Windows for HITL auth.");
+                Environment.ExitCode = 2;
+                return;
+            }
+
+            try
+            {
+                var hubRoot = ResolveHubRoot(hubRootArg);
+                var input = DeserializeMergeInput(inputFile.FullName);
+                input.SkipAuth = skipAuth || input.SkipAuth;
+
+                var password = ReadPassword(pwdFile);
+                var auth = WindowsOperatorAuth.AssertPassword(password, input.SkipAuth);
+
+                var pkCfg = ProcessKnowledgeConfigLoader.LoadDefault(hubRoot);
+                var catalogPath = catalogFile?.Exists == true
+                    ? catalogFile.FullName
+                    : Path.GetFullPath(Path.Combine(hubRoot, pkCfg.CatalogPath.Replace('/', Path.DirectorySeparatorChar)));
+
+                var pipeline = CatalogMergeService.RunPostIdentifyPipeline(
+                    hubRoot, input, pkCfg, catalogPath, auth.Ok && !auth.Skipped);
+
+                if (pipeline.Skipped)
+                {
+                    Console.WriteLine(JsonSerializer.Serialize(pipeline, JsonOut));
+                    if (pipeline.Reason is "auth_failed" or "auth_required_for_catalog_merge")
+                        Environment.ExitCode = 1;
+                    return;
+                }
+
+                Console.WriteLine(JsonSerializer.Serialize(pipeline, JsonOut));
+                if (pipeline.CatalogMerge is { Ok: false })
+                    Environment.ExitCode = 1;
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine(ex.Message);
+                Environment.ExitCode = 1;
+            }
+            finally
+            {
+                TryDeletePasswordFile(pwdFile);
+            }
+        }, catalogInputOpt, catalogOpt, hubRootOpt, pwdFileOpt, skipAuthOpt);
+
+        catalogCmd.AddCommand(buildEntryCmd);
+        catalogCmd.AddCommand(mergeDirectCmd);
+        catalogCmd.AddCommand(mergeCmd);
         root.AddCommand(catalogCmd);
 
         var scoreCmd = new Command("score", "Deterministic pressure score (parity helper)");
@@ -145,6 +245,185 @@ internal static class Program
         resolveCmd.AddCommand(advisoryCmd);
         root.AddCommand(resolveCmd);
 
+        var analyzeCmd = new Command("analyze", "Process pressure analysis (migration preview)");
+        var pressureCmd = new Command("pressure", "Live Windows process pressure report");
+        var durationOpt = new Option<int>("--duration", () => 6, "Sample duration seconds (2-30)");
+        var topOpt = new Option<int>("--top", () => 8, "Top N processes by score");
+        var outOpt = new Option<FileInfo?>("--output", () => null, "Write JSON report to file");
+        pressureCmd.AddOption(durationOpt);
+        pressureCmd.AddOption(topOpt);
+        pressureCmd.AddOption(catalogOpt);
+        pressureCmd.AddOption(outOpt);
+        pressureCmd.SetHandler(async (duration, top, catalogFile, output) =>
+        {
+            if (!OperatingSystem.IsWindows())
+            {
+                Console.Error.WriteLine("analyze pressure requires Windows for live snapshot.");
+                Environment.ExitCode = 2;
+                return;
+            }
+
+            duration = Math.Clamp(duration, 2, 30);
+            top = Math.Clamp(top, 3, 30);
+            var catalogPath = ResolveCatalogPath(catalogFile);
+            var catalog = CatalogLoader.LoadFromFile(catalogPath);
+
+            var first = WindowsProcessPressureSnapshot.Capture();
+            await Task.Delay(TimeSpan.FromSeconds(duration));
+            var second = WindowsProcessPressureSnapshot.Capture();
+            var rows = ProcessPressureAnalyzer.MeasureRows(
+                first, second, duration, Environment.ProcessorCount, catalog);
+            var report = ProcessPressureAnalyzer.BuildReport(
+                rows, duration, Environment.ProcessorCount, top, "Windows", catalogPath);
+
+            var json = JsonSerializer.Serialize(report, JsonOut);
+            if (output is not null)
+            {
+                var dir = output.DirectoryName;
+                if (!string.IsNullOrEmpty(dir))
+                    Directory.CreateDirectory(dir);
+                await File.WriteAllTextAsync(output.FullName, json);
+            }
+            Console.WriteLine(json);
+        }, durationOpt, topOpt, catalogOpt, outOpt);
+
+        var measureCmd = new Command("measure", "Measure pressure from snapshot JSON pairs (parity)");
+        var firstOpt = new Option<FileInfo>("--first", "First snapshot JSON") { IsRequired = true };
+        var secondOpt = new Option<FileInfo>("--second", "Second snapshot JSON") { IsRequired = true };
+        measureCmd.AddOption(firstOpt);
+        measureCmd.AddOption(secondOpt);
+        measureCmd.AddOption(durationOpt);
+        measureCmd.AddOption(topOpt);
+        measureCmd.AddOption(catalogOpt);
+        measureCmd.SetHandler((firstFile, secondFile, duration, top, catalogFile) =>
+        {
+            duration = Math.Clamp(duration, 2, 30);
+            top = Math.Clamp(top, 3, 30);
+            var catalogPath = ResolveCatalogPath(catalogFile);
+            var catalog = CatalogLoader.LoadFromFile(catalogPath);
+
+            var first = LoadSnapshotMap(firstFile.FullName);
+            var second = LoadSnapshotMap(secondFile.FullName);
+            var rows = ProcessPressureAnalyzer.MeasureRows(
+                first, second, duration, Environment.ProcessorCount, catalog);
+            var report = ProcessPressureAnalyzer.BuildReport(
+                rows, duration, Environment.ProcessorCount, top, "Synthetic", catalogPath);
+            Console.WriteLine(JsonSerializer.Serialize(report, JsonOut));
+        }, firstOpt, secondOpt, durationOpt, topOpt, catalogOpt);
+
+        analyzeCmd.AddCommand(pressureCmd);
+        analyzeCmd.AddCommand(measureCmd);
+        root.AddCommand(analyzeCmd);
+
+        var transparencyCmd = new Command("transparency", "Transparency report (migration preview)");
+        var buildCmd = new Command("build", "Build report from JSON input (parity)");
+        var inputOpt = new Option<FileInfo>("--input", "TransparencyBuildInput JSON") { IsRequired = true };
+        buildCmd.AddOption(inputOpt);
+        buildCmd.SetHandler((inputFile) =>
+        {
+            var input = JsonSerializer.Deserialize<TransparencyBuildInput>(
+                File.ReadAllText(inputFile.FullName),
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            if (input is null)
+            {
+                Console.Error.WriteLine("Invalid input JSON");
+                Environment.ExitCode = 2;
+                return;
+            }
+            var report = TransparencyReportBuilder.Build(input);
+            Console.WriteLine(JsonSerializer.Serialize(report, JsonOut));
+        }, inputOpt);
+
+        var reportCmd = new Command("report", "Live Windows transparency report (read-only subset)");
+        var topRamOpt = new Option<int>("--top", () => 15, "Top RAM consumers");
+        reportCmd.AddOption(topRamOpt);
+        reportCmd.AddOption(outOpt);
+        reportCmd.SetHandler((topRam, output) =>
+        {
+            if (!OperatingSystem.IsWindows())
+            {
+                Console.Error.WriteLine("transparency report requires Windows.");
+                Environment.ExitCode = 2;
+                return;
+            }
+
+            topRam = Math.Clamp(topRam, 5, 30);
+            var host = WindowsHostResourceProvider.GetSnapshot();
+            var consumers = WindowsProcessPressureSnapshot.GetTopRamConsumers(topRam);
+            var catalogPath = ResolveCatalogPath(null);
+            var catalog = CatalogLoader.LoadFromFile(catalogPath);
+            var catalogNames = CatalogLoader.ExtractProcessNames(catalog);
+
+            var input = new TransparencyBuildInput
+            {
+                HostSnapshot = host,
+                Profile = new OptimizationProfile { Name = "feather", Tier = "C", LlmAllowed = false },
+                RamConsumers = consumers,
+                Agents = TransparencyPolicy.GetAgentRegistry()
+                    .Where(a => !string.IsNullOrEmpty(a.Id))
+                    .Select(a => new AgentStatusRow
+                    {
+                        AgentId = a.Id,
+                        DisplayName = a.DisplayName,
+                        TaskState = "OnDemand",
+                        ControlLevel = a.ControlLevel
+                    }).ToList(),
+                CatalogNames = catalogNames
+            };
+
+            var report = TransparencyReportBuilder.Build(input);
+            var json = JsonSerializer.Serialize(report, JsonOut);
+            if (output is not null)
+            {
+                var dir = output.DirectoryName;
+                if (!string.IsNullOrEmpty(dir))
+                    Directory.CreateDirectory(dir);
+                File.WriteAllText(output.FullName, json);
+            }
+            Console.WriteLine(json);
+        }, topRamOpt, outOpt);
+
+        transparencyCmd.AddCommand(buildCmd);
+        transparencyCmd.AddCommand(reportCmd);
+        root.AddCommand(transparencyCmd);
+
+        var authCmd = new Command("auth", "Operator HITL authentication (Windows)");
+        var verifyCmd = new Command("verify", "Verify Windows password for HITL gate");
+        verifyCmd.AddOption(pwdFileOpt);
+        verifyCmd.AddOption(skipAuthOpt);
+        verifyCmd.SetHandler((pwdFile, skipAuth) =>
+        {
+            if (!OperatingSystem.IsWindows())
+            {
+                Console.Error.WriteLine("auth verify requires Windows.");
+                Environment.ExitCode = 2;
+                return;
+            }
+
+            try
+            {
+                var password = ReadPassword(pwdFile);
+                var result = WindowsOperatorAuth.AssertPassword(password, skipAuth);
+                Console.WriteLine(JsonSerializer.Serialize(new
+                {
+                    ok = result.Ok,
+                    skipped = result.Skipped,
+                    identity = result.Identity
+                }, JsonOut));
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine(ex.Message);
+                Environment.ExitCode = 1;
+            }
+            finally
+            {
+                TryDeletePasswordFile(pwdFile);
+            }
+        }, pwdFileOpt, skipAuthOpt);
+        authCmd.AddCommand(verifyCmd);
+        root.AddCommand(authCmd);
+
         return await root.InvokeAsync(args);
     }
 
@@ -196,5 +475,55 @@ internal static class Program
         }
 
         return null;
+    }
+
+    private static Dictionary<string, ProcessPressureSnapshotRow> LoadSnapshotMap(string path)
+    {
+        var json = File.ReadAllText(path);
+        var rows = JsonSerializer.Deserialize<List<ProcessPressureSnapshotRow>>(json,
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? [];
+        return rows.ToDictionary(r => r.Key, StringComparer.Ordinal);
+    }
+
+    private static string ResolveHubRoot(string? hubRootArg)
+    {
+        if (!string.IsNullOrWhiteSpace(hubRootArg))
+            return Path.GetFullPath(hubRootArg);
+
+        var candidates = new[]
+        {
+            Directory.GetCurrentDirectory(),
+            Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."))
+        };
+
+        foreach (var c in candidates)
+        {
+            if (File.Exists(Path.Combine(c, "config", "process-intelligence.json")))
+                return c;
+        }
+
+        return Directory.GetCurrentDirectory();
+    }
+
+    private static CatalogMergeInput DeserializeMergeInput(string path)
+    {
+        return JsonSerializer.Deserialize<CatalogMergeInput>(
+            File.ReadAllText(path),
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
+            ?? throw new InvalidOperationException("Invalid catalog merge input JSON.");
+    }
+
+    private static string ReadPassword(FileInfo? pwdFile)
+    {
+        if (pwdFile is not null && pwdFile.Exists)
+            return File.ReadAllText(pwdFile.FullName).Trim();
+        return string.Empty;
+    }
+
+    private static void TryDeletePasswordFile(FileInfo? pwdFile)
+    {
+        if (pwdFile is null || !pwdFile.Exists)
+            return;
+        try { File.Delete(pwdFile.FullName); } catch { }
     }
 }

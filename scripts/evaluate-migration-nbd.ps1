@@ -41,6 +41,9 @@ function Get-WeightedScore {
 
 function Test-CandidateEligible {
     param($Candidate)
+    if ($Candidate.PSObject.Properties['HitlRequired'] -and [bool]$Candidate.HitlRequired) {
+        return $false
+    }
     if ([string]$Candidate.Status -eq 'done') { return $false }
     if ([string]$Candidate.Status -eq 'blocked') {
         $blockers = @($Candidate.BlockedBy)
@@ -137,12 +140,27 @@ if (-not $gatesPassed -and $Apply) {
         Rationale = 'Mandatory gates must ALL PASS before Phase 1 implementation.'
     }
 } elseif ($eligibleRanked.Count -eq 0) {
-    $decision = 'plan-next-phase'
-    $nbd = [ordered]@{
-        Id = 'plan-next-phase'
-        Title = 'No eligible candidates — update migration-nbd.json statuses'
-        TotalScore = 0
-        Rationale = 'All ready items done or blocked.'
+    $hitlPending = @($config.Candidates | Where-Object {
+        $_.PSObject.Properties['HitlRequired'] -and [bool]$_.HitlRequired -and [string]$_.Status -ne 'done'
+    })
+    $decision = if (@($hitlPending).Count -gt 0) { 'hitl-required' } else { 'plan-next-phase' }
+    $firstHitl = @($hitlPending | Select-Object -First 1)
+    $nbd = if ($firstHitl) {
+        [ordered]@{
+            Id = [string]$firstHitl.Id
+            Title = [string]$firstHitl.Title
+            TotalScore = (Get-WeightedScore -Scores $firstHitl.Scores)
+            BelowThreshold = $true
+            Rationale = 'HITL required - operator auth / password gate must be ported before auto-implementation.'
+            Deliverable = if ($firstHitl.PSObject.Properties['Deliverable']) { [string]$firstHitl.Deliverable } else { '' }
+        }
+    } else {
+        [ordered]@{
+            Id = 'plan-next-phase'
+            Title = 'No eligible candidates — update migration-nbd.json statuses'
+            TotalScore = 0
+            Rationale = 'All ready items done or blocked.'
+        }
     }
 } else {
     $winner = $eligibleRanked[0]
@@ -156,10 +174,22 @@ if (-not $gatesPassed -and $Apply) {
     }
 }
 
+$hubCoreVersion = '0.4.0'
+try {
+    $verOut = Join-Path $HubRoot 'logs\nbd-hub-version.json'
+    $cliProject = Join-Path $HubRoot 'src\SystemOptimizerHub.Cli\SystemOptimizerHub.Cli.csproj'
+    $p = Start-Process -FilePath 'dotnet' -ArgumentList @('run', '--project', $cliProject, '-v', 'q', '--', 'version') `
+        -Wait -PassThru -WindowStyle Hidden -RedirectStandardOutput $verOut -RedirectStandardError (Join-Path $HubRoot 'logs\nbd-hub-version.err')
+    if ($p.ExitCode -eq 0 -and (Test-Path -LiteralPath $verOut)) {
+        $verObj = Get-Content -LiteralPath $verOut -Raw | ConvertFrom-Json
+        if ($verObj.hubCore) { $hubCoreVersion = [string]$verObj.hubCore }
+    }
+} catch {}
+
 $result = [ordered]@{
     SchemaVersion = 'MigrationNbdReport.v1'
     GeneratedAt = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss')
-    HubCoreVersion = '0.3.0'
+    HubCoreVersion = $hubCoreVersion
     Decision = $decision
     PassThreshold = $passThreshold
     GatesApplied = [bool]$Apply

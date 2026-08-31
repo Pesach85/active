@@ -39,4 +39,25 @@ public sealed class KnownApplicationEntry
 
     [JsonPropertyName("description")]
     public string? Description { get; set; }
+
+    [JsonPropertyName("pressureMitigations")]
+    public Dictionary<string, List<string>> PressureMitigations { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
+    [JsonPropertyName("references")]
+    public List<string> References { get; set; } = [];
+
+    [JsonPropertyName("whatItDoes")]
+    public string? WhatItDoes { get; set; }
+
+    [JsonPropertyName("resourceProfile")]
+    public string? ResourceProfile { get; set; }
+
+    [JsonPropertyName("businessHint")]
+    public string? BusinessHint { get; set; }
+
+    [JsonPropertyName("mergedAt")]
+    public string? MergedAt { get; set; }
+
+    [JsonPropertyName("mergedFrom")]
+    public List<string> MergedFrom { get; set; } = [];
 }
