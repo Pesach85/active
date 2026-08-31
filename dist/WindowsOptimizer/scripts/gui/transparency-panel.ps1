@@ -28,12 +28,15 @@ function New-TransparencyTab {
     $btnRunReport = New-Btn 'Full Audit' $clrPurple 120 38
     $btnRunReport.Location = New-Object System.Drawing.Point(288, 14)
 
+    $btnResolve = New-Btn 'Resolve…' $clrRed 100 38
+    $btnResolve.Location = New-Object System.Drawing.Point(414, 14)
+
     $lblPosture = New-Object System.Windows.Forms.Label
     $lblPosture.Text = 'Posture: —'
     $lblPosture.Font = $fntH2
     $lblPosture.ForeColor = $clrAccent
     $lblPosture.AutoSize = $true
-    $lblPosture.Location = New-Object System.Drawing.Point(430, 18)
+    $lblPosture.Location = New-Object System.Drawing.Point(530, 18)
     $lblPosture.BackColor = [System.Drawing.Color]::Transparent
 
     $lblTransDesc = New-Object System.Windows.Forms.Label
@@ -49,7 +52,7 @@ function New-TransparencyTab {
     $pnlHeaderBorder.Height = 1
     $pnlHeaderBorder.BackColor = $clrBorderC
 
-    $pnlHeader.Controls.AddRange(@($btnRefresh, $btnOpenWeb, $btnRunReport, $lblPosture, $lblTransDesc, $pnlHeaderBorder))
+    $pnlHeader.Controls.AddRange(@($btnRefresh, $btnOpenWeb, $btnRunReport, $btnResolve, $lblPosture, $lblTransDesc, $pnlHeaderBorder))
 
     $listAgents = New-Object System.Windows.Forms.ListView
     $listAgents.View = 'Details'
@@ -115,7 +118,7 @@ function New-TransparencyTab {
     $reportPath = Join-Path $HubRoot 'logs\transparency-report-latest.json'
     $serveScript = Join-Path $ScriptRoot 'serve-transparency-dashboard.ps1'
     $buildScript = Join-Path $ScriptRoot 'build-transparency-report.ps1'
-    $panelState = @{ WebProcess = $null }
+    $panelState = @{ WebProcess = $null; RamPidByRow = @{} }
     $webLogPath = Join-Path $HubRoot 'logs\transparency-web.log'
 
     function Wait-HubTcpPort {
@@ -194,11 +197,14 @@ function New-TransparencyTab {
         }
 
         $listRam.Items.Clear()
+        $panelState.RamPidByRow = @{}
         foreach ($p in @($Report.RamConsumers)) {
             $item = New-Object System.Windows.Forms.ListViewItem([string]$p.Name)
             [void]$item.SubItems.Add([string]$p.RamMb)
             [void]$item.SubItems.Add([string]$p.TrustLevel)
             [void]$item.SubItems.Add([string]$p.TrustReason)
+            $item.Tag = [int]$p.PID
+            $panelState.RamPidByRow[[string]$p.Name] = [int]$p.PID
             $item.ForeColor = Get-TrustColor ([string]$p.TrustLevel)
             if ([string]$p.TrustLevel -eq 'T3_Unknown') {
                 $item.BackColor = $clrRowHigh
@@ -298,6 +304,29 @@ function New-TransparencyTab {
             [System.Windows.Forms.MessageBox]::Show($_.Exception.Message, 'Web Dashboard') | Out-Null
             if ($OnStatus) { & $OnStatus 'Web dashboard failed — see logs/transparency-web.log' }
         }
+    })
+
+    $btnResolve.Add_Click({
+        if (-not (Get-Command Show-UnknownProcessResolutionWizard -ErrorAction SilentlyContinue)) {
+            [System.Windows.Forms.MessageBox]::Show('Unknown process wizard not loaded.', 'Resolve') | Out-Null
+            return
+        }
+        $sel = $listRam.SelectedItems
+        if (-not $sel -or $sel.Count -eq 0) {
+            [System.Windows.Forms.MessageBox]::Show('Select a process in the RAM list first.', 'Resolve') | Out-Null
+            return
+        }
+        $item = $sel[0]
+        $pidVal = 0
+        if ($item.Tag) { $pidVal = [int]$item.Tag }
+        $pwsh = (Get-Command pwsh -ErrorAction SilentlyContinue).Path
+        if (-not $pwsh) { $pwsh = (Get-Command powershell).Path }
+        $lang = 'en'
+        if ($script:guiLanguage) { $lang = $script:guiLanguage }
+        [void](Show-UnknownProcessResolutionWizard -Owner $tab.FindForm() -HubRoot $HubRoot -ScriptRoot $ScriptRoot `
+            -PsHost $pwsh -Language $lang -OnStatus $OnStatus -ProcessId $pidVal -ProcessName ([string]$item.Text))
+        $r = Invoke-BuildReport -Quiet
+        if ($r) { Show-TransparencyReport -Report $r }
     })
 
     return @{

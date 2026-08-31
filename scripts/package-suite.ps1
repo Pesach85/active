@@ -46,6 +46,9 @@ $items = @(
     (Join-Path $scriptDir "lib\transparency-events.ps1"),
     (Join-Path $scriptDir "lib\network-transparency.ps1"),
     (Join-Path $scriptDir "lib\process-knowledge.ps1"),
+    (Join-Path $scriptDir "lib\process-resolution-policy.ps1"),
+    (Join-Path $scriptDir "resolve-unknown-process.ps1"),
+    (Join-Path $configDir "process-resolution.json"),
     (Join-Path $scriptDir "enrich-process-classification.ps1"),
     (Join-Path $configDir "process-knowledge.json"),
     (Join-Path $configDir "process-intelligence.json"),
@@ -117,6 +120,7 @@ if (Test-Path -LiteralPath $kbSource) {
         New-Item -Path $kbTarget -ItemType Directory -Force | Out-Null
     }
     Copy-Item -LiteralPath (Join-Path $kbSource "process-knowledge-cache.json") -Destination $kbTarget -Force -ErrorAction SilentlyContinue
+    Copy-Item -LiteralPath (Join-Path $kbSource "operator-process-decisions.json") -Destination $kbTarget -Force -ErrorAction SilentlyContinue
 }
 
 $webSource = Join-Path $hubRoot "web\transparency"
