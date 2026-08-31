@@ -1,0 +1,101 @@
+{
+  "SchemaVersion": "MigrationNbdConfig.v1",
+  "Description": "Deterministic rubric for PowerShell to C# migration next-best-decision scoring.",
+  "Weights": {
+    "ParityFeasibility": 0.25,
+    "RegressionRiskInverse": 0.25,
+    "UserValue": 0.20,
+    "GateReadiness": 0.20,
+    "EffortInverse": 0.10
+  },
+  "PassThreshold": 70.0,
+  "MandatoryGates": [
+    "dotnet_test",
+    "core_parity",
+    "hub_smoke"
+  ],
+  "Candidates": [
+    {
+      "Id": "phase0-foundation",
+      "Phase": 0,
+      "Title": "C# core scaffold + catalog parity",
+      "Status": "done",
+      "Scores": {
+        "ParityFeasibility": 100,
+        "RegressionRiskInverse": 95,
+        "UserValue": 70,
+        "GateReadiness": 100,
+        "EffortInverse": 100
+      }
+    },
+    {
+      "Id": "phase1-resolution-advisory",
+      "Phase": 1,
+      "Title": "Port ResolutionAdvisory (read-only) to Core",
+      "Status": "ready",
+      "PsOrigin": "scripts/resolve-unknown-process.ps1",
+      "CoreTarget": "ResolutionAdvisoryService",
+      "Deliverable": "hub resolve advisory --name X",
+      "Scores": {
+        "ParityFeasibility": 88,
+        "RegressionRiskInverse": 82,
+        "UserValue": 92,
+        "GateReadiness": 85,
+        "EffortInverse": 78
+      },
+      "Rationale": "Builds on ProcessNecessityResolver (Phase 0). Read-only, no HITL. Unblocks web/GUI advisory path."
+    },
+    {
+      "Id": "phase1-ppi-analyze",
+      "Phase": 1,
+      "Title": "Port PPI analyze to Core",
+      "Status": "ready",
+      "PsOrigin": "scripts/analyze-process-pressure.ps1",
+      "CoreTarget": "ProcessPressureAnalyzer",
+      "Deliverable": "hub analyze pressure",
+      "Scores": {
+        "ParityFeasibility": 72,
+        "RegressionRiskInverse": 78,
+        "UserValue": 88,
+        "GateReadiness": 70,
+        "EffortInverse": 55
+      },
+      "Rationale": "High product value but IO/snapshot timing parity is harder than advisory."
+    },
+    {
+      "Id": "phase1-transparency-report",
+      "Phase": 1,
+      "Title": "Port transparency report builder to Core",
+      "Status": "blocked",
+      "BlockedBy": ["phase1-resolution-advisory", "phase1-ppi-analyze"],
+      "PsOrigin": "scripts/build-transparency-report.ps1",
+      "CoreTarget": "TransparencyReportBuilder",
+      "Deliverable": "hub transparency report",
+      "Scores": {
+        "ParityFeasibility": 58,
+        "RegressionRiskInverse": 65,
+        "UserValue": 95,
+        "GateReadiness": 45,
+        "EffortInverse": 40
+      },
+      "Rationale": "Aggregates PPI + network + agents. Defer until upstream analyzers have Core parity."
+    },
+    {
+      "Id": "phase2-identify-catalog",
+      "Phase": 2,
+      "Title": "Identify + catalog merge with HITL auth",
+      "Status": "blocked",
+      "BlockedBy": ["phase1-resolution-advisory"],
+      "PsOrigin": "scripts/identify-unknown-process.ps1",
+      "CoreTarget": "IdentifyCatalogPipeline",
+      "Scores": {
+        "ParityFeasibility": 65,
+        "RegressionRiskInverse": 55,
+        "UserValue": 90,
+        "GateReadiness": 40,
+        "EffortInverse": 35
+      },
+      "Rationale": "Requires operator auth port. Phase 2 after read-only Phase 1 stable."
+    }
+  ]
+}

@@ -57,11 +57,12 @@ Deliverable: Web dashboard calls ASP.NET API (Phase 3 prep); PS scripts become 1
 
 ## Regression policy (every phase)
 
-1. Run `test-hub-smoke.ps1` — must stay ALL PASSED
-2. Run `test-core-parity.ps1` — new domains must PASS
-3. Run `test-identify-chain-e2e.ps1` when touching identify/resolve
-4. Rollback JSON format unchanged in `logs/`
-5. KB journal entry per phase with pattern hints
+1. Run `evaluate-migration-nbd.ps1 -Apply` — gates + scored NBD
+2. Run `test-hub-smoke.ps1` — must stay ALL PASSED
+3. Run `test-core-parity.ps1` — new domains must PASS
+4. Run `test-identify-chain-e2e.ps1` when touching identify/resolve
+5. Rollback JSON format unchanged in `logs/`
+6. KB journal entry per phase with pattern hints
 
 ## What we do NOT migrate
 
