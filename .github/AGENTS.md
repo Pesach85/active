@@ -45,6 +45,14 @@ powershell -File scripts/test-hub-smoke.ps1
 powershell -File scripts/test-identify-chain-e2e.ps1
 ```
 
+Per **migrazione PS → C# Core** (ADR-0007), eseguire NBD scored gate prima di ogni sprint:
+
+```powershell
+powershell -File scripts/evaluate-migration-nbd.ps1 -Apply
+```
+
+Rubrica: [`docs/knowledge/migration-nbd-quality-gate.md`](../docs/knowledge/migration-nbd-quality-gate.md) · config: `config/migration-nbd.json`
+
 ## Guardrail operativi
 
 - PowerShell Core quando disponibile (`ensure-powershell-core.ps1`)
