@@ -44,6 +44,7 @@
               <th>RAM MB</th>
               <th>Trust</th>
               <th>Motivo</th>
+              <th>Azioni</th>
             </tr>
           </thead>
           <tbody id="ramBody"></tbody>
@@ -111,8 +112,59 @@
   </main>
 
   <footer class="footer">
-    Solo localhost · read-only · nessuna mutazione OS da questa pagina
+    Solo localhost · azioni mutanti richiedono password Windows · nessun merge automatico catalogo
   </footer>
+
+  <div id="wizardOverlay" class="modal-overlay hidden" aria-hidden="true">
+    <div class="modal" role="dialog" aria-labelledby="wizardTitle">
+      <header class="modal-header">
+        <h2 id="wizardTitle">Risolvi / Identifica processo</h2>
+        <button type="button" id="btnWizardClose" class="btn-muted">Chiudi</button>
+      </header>
+      <div class="modal-tabs">
+        <button type="button" class="tab active" data-tab="advisory">Advisory & azioni</button>
+        <button type="button" class="tab" data-tab="identify">Identifica manualmente</button>
+      </div>
+      <div class="modal-body">
+        <div id="tabAdvisory" class="tab-panel active">
+          <pre id="wizardAdvisory" class="advisory-box"></pre>
+          <div class="wizard-actions">
+            <button type="button" id="btnObserve" class="btn-secondary">Osserva</button>
+            <button type="button" id="btnThrottle" class="btn-secondary">Throttle</button>
+            <button type="button" id="btnKeep" class="btn-secondary">Necessario lavoro</button>
+            <button type="button" id="btnStop" class="btn-danger">Stop…</button>
+          </div>
+        </div>
+        <div id="tabIdentify" class="tab-panel">
+          <p class="hint">Descrivi il processo. Salvato in KB cache (no merge automatico catalogo).</p>
+          <label>Cos'è <input id="idWhatIs" type="text" /></label>
+          <label>Cosa fa <textarea id="idWhatDoes" rows="3"></textarea></label>
+          <label>Suggerimento lavoro <input id="idBusiness" type="text" /></label>
+          <label>Nota <input id="idNote" type="text" /></label>
+          <div class="row-2">
+            <label>Categoria
+              <select id="idCategory">
+                <option>Unknown</option><option>Browser</option><option>Database</option>
+                <option>Virtualization</option><option>VPN</option><option>Security</option>
+                <option>IDE</option><option>Sync</option><option>Platform</option><option>DevTool</option><option>Other</option>
+              </select>
+            </label>
+            <label>Priorità
+              <select id="idPriority"><option>Review</option><option>Tune</option><option>Keep</option></select>
+            </label>
+          </div>
+          <button type="button" id="btnSaveIdentify">Salva identificazione</button>
+        </div>
+        <div class="auth-box">
+          <span id="operatorUser" class="muted">—</span>
+          <label>Password Windows (richiesta per azioni)
+            <input id="operatorPassword" type="password" autocomplete="current-password" />
+          </label>
+        </div>
+        <div id="wizardStatus" class="wizard-status muted"></div>
+      </div>
+    </div>
+  </div>
   <script src="app.js"></script>
 </body>
 </html>

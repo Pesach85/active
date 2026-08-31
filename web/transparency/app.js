@@ -1,3 +1,7 @@
+let reportData = null;
+let wizardTarget = null;
+let wizardPayload = null;
+
 async function fetchReport(refresh = false) {
   const url = refresh ? '/api/refresh' : '/api/report.json';
   const res = await fetch(url, { cache: 'no-store' });
@@ -14,6 +18,7 @@ function trustClass(level) {
 }
 
 function renderReport(data) {
+  reportData = data;
   document.getElementById('postureScore').textContent = data.Posture?.Score ?? '—';
   const gradeEl = document.getElementById('postureGrade');
   const grade = data.Posture?.Grade ?? '';
@@ -51,7 +56,11 @@ function renderReport(data) {
     tr.innerHTML = `<td>${p.Name} <span class="muted">(${p.PID})</span></td>
       <td>${p.RamMb}</td>
       <td class="${trustClass(p.TrustLevel)}">${p.TrustLevel}</td>
-      <td>${p.TrustReason || ''}</td>`;
+      <td>${p.TrustReason || ''}</td>
+      <td class="btn-row">
+        <button type="button" class="btn-mini" data-action="resolve" data-pid="${p.PID}" data-name="${p.Name}">Risolvi</button>
+        <button type="button" class="btn-mini" data-action="identify" data-pid="${p.PID}" data-name="${p.Name}">Identifica</button>
+      </td>`;
     ramBody.appendChild(tr);
   });
 
@@ -92,9 +101,9 @@ function renderReport(data) {
         <td class="${trustClass(c.TrustLevel)}">${c.TrustLevel}</td>`;
       networkBody.appendChild(tr);
     });
-    (net.HiddenNetworkProcesses || []).forEach(h => {
+    (net.HiddenNetworkProcesses || []).forEach(hn => {
       const li = document.createElement('li');
-      li.innerHTML = `<strong>${h.Name}</strong> PID ${h.PID} · ${h.RamMb}MB · ext=${h.ExternalConnections} — ${h.TrustReason}`;
+      li.innerHTML = `<strong>${hn.Name}</strong> PID ${hn.PID} · ${hn.RamMb}MB · ext=${hn.ExternalConnections} — ${hn.TrustReason}`;
       hiddenNetList.appendChild(li);
     });
   } else {
@@ -103,11 +112,11 @@ function renderReport(data) {
 
   const hintsList = document.getElementById('hintsList');
   hintsList.innerHTML = '';
-  (data.ClassificationHints || []).forEach(h => {
+  (data.ClassificationHints || []).forEach(hint => {
     const li = document.createElement('li');
-    li.innerHTML = `<strong>${h.ProcessName}</strong> · ${h.SuggestedCategory} / ${h.SuggestedPriority}
-      · conf ${h.Confidence} · ${h.TrustLevel}<br>
-      <span class="muted">${h.WhatItIs}</span><br>${h.WhatItDoes}`;
+    li.innerHTML = `<strong>${hint.ProcessName}</strong> · ${hint.SuggestedCategory} / ${hint.SuggestedPriority}
+      · conf ${hint.Confidence} · ${hint.TrustLevel}<br>
+      <span class="muted">${hint.WhatItIs}</span><br>${hint.WhatItDoes}`;
     hintsList.appendChild(li);
   });
 
@@ -148,6 +157,192 @@ async function load(refresh = false) {
   }
 }
 
+function setWizardStatus(msg, isError = false) {
+  const el = document.getElementById('wizardStatus');
+  el.textContent = msg || '';
+  el.style.color = isError ? 'var(--red)' : 'var(--muted)';
+}
+
+function getPassword() {
+  const pwd = document.getElementById('operatorPassword').value;
+  if (!pwd) {
+    setWizardStatus('Password Windows richiesta.', true);
+    return null;
+  }
+  return pwd;
+}
+
+function formatAdvisory(payload) {
+  const p = payload.Process || {};
+  const adv = payload.Advisory || {};
+  const hint = payload.KnowledgeHint || {};
+  const lines = [];
+  lines.push(`PROCESS: ${p.ProcessName} PID=${p.PID} RAM=${p.RamMb}MB`);
+  if (p.NotRunning) lines.push('⚠ Processo non in esecuzione');
+  lines.push('');
+  lines.push('AI / KB:', adv.AiAidedSummary || '—');
+  if (hint.WhatItIs) lines.push('WhatItIs:', hint.WhatItIs);
+  if (hint.WhatItDoes) lines.push('WhatItDoes:', hint.WhatItDoes);
+  lines.push('');
+  lines.push('RECOMMENDED:', adv.RecommendedActionId);
+  (adv.Warnings || []).forEach(w => lines.push('•', w));
+  (adv.Options || []).forEach(o => lines.push(`[${o.ActionId}] ${o.Label} (cost=${o.EfficiencyCost})`));
+  return lines.join('\n');
+}
+
+async function openWizard(target, identifyTab = false) {
+  wizardTarget = target;
+  wizardPayload = null;
+  setWizardStatus('');
+  document.getElementById('operatorPassword').value = '';
+  document.getElementById('wizardOverlay').classList.remove('hidden');
+  document.getElementById('wizardTitle').textContent = identifyTab
+    ? `Identifica: ${target.name} (${target.pid})`
+    : `Risolvi: ${target.name} (${target.pid})`;
+
+  try {
+    const res = await fetch('/api/operator-identity');
+    if (res.ok) {
+      const id = await res.json();
+      document.getElementById('operatorUser').textContent = `Utente: ${id.Domain}\\${id.UserName}`;
+    }
+  } catch { }
+
+  const advRes = await fetch('/api/process/advisory', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ processId: target.pid, processName: target.name, offline: true })
+  });
+  if (!advRes.ok) {
+    setWizardStatus('Impossibile caricare advisory.', true);
+    return;
+  }
+  wizardPayload = await advRes.json();
+  document.getElementById('wizardAdvisory').textContent = formatAdvisory(wizardPayload);
+
+  const hint = wizardPayload.KnowledgeHint || {};
+  document.getElementById('idWhatIs').value = hint.WhatItIs || '';
+  document.getElementById('idWhatDoes').value = hint.WhatItDoes || '';
+  document.getElementById('idBusiness').value = hint.BusinessHint || '';
+  if (hint.SuggestedCategory) document.getElementById('idCategory').value = hint.SuggestedCategory;
+
+  const notRunning = wizardPayload.Process?.NotRunning;
+  document.getElementById('btnThrottle').disabled = !!notRunning;
+  document.getElementById('btnStop').disabled = !!notRunning;
+
+  switchTab(identifyTab ? 'identify' : 'advisory');
+}
+
+function closeWizard() {
+  document.getElementById('wizardOverlay').classList.add('hidden');
+  wizardTarget = null;
+  wizardPayload = null;
+}
+
+function switchTab(name) {
+  document.querySelectorAll('.modal-tabs .tab').forEach(t => {
+    t.classList.toggle('active', t.dataset.tab === name);
+  });
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById(name === 'identify' ? 'tabIdentify' : 'tabAdvisory').classList.add('active');
+}
+
+async function postAction(action, extra = {}) {
+  const password = getPassword();
+  if (!password) return null;
+  const body = {
+    processId: wizardTarget.pid,
+    processName: wizardTarget.name,
+    action,
+    password,
+    ...extra
+  };
+  const res = await fetch('/api/process/action', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    setWizardStatus(data.result?.Message || data.error || 'Azione fallita', true);
+    return null;
+  }
+  setWizardStatus(data.Message || 'OK');
+  await load(true);
+  return data;
+}
+
 document.getElementById('btnRefresh').addEventListener('click', () => load(true));
+document.getElementById('btnWizardClose').addEventListener('click', closeWizard);
+document.getElementById('wizardOverlay').addEventListener('click', e => {
+  if (e.target.id === 'wizardOverlay') closeWizard();
+});
+
+document.querySelectorAll('.modal-tabs .tab').forEach(tab => {
+  tab.addEventListener('click', () => switchTab(tab.dataset.tab));
+});
+
+document.getElementById('ramBody').addEventListener('click', e => {
+  const btn = e.target.closest('button[data-action]');
+  if (!btn) return;
+  openWizard({ pid: parseInt(btn.dataset.pid, 10), name: btn.dataset.name }, btn.dataset.action === 'identify');
+});
+
+document.getElementById('btnObserve').addEventListener('click', async () => {
+  await postAction('Observe');
+});
+
+document.getElementById('btnThrottle').addEventListener('click', async () => {
+  if (!confirm('Impostare priorità BelowNormal? (reversibile)')) return;
+  await postAction('ThrottleBelowNormal');
+});
+
+document.getElementById('btnKeep').addEventListener('click', async () => {
+  const phrase = prompt('Digita esattamente: KEEP FOR WORK');
+  if (phrase !== 'KEEP FOR WORK') return;
+  await postAction('MarkWorkNecessary', { confirmPhrase: phrase });
+});
+
+document.getElementById('btnStop').addEventListener('click', async () => {
+  if (!confirm('ATTENZIONE: chiudere il processo può causare perdita dati. Continuare?')) return;
+  const phrase = prompt('Digita esattamente: STOP UNKNOWN');
+  if (phrase !== 'STOP UNKNOWN') return;
+  await postAction('Terminate', { confirmPhrase: phrase });
+});
+
+document.getElementById('btnSaveIdentify').addEventListener('click', async () => {
+  const whatItIs = document.getElementById('idWhatIs').value.trim();
+  const whatItDoes = document.getElementById('idWhatDoes').value.trim();
+  if (!whatItIs || !whatItDoes) {
+    setWizardStatus('Compila Cos\'è e Cosa fa.', true);
+    return;
+  }
+  const password = getPassword();
+  if (!password) return;
+  const res = await fetch('/api/process/identify', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      processId: wizardTarget.pid,
+      processName: wizardTarget.name,
+      whatItIs,
+      whatItDoes,
+      category: document.getElementById('idCategory').value,
+      priority: document.getElementById('idPriority').value,
+      businessHint: document.getElementById('idBusiness').value.trim(),
+      note: document.getElementById('idNote').value.trim(),
+      password
+    })
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    setWizardStatus(data.error || 'Identificazione fallita', true);
+    return;
+  }
+  setWizardStatus('Identificazione salvata in KB cache.');
+  document.getElementById('operatorPassword').value = '';
+  await load(true);
+});
+
 load(false);
 setInterval(() => load(false), 30000);

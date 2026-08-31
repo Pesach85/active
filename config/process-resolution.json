@@ -10,5 +10,8 @@
   "UnidentifiedConfidenceThreshold": 0.72,
   "PreferReversibleActions": true,
   "AllowedActions": ["Observe", "ThrottleBelowNormal", "Terminate", "MarkWorkNecessary", "MarkUnneeded"],
+  "RequireWindowsPasswordForActions": true,
+  "IdentifyCategories": ["Unknown", "Browser", "Database", "Virtualization", "VPN", "Security", "IDE", "Sync", "Platform", "DevTool", "Game", "Other"],
+  "IdentifyPriorities": ["Keep", "Tune", "Review"],
   "NeverTerminateExact": ["System", "csrss", "wininit", "services", "lsass", "svchost", "winlogon", "MsMpEng", "Cursor", "pwsh", "WindowsOptimizer", "SystemOptimizer"]
 }

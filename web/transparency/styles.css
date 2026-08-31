@@ -114,6 +114,68 @@ th { color: var(--muted); font-weight: 600; }
   border-top: 1px solid var(--border);
 }
 
+.btn-row { display: flex; gap: 0.35rem; flex-wrap: wrap; }
+.btn-mini {
+  background: transparent;
+  color: var(--accent);
+  border: 1px solid var(--border);
+  padding: 0.2rem 0.45rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.btn-mini:hover { background: rgba(16, 185, 129, 0.12); }
+.btn-secondary { background: #1f2937; color: var(--text); }
+.btn-danger { background: var(--red); color: #fff; }
+.btn-muted { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.65);
+  display: flex; align-items: center; justify-content: center; z-index: 1000;
+  padding: 1rem;
+}
+.modal-overlay.hidden { display: none; }
+.modal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  width: min(680px, 100%);
+  max-height: 90vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.modal-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 0.85rem 1rem; border-bottom: 1px solid var(--border);
+}
+.modal-header h2 { margin: 0; font-size: 1rem; }
+.modal-tabs { display: flex; gap: 0.35rem; padding: 0.5rem 1rem 0; }
+.modal-tabs .tab {
+  background: transparent; color: var(--muted); border: 1px solid var(--border);
+  padding: 0.35rem 0.65rem; font-size: 0.82rem;
+}
+.modal-tabs .tab.active { color: var(--text); border-color: var(--accent); }
+.modal-body { padding: 0.75rem 1rem 1rem; overflow-y: auto; }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+.advisory-box {
+  background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+  padding: 0.75rem; max-height: 240px; overflow: auto; font-size: 0.78rem;
+  white-space: pre-wrap;
+}
+.wizard-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.75rem; }
+.auth-box {
+  margin-top: 0.85rem; padding-top: 0.75rem; border-top: 1px solid var(--border);
+  display: grid; gap: 0.45rem;
+}
+.auth-box label, #tabIdentify label { display: grid; gap: 0.25rem; font-size: 0.85rem; margin-bottom: 0.5rem; }
+.auth-box input, #tabIdentify input, #tabIdentify textarea, #tabIdentify select {
+  background: var(--bg); border: 1px solid var(--border); color: var(--text);
+  border-radius: 6px; padding: 0.4rem 0.55rem; font: inherit;
+}
+.row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+.wizard-status { margin-top: 0.5rem; min-height: 1.2rem; font-size: 0.82rem; }
+
 @media (max-width: 800px) {
   .grid { grid-template-columns: 1fr; }
   .policy-cols { grid-template-columns: 1fr; }

@@ -31,12 +31,15 @@ function New-TransparencyTab {
     $btnResolve = New-Btn 'Resolve…' $clrRed 100 38
     $btnResolve.Location = New-Object System.Drawing.Point(414, 14)
 
+    $btnIdentify = New-Btn 'Identify…' $clrPurple 100 38
+    $btnIdentify.Location = New-Object System.Drawing.Point(520, 14)
+
     $lblPosture = New-Object System.Windows.Forms.Label
     $lblPosture.Text = 'Posture: —'
     $lblPosture.Font = $fntH2
     $lblPosture.ForeColor = $clrAccent
     $lblPosture.AutoSize = $true
-    $lblPosture.Location = New-Object System.Drawing.Point(530, 18)
+    $lblPosture.Location = New-Object System.Drawing.Point(630, 18)
     $lblPosture.BackColor = [System.Drawing.Color]::Transparent
 
     $lblTransDesc = New-Object System.Windows.Forms.Label
@@ -52,7 +55,7 @@ function New-TransparencyTab {
     $pnlHeaderBorder.Height = 1
     $pnlHeaderBorder.BackColor = $clrBorderC
 
-    $pnlHeader.Controls.AddRange(@($btnRefresh, $btnOpenWeb, $btnRunReport, $btnResolve, $lblPosture, $lblTransDesc, $pnlHeaderBorder))
+    $pnlHeader.Controls.AddRange(@($btnRefresh, $btnOpenWeb, $btnRunReport, $btnResolve, $btnIdentify, $lblPosture, $lblTransDesc, $pnlHeaderBorder))
 
     $listAgents = New-Object System.Windows.Forms.ListView
     $listAgents.View = 'Details'
@@ -312,21 +315,48 @@ function New-TransparencyTab {
             return
         }
         $sel = $listRam.SelectedItems
-        if (-not $sel -or $sel.Count -eq 0) {
-            [System.Windows.Forms.MessageBox]::Show('Select a process in the RAM list first.', 'Resolve') | Out-Null
-            return
-        }
-        $item = $sel[0]
         $pidVal = 0
-        if ($item.Tag) { $pidVal = [int]$item.Tag }
+        $procName = ''
+        if ($sel -and $sel.Count -gt 0) {
+            $item = $sel[0]
+            if ($item.Tag) { $pidVal = [int]$item.Tag }
+            $procName = [string]$item.Text
+        }
         $pwsh = (Get-Command pwsh -ErrorAction SilentlyContinue).Path
         if (-not $pwsh) { $pwsh = (Get-Command powershell).Path }
         $lang = 'en'
         if ($script:guiLanguage) { $lang = $script:guiLanguage }
         [void](Show-UnknownProcessResolutionWizard -Owner $tab.FindForm() -HubRoot $HubRoot -ScriptRoot $ScriptRoot `
-            -PsHost $pwsh -Language $lang -OnStatus $OnStatus -ProcessId $pidVal -ProcessName ([string]$item.Text))
+            -PsHost $pwsh -Language $lang -OnStatus $OnStatus -ProcessId $pidVal -ProcessName $procName)
         $r = Invoke-BuildReport -Quiet
         if ($r) { Show-TransparencyReport -Report $r }
+    })
+
+    $btnIdentify.Add_Click({
+        if (-not (Get-Command Show-IdentifyProcessWizard -ErrorAction SilentlyContinue)) {
+            [System.Windows.Forms.MessageBox]::Show('Identify wizard not loaded.', 'Identify') | Out-Null
+            return
+        }
+        $sel = $listRam.SelectedItems
+        $pidVal = 0
+        $procName = ''
+        if ($sel -and $sel.Count -gt 0) {
+            $item = $sel[0]
+            if ($item.Tag) { $pidVal = [int]$item.Tag }
+            $procName = [string]$item.Text
+        }
+        $pwsh = (Get-Command pwsh -ErrorAction SilentlyContinue).Path
+        if (-not $pwsh) { $pwsh = (Get-Command powershell).Path }
+        $lang = 'en'
+        if ($script:guiLanguage) { $lang = $script:guiLanguage }
+        [void](Show-IdentifyProcessWizard -Owner $tab.FindForm() -HubRoot $HubRoot -ScriptRoot $ScriptRoot `
+            -PsHost $pwsh -Language $lang -OnStatus $OnStatus -ProcessId $pidVal -ProcessName $procName)
+        $r = Invoke-BuildReport -Quiet
+        if ($r) { Show-TransparencyReport -Report $r }
+    })
+
+    $listRam.Add_DoubleClick({
+        if ($btnResolve.Enabled) { $btnResolve.PerformClick() }
     })
 
     return @{

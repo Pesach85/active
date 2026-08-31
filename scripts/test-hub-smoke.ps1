@@ -278,6 +278,28 @@ Invoke-SmokeStep -Name 'process-resolution-known' `
         if ([string]$j.Advisory.RecommendedActionId -eq 'Terminate') { throw 'Should not recommend terminate for known mysqld' }
     }
 
+$idOut = Join-Path $logs 'smoke-process-identify.json'
+Invoke-SmokeStep -Name 'process-identify-manual' `
+    -ScriptPath (Join-Path $scriptDir 'identify-unknown-process.ps1') `
+    -Arguments @('-ProcessName', 'SmokeTestProcXYZ', '-WhatItIs', 'SmokeTestProcess', '-WhatItDoes', 'ValidatesManualIdentify', '-SuggestedCategory', 'Other', '-SuggestedPriority', 'Review', '-SkipAuth', '-OutputJson', $idOut, '-Quiet') `
+    -OutputPath $idOut `
+    -Validate {
+        param($path)
+        $j = Get-Content -LiteralPath $path -Raw | ConvertFrom-Json
+        if ([string]$j.Outcome -ne 'Identified') { throw 'Expected Identified outcome' }
+    }
+
+$dryRunOut = Join-Path $logs 'smoke-res-dryrun-missing.json'
+Invoke-SmokeStep -Name 'process-resolution-dryrun-missing' `
+    -ScriptPath (Join-Path $scriptDir 'resolve-unknown-process.ps1') `
+    -Arguments @('-ProcessId', '1234', '-Action', 'ThrottleBelowNormal', '-DryRun', '-OutputJson', $dryRunOut, '-Quiet') `
+    -OutputPath $dryRunOut `
+    -Validate {
+        param($path)
+        $j = Get-Content -LiteralPath $path -Raw | ConvertFrom-Json
+        if ([string]$j.Outcome -ne 'ProcessNotRunning') { throw "Expected ProcessNotRunning got $($j.Outcome)" }
+    }
+
 $defenderEval = Join-Path $logs 'smoke-defender-eval.json'
 Invoke-SmokeStep -Name 'defender-extreme-eval' `
     -ScriptPath (Join-Path $scriptDir 'evaluate-defender-extreme-necessity.ps1') `

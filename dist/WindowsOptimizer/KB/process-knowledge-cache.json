@@ -1,32 +1,25 @@
 {
   "SchemaVersion": "ProcessKnowledgeCache.v1",
-  "UpdatedAt": "2026-08-31T10:00:00",
   "Entries": {
-    "vmware-vmx": {
-      "ProcessName": "vmware-vmx",
-      "WhatItIs": "Host process for a VMware Workstation/Fusion virtual machine",
-      "WhatItDoes": "Allocates guest RAM and CPU; high Working Set reflects VM memory reservation, not leak",
-      "SuggestedCategory": "Virtualization",
-      "SuggestedPriority": "Tune",
-      "ResourceProfile": "MemoryHeavy",
-      "BusinessHint": "Stop or suspend VM when not needed for work; keep if dev/test environment is active",
-      "SuggestedActions": ["Suspend VM when idle", "Reduce VM RAM allocation in VM settings", "Do not terminate while guest has unsaved work"],
-      "Confidence": 0.95,
-      "Sources": ["kb-seed", "https://www.vmware.com/products/workstation.html"],
-      "LearnedAt": "2026-08-31T10:00:00"
-    },
-    "mysqld": {
-      "ProcessName": "mysqld",
-      "WhatItIs": "MySQL/MariaDB database server daemon",
-      "WhatItDoes": "Serves SQL databases; RAM scales with buffer pool and connections",
-      "SuggestedCategory": "Database",
-      "SuggestedPriority": "Tune",
-      "ResourceProfile": "MemoryHeavy",
-      "BusinessHint": "Keep if local apps (WordPress, dev stack) need DB; stop service when not developing",
-      "SuggestedActions": ["Confirm which app uses the DB", "Lower innodb_buffer_pool_size if over-provisioned", "Stop MySQL Windows service when unused"],
-      "Confidence": 0.93,
-      "Sources": ["kb-seed", "https://dev.mysql.com/doc/refman/8.0/en/mysqld.html"],
-      "LearnedAt": "2026-08-31T10:00:00"
+    "smoketestprocxyz": {
+      "ImagePath": "",
+      "BusinessHint": "",
+      "SuggestedCategory": "Other",
+      "WhatItDoes": "ValidatesManualIdentify",
+      "SuggestedPriority": "Review",
+      "ResourceProfile": "Mixed",
+      "SuggestedActions": [
+        "Operator manual identification — review catalog merge separately"
+      ],
+      "LearnedAt": "2026-08-31T10:54:43.9055832+02:00",
+      "OperatorNote": "",
+      "Confidence": 0.98,
+      "Sources": [
+        "operator-manual",
+        "PID=0"
+      ],
+      "ProcessName": "SmokeTestProcXYZ",
+      "WhatItIs": "SmokeTestProcess"
     },
     "charon-svc": {
       "ProcessName": "charon-svc",
@@ -36,9 +29,36 @@
       "SuggestedPriority": "Review",
       "ResourceProfile": "NetworkIO",
       "BusinessHint": "Keep if corporate VPN requires StrongSwan; classify as business-critical after operator confirm",
-      "SuggestedActions": ["Verify VPN profile owner", "Add to catalog as Keep if mandatory for work", "Disconnect VPN when not needed"],
+      "SuggestedActions": [
+        "Verify VPN profile owner",
+        "Add to catalog as Keep if mandatory for work",
+        "Disconnect VPN when not needed"
+      ],
       "Confidence": 0.88,
-      "Sources": ["kb-seed", "https://wiki.strongswan.org/projects/strongswan/wiki/Charon"],
+      "Sources": [
+        "kb-seed",
+        "https://wiki.strongswan.org/projects/strongswan/wiki/Charon"
+      ],
+      "LearnedAt": "2026-08-31T10:00:00"
+    },
+    "vmware-vmx": {
+      "ProcessName": "vmware-vmx",
+      "WhatItIs": "Host process for a VMware Workstation/Fusion virtual machine",
+      "WhatItDoes": "Allocates guest RAM and CPU; high Working Set reflects VM memory reservation, not leak",
+      "SuggestedCategory": "Virtualization",
+      "SuggestedPriority": "Tune",
+      "ResourceProfile": "MemoryHeavy",
+      "BusinessHint": "Stop or suspend VM when not needed for work; keep if dev/test environment is active",
+      "SuggestedActions": [
+        "Suspend VM when idle",
+        "Reduce VM RAM allocation in VM settings",
+        "Do not terminate while guest has unsaved work"
+      ],
+      "Confidence": 0.95,
+      "Sources": [
+        "kb-seed",
+        "https://www.vmware.com/products/workstation.html"
+      ],
       "LearnedAt": "2026-08-31T10:00:00"
     },
     "mkssandbox": {
@@ -49,10 +69,36 @@
       "SuggestedPriority": "Tune",
       "ResourceProfile": "MemoryHeavy",
       "BusinessHint": "Child of VMware stack — classify with vmware-vmx",
-      "SuggestedActions": ["Treat as part of VMware VM lifecycle", "Stops when VM is powered off"],
-      "Confidence": 0.90,
-      "Sources": ["kb-seed"],
+      "SuggestedActions": [
+        "Treat as part of VMware VM lifecycle",
+        "Stops when VM is powered off"
+      ],
+      "Confidence": 0.9,
+      "Sources": [
+        "kb-seed"
+      ],
+      "LearnedAt": "2026-08-31T10:00:00"
+    },
+    "mysqld": {
+      "ProcessName": "mysqld",
+      "WhatItIs": "MySQL/MariaDB database server daemon",
+      "WhatItDoes": "Serves SQL databases; RAM scales with buffer pool and connections",
+      "SuggestedCategory": "Database",
+      "SuggestedPriority": "Tune",
+      "ResourceProfile": "MemoryHeavy",
+      "BusinessHint": "Keep if local apps (WordPress, dev stack) need DB; stop service when not developing",
+      "SuggestedActions": [
+        "Confirm which app uses the DB",
+        "Lower innodb_buffer_pool_size if over-provisioned",
+        "Stop MySQL Windows service when unused"
+      ],
+      "Confidence": 0.93,
+      "Sources": [
+        "kb-seed",
+        "https://dev.mysql.com/doc/refman/8.0/en/mysqld.html"
+      ],
       "LearnedAt": "2026-08-31T10:00:00"
     }
-  }
+  },
+  "UpdatedAt": "2026-08-31T10:54:43.9734583+02:00"
 }

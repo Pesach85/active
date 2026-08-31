@@ -6,10 +6,12 @@ param(
     [string]$Action = 'Advisory',
     [string]$ConfirmPhrase = '',
     [string]$OperatorNote = '',
+    [string]$WindowsPassword = '',
     [string]$OutputJson = '',
     [string]$HubRoot = '',
     [switch]$DryRun,
     [switch]$Offline,
+    [switch]$SkipAuth,
     [switch]$Quiet
 )
 
@@ -24,6 +26,7 @@ if (-not $HubRoot) { $HubRoot = Split-Path -Parent $scriptDir }
 . (Join-Path $scriptDir 'lib\process-knowledge.ps1')
 . (Join-Path $scriptDir 'lib\process-resolution-policy.ps1')
 . (Join-Path $scriptDir 'lib\transparency-events.ps1')
+. (Join-Path $scriptDir 'lib\operator-auth.ps1')
 
 $hub = Get-HubPaths -HubRoot $HubRoot
 $resCfg = Get-ProcessResolutionConfig -HubRoot $HubRoot
@@ -36,18 +39,35 @@ if (Test-Path -LiteralPath $hub.ConfigFile) {
 
 $snap = Get-ProcessLiveSnapshot -ProcessId $ProcessId -ProcessName $ProcessName
 if (-not $snap) {
-    if ($Action -eq 'Advisory' -and $ProcessName) {
+    $syntheticName = if ($ProcessName) { ($ProcessName -replace '\.exe$','') } else { "PID$ProcessId" }
+    if ($Action -eq 'Advisory' -or ($DryRun -and $Action -ne 'Observe')) {
         $snap = [ordered]@{
-            PID = 0
-            ProcessName = ($ProcessName -replace '\.exe$','')
+            PID = if ($ProcessId -gt 0) { $ProcessId } else { 0 }
+            ProcessName = $syntheticName
             RamMb = 0.0
             CpuSec = 0.0
-            Responding = $true
+            Responding = $false
             PriorityClass = 'Unknown'
             Path = ''
+            NotRunning = $true
         }
     } else {
-        throw "Process not found (PID=$ProcessId Name=$ProcessName)"
+        $result = [ordered]@{
+            SchemaVersion = 'ProcessResolutionResult.v1'
+            GeneratedAt = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss')
+            Action = $Action
+            DryRun = [bool]$DryRun
+            Process = [ordered]@{ PID = $ProcessId; ProcessName = $syntheticName }
+            Outcome = 'ProcessNotFound'
+            Message = "Process not running (PID=$ProcessId Name=$ProcessName). Select a live process from the Control tab or web dashboard."
+        }
+        if (-not $OutputJson) { $OutputJson = Join-Path $hub.Logs 'process-resolution-latest.json' }
+        $dir = Split-Path -Parent $OutputJson
+        if ($dir -and -not (Test-Path -LiteralPath $dir)) { New-Item -Path $dir -ItemType Directory -Force | Out-Null }
+        ($result | ConvertTo-Json -Depth 8) | Out-File -LiteralPath $OutputJson -Encoding utf8 -Force
+        if (-not $Quiet) { Write-Host $result.Message }
+        $result
+        exit 1
     }
 }
 
@@ -93,6 +113,13 @@ if ($Action -eq 'Advisory') {
     $result.Message = 'No action taken — review Advisory.RecommendedActionId'
 }
 else {
+    if ($snap.NotRunning) {
+        $result.Outcome = 'ProcessNotRunning'
+        $result.Message = 'Process is not running — cannot apply this action. Refresh the list and pick a live process.'
+    }
+    else {
+    [void](Assert-OperatorWindowsPassword -Password $WindowsPassword -SkipAuth:$SkipAuth)
+
     $nec = Resolve-ProcessNecessity -ProcessName ([string]$snap.ProcessName) -Catalog $catalog
     if ([string]$nec.Priority -eq 'Keep' -and $Action -in @('Terminate', 'ThrottleBelowNormal')) {
         throw "Process '$($snap.ProcessName)' is Priority=Keep in catalog — action blocked."
@@ -179,6 +206,7 @@ else {
                 $result.Message = 'Process terminated by operator HITL decision.'
             }
         }
+    }
     }
 }
 

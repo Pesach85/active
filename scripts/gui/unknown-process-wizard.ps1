@@ -1,4 +1,4 @@
-# HITL wizard for unknown / uncharacterized processes — operator is sole authority.
+# HITL wizard: resolve + manually identify unknown processes — no terminal required.
 
 function Show-UnknownProcessResolutionWizard {
     param(
@@ -11,41 +11,62 @@ function Show-UnknownProcessResolutionWizard {
         [int]$ProcessId = 0,
         [string]$ProcessName = '',
         [double]$RamMb = 0,
-        [object]$ClassificationHint = $null
+        [object]$ClassificationHint = $null,
+        [switch]$IdentifyOnly
     )
 
     $it = ($Language -eq 'it')
     $resolveScript = Join-Path $ScriptRoot 'resolve-unknown-process.ps1'
+    $identifyScript = Join-Path $ScriptRoot 'identify-unknown-process.ps1'
     $outJson = Join-Path $HubRoot 'logs\process-resolution-wizard.json'
+
+    if ($ProcessId -le 0 -and -not $ProcessName) {
+        $pick = Show-ProcessPickerDialog -Owner $Owner -Language $Language
+        if (-not $pick) {
+            return @{ Ok = $false; Reason = 'NoTarget' }
+        }
+        $ProcessId = [int]$pick.ProcessId
+        $ProcessName = [string]$pick.ProcessName
+    }
 
     $args = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $resolveScript, '-Action', 'Advisory', '-OutputJson', $outJson, '-Offline')
     if ($ProcessId -gt 0) { $args += @('-ProcessId', "$ProcessId") }
-    elseif ($ProcessName) { $args += @('-ProcessName', $ProcessName) }
-    else {
-        [void][System.Windows.Forms.MessageBox]::Show(
-            $(if ($it) { 'Seleziona un processo dalla lista RAM.' } else { 'Select a process from the RAM list.' }),
-            'Resolve', 'OK', 'Warning')
-        return @{ Ok = $false; Reason = 'NoTarget' }
-    }
+    if ($ProcessName) { $args += @('-ProcessName', $ProcessName) }
 
     $p = Start-Process -FilePath $PsHost -ArgumentList $args -Wait -PassThru -WindowStyle Hidden
     if ($p.ExitCode -ne 0 -or -not (Test-Path -LiteralPath $outJson)) {
-        [void][System.Windows.Forms.MessageBox]::Show('Failed to build resolution advisory.', 'Resolve', 'OK', 'Error')
+        [void][System.Windows.Forms.MessageBox]::Show(
+            $(if ($it) { "Impossibile costruire l'advisory. Seleziona un processo attivo dalla lista." } else { 'Failed to build advisory. Pick a running process from the list.' }),
+            'Resolve', 'OK', 'Error')
         return @{ Ok = $false; Reason = 'AdvisoryFailed' }
     }
 
     $data = Get-Content -LiteralPath $outJson -Raw | ConvertFrom-Json
     $adv = $data.Advisory
     $hint = $data.KnowledgeHint
+    if ($ProcessId -le 0 -and $data.Process.PID) { $ProcessId = [int]$data.Process.PID }
+    if (-not $ProcessName) { $ProcessName = [string]$data.Process.ProcessName }
 
-    $title = if ($it) { 'Risolvi processo sconosciuto' } else { 'Resolve unknown process' }
+    $title = if ($IdentifyOnly) {
+        if ($it) { 'Identifica processo' } else { 'Identify process' }
+    } else {
+        if ($it) { 'Risolvi processo (AI-aided)' } else { 'Resolve process (AI-aided)' }
+    }
+
     $form = New-Object System.Windows.Forms.Form
     $form.Text = $title
-    $form.Size = New-Object System.Drawing.Size(620, 520)
+    $form.Size = New-Object System.Drawing.Size(680, 580)
     $form.StartPosition = 'CenterParent'
     $form.BackColor = $clrBg
     $form.ForeColor = $clrText
     $form.Font = $fntUI
+
+    $tabs = New-Object System.Windows.Forms.TabControl
+    $tabs.Dock = 'Fill'
+
+    $tabAdv = New-Object System.Windows.Forms.TabPage
+    $tabAdv.Text = if ($it) { 'Advisory & azioni' } else { 'Advisory & actions' }
+    $tabAdv.BackColor = $clrBg
 
     $txt = New-Object System.Windows.Forms.TextBox
     $txt.Multiline = $true
@@ -59,6 +80,9 @@ function Show-UnknownProcessResolutionWizard {
     $lines = [System.Collections.Generic.List[string]]::new()
     [void]$lines.Add("=== $(if ($it) { 'PROCESSO' } else { 'PROCESS' }) ===")
     [void]$lines.Add(("{0} PID={1} RAM={2}MB" -f $data.Process.ProcessName, $data.Process.PID, $data.Process.RamMb))
+    if ($data.Process.NotRunning) {
+        [void]$lines.Add($(if ($it) { '⚠ Processo non in esecuzione — azioni mutanti non disponibili.' } else { '⚠ Process not running — mutating actions unavailable.' }))
+    }
     [void]$lines.Add('')
     [void]$lines.Add('=== AI / KB (Cursor aided) ===')
     [void]$lines.Add([string]$adv.AiAidedSummary)
@@ -69,67 +93,158 @@ function Show-UnknownProcessResolutionWizard {
     [void]$lines.Add('=== WARNINGS ===')
     foreach ($w in @($adv.Warnings)) { [void]$lines.Add("• $w") }
     [void]$lines.Add('')
-    [void]$lines.Add(">>> RECOMMENDED: $($adv.RecommendedActionId) (most efficient reversible path)")
+    [void]$lines.Add(">>> RECOMMENDED: $($adv.RecommendedActionId)")
     [void]$lines.Add('')
-    [void]$lines.Add('=== OPTIONS (sorted by efficiency cost) ===')
     foreach ($o in @($adv.Options)) {
-        [void]$lines.Add(("[{0}] {1} — {2} (cost={3} HITL={4})" -f $o.ActionId, $o.Label, $o.Rationale, $o.EfficiencyCost, $o.RequiresHitl))
+        [void]$lines.Add(("[{0}] {1} — cost={2}" -f $o.ActionId, $o.Label, $o.EfficiencyCost))
     }
     $txt.Text = ($lines -join [Environment]::NewLine)
 
-    $pnlBtns = New-Object System.Windows.Forms.Panel
-    $pnlBtns.Dock = 'Bottom'
-    $pnlBtns.Height = 52
-    $pnlBtns.BackColor = $clrSurface
+    $pnlAdvBtns = New-Object System.Windows.Forms.Panel
+    $pnlAdvBtns.Dock = 'Bottom'
+    $pnlAdvBtns.Height = 52
+    $pnlAdvBtns.BackColor = $clrSurface
 
     $btnObserve = New-Btn $(if ($it) { 'Osserva' } else { 'Observe' }) $clrAccent 100 36
     $btnObserve.Location = New-Object System.Drawing.Point(12, 8)
-    $btnThrottle = New-Btn $(if ($it) { 'Throttle' } else { 'Throttle' }) $clrGreen 100 36
+    $btnThrottle = New-Btn 'Throttle' $clrGreen 100 36
     $btnThrottle.Location = New-Object System.Drawing.Point(118, 8)
-    $btnKeep = New-Btn $(if ($it) { 'Necessario lavoro' } else { 'Work necessary' }) $clrCyan 130 36
+    $btnKeep = New-Btn $(if ($it) { 'Necessario' } else { 'Work OK' }) $clrCyan 100 36
     $btnKeep.Location = New-Object System.Drawing.Point(224, 8)
-    $btnStop = New-Btn $(if ($it) { 'Stop…' } else { 'Stop…' }) $clrRed 90 36
-    $btnStop.Location = New-Object System.Drawing.Point(360, 8)
-    $btnCancel = New-Btn $(if ($it) { 'Annulla' } else { 'Cancel' }) $clrRaised 90 36
-    $btnCancel.Location = New-Object System.Drawing.Point(456, 8)
+    $btnStop = New-Btn 'Stop…' $clrRed 90 36
+    $btnStop.Location = New-Object System.Drawing.Point(330, 8)
 
-    $pnlBtns.Controls.AddRange(@($btnObserve, $btnThrottle, $btnKeep, $btnStop, $btnCancel))
+    $notRunning = $false
+    if ($data.Process.PSObject.Properties['NotRunning'] -and $data.Process.NotRunning) { $notRunning = $true }
+    if ($notRunning) {
+        $btnThrottle.Enabled = $false
+        $btnStop.Enabled = $false
+    }
 
-    $form.Controls.Add($txt)
-    $form.Controls.Add($pnlBtns)
+    $pnlAdvBtns.Controls.AddRange(@($btnObserve, $btnThrottle, $btnKeep, $btnStop))
+    $tabAdv.Controls.Add($txt)
+    $tabAdv.Controls.Add($pnlAdvBtns)
+
+    $tabId = New-Object System.Windows.Forms.TabPage
+    $tabId.Text = if ($it) { 'Identifica manualmente' } else { 'Identify manually' }
+    $tabId.BackColor = $clrBg
+    $tabId.Padding = New-Object System.Windows.Forms.Padding(8)
+
+    function New-FieldLabel([string]$Text, [int]$Y) {
+        $l = New-Object System.Windows.Forms.Label
+        $l.Text = $Text
+        $l.AutoSize = $true
+        $l.Location = New-Object System.Drawing.Point(8, $Y)
+        return $l
+    }
+    function New-FieldBox([int]$Y, [int]$H = 24) {
+        $t = New-Object System.Windows.Forms.TextBox
+        $t.Width = 620
+        $t.Location = New-Object System.Drawing.Point(8, $Y)
+        if ($H -gt 30) { $t.Multiline = $true; $t.Height = $H; $t.ScrollBars = 'Vertical' }
+        return $t
+    }
+
+    $lblIdIntro = New-Object System.Windows.Forms.Label
+    $lblIdIntro.Text = if ($it) {
+        "Descrivi cos'e questo processo. Salvato in KB cache (no merge automatico catalogo)."
+    } else {
+        'Describe what this process is. Saved to KB cache (no automatic catalog merge).'
+    }
+    $lblIdIntro.AutoSize = $true
+    $lblIdIntro.MaximumSize = New-Object System.Drawing.Size(620, 0)
+    $lblIdIntro.Location = New-Object System.Drawing.Point(8, 8)
+
+    $tbWhatIs = New-FieldBox 48
+    $tbWhatDoes = New-FieldBox 100 48
+    $tbBusiness = New-FieldBox 180 40
+    $tbNote = New-FieldBox 248 36
+
+    $lblCat = New-FieldLabel $(if ($it) { 'Categoria:' } else { 'Category:' }) 292
+    $cmbCat = New-Object System.Windows.Forms.ComboBox
+    $cmbCat.DropDownStyle = 'DropDownList'
+    $cmbCat.Width = 200
+    $cmbCat.Location = New-Object System.Drawing.Point(8, 312)
+    [void]$cmbCat.Items.AddRange(@('Unknown', 'Browser', 'Database', 'Virtualization', 'VPN', 'Security', 'IDE', 'Sync', 'Platform', 'DevTool', 'Game', 'Other'))
+
+    $lblPri = New-FieldLabel $(if ($it) { 'Priorità:' } else { 'Priority:' }) 292
+    $lblPri.Location = New-Object System.Drawing.Point(240, 292)
+    $cmbPri = New-Object System.Windows.Forms.ComboBox
+    $cmbPri.DropDownStyle = 'DropDownList'
+    $cmbPri.Width = 120
+    $cmbPri.Location = New-Object System.Drawing.Point(240, 312)
+    [void]$cmbPri.Items.AddRange(@('Review', 'Tune', 'Keep'))
+    $cmbPri.SelectedIndex = 0
+
+    if ($hint.WhatItIs) { $tbWhatIs.Text = [string]$hint.WhatItIs }
+    if ($hint.WhatItDoes) { $tbWhatDoes.Text = [string]$hint.WhatItDoes }
+    if ($hint.BusinessHint) { $tbBusiness.Text = [string]$hint.BusinessHint }
+    if ($hint.SuggestedCategory) {
+        $idx = $cmbCat.Items.IndexOf([string]$hint.SuggestedCategory)
+        if ($idx -ge 0) { $cmbCat.SelectedIndex = $idx } else { $cmbCat.SelectedIndex = 0 }
+    } else { $cmbCat.SelectedIndex = 0 }
+
+    $btnSaveId = New-Btn $(if ($it) { 'Salva identificazione' } else { 'Save identification' }) $clrAccent 160 36
+    $btnSaveId.Location = New-Object System.Drawing.Point(8, 350)
+
+    $tabId.Controls.AddRange(@(
+        $lblIdIntro,
+        (New-FieldLabel $(if ($it) { "Cos'e:" } else { 'What it is:' }) 28),
+        $tbWhatIs,
+        (New-FieldLabel $(if ($it) { 'Cosa fa:' } else { 'What it does:' }) 76),
+        $tbWhatDoes,
+        (New-FieldLabel $(if ($it) { 'Suggerimento lavoro:' } else { 'Work hint:' }) 156),
+        $tbBusiness,
+        (New-FieldLabel $(if ($it) { 'Nota operatore:' } else { 'Operator note:' }) 224),
+        $tbNote,
+        $lblCat, $cmbCat, $lblPri, $cmbPri,
+        $btnSaveId
+    ))
+
+    $tabs.TabPages.AddRange(@($tabAdv, $tabId))
+    if ($IdentifyOnly) { $tabs.SelectedTab = $tabId }
+
+    $pnlFooter = New-Object System.Windows.Forms.Panel
+    $pnlFooter.Dock = 'Bottom'
+    $pnlFooter.Height = 44
+    $pnlFooter.BackColor = $clrSurface
+    $btnCancel = New-Btn $(if ($it) { 'Chiudi' } else { 'Close' }) $clrRaised 90 32
+    $btnCancel.Location = New-Object System.Drawing.Point(12, 8)
+    $pnlFooter.Controls.Add($btnCancel)
+
+    $form.Controls.Add($tabs)
+    $form.Controls.Add($pnlFooter)
+
+    function Get-AuthPassword([string]$Purpose) {
+        $auth = Show-OperatorPasswordDialog -Owner $form -Language $Language -Purpose $Purpose
+        if (-not $auth.Ok) { return $null }
+        return $auth.Password
+    }
 
     function Invoke-ResolutionAction {
         param([string]$ActionName, [string]$Confirm = '')
 
+        $purpose = if ($it) { "Autorizza: $ActionName" } else { "Authorize: $ActionName" }
+        $pwd = Get-AuthPassword -Purpose $purpose
+        if (-not $pwd) { return $false }
+
         $a = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $resolveScript,
-            '-Action', $ActionName, '-OutputJson', $outJson)
+            '-Action', $ActionName, '-OutputJson', $outJson, '-WindowsPassword', $pwd)
         if ($ProcessId -gt 0) { $a += @('-ProcessId', "$ProcessId") }
-        else { $a += @('-ProcessName', $ProcessName) }
+        if ($ProcessName) { $a += @('-ProcessName', $ProcessName) }
         if ($Confirm) { $a += @('-ConfirmPhrase', $Confirm) }
 
         $proc = Start-Process -FilePath $PsHost -ArgumentList $a -Wait -PassThru -WindowStyle Hidden
         if ($proc.ExitCode -ne 0) {
-            [void][System.Windows.Forms.MessageBox]::Show('Action failed — see logs/process-resolution-latest.json', 'Resolve', 'OK', 'Error')
+            [void][System.Windows.Forms.MessageBox]::Show(
+                $(if ($it) { 'Azione fallita — vedi logs/process-resolution-latest.json' } else { 'Action failed — see logs/process-resolution-latest.json' }),
+                'Resolve', 'OK', 'Error')
             return $false
         }
         if ($OnStatus) { & $OnStatus ("Process resolution: $ActionName") }
         return $true
     }
 
-    $btnObserve.Add_Click({
-        if (Invoke-ResolutionAction -ActionName 'Observe') { $form.DialogResult = 'OK'; $form.Close() }
-    })
-    $btnThrottle.Add_Click({
-        $msg = if ($it) {
-            "Impostare priorità BelowNormal su $($data.Process.ProcessName)? (reversibile)"
-        } else {
-            "Set BelowNormal priority on $($data.Process.ProcessName)? (reversible)"
-        }
-        $r = [System.Windows.Forms.MessageBox]::Show($msg, 'Throttle', 'YesNo', 'Question')
-        if ($r -eq 'Yes' -and (Invoke-ResolutionAction -ActionName 'ThrottleBelowNormal')) {
-            $form.DialogResult = 'OK'; $form.Close()
-        }
-    })
     function Show-PhrasePrompt {
         param([string]$Prompt, [string]$Title)
         $d = New-Object System.Windows.Forms.Form
@@ -149,10 +264,19 @@ function Show-UnknownProcessResolutionWizard {
         $d.Controls.AddRange(@($lbl, $tb, $ok))
         $script:phraseResult = $null
         $ok.Add_Click({ $script:phraseResult = $tb.Text; $d.Close() })
-        [void]$d.ShowDialog()
+        [void]$d.ShowDialog($form)
         return $script:phraseResult
     }
 
+    $btnObserve.Add_Click({
+        if (Invoke-ResolutionAction -ActionName 'Observe') { $form.DialogResult = 'OK'; $form.Close() }
+    })
+    $btnThrottle.Add_Click({
+        $msg = if ($it) { "Throttle BelowNormal su $($data.Process.ProcessName)? (reversibile)" } else { "Throttle BelowNormal on $($data.Process.ProcessName)? (reversible)" }
+        if ([System.Windows.Forms.MessageBox]::Show($msg, 'Throttle', 'YesNo', 'Question') -eq 'Yes' -and (Invoke-ResolutionAction -ActionName 'ThrottleBelowNormal')) {
+            $form.DialogResult = 'OK'; $form.Close()
+        }
+    })
     $btnKeep.Add_Click({
         $phrase = 'KEEP FOR WORK'
         $input = Show-PhrasePrompt -Prompt $(if ($it) { "Digita: $phrase" } else { "Type: $phrase" }) -Title 'Mark work necessary'
@@ -161,19 +285,67 @@ function Show-UnknownProcessResolutionWizard {
         }
     })
     $btnStop.Add_Click({
-        $w1 = [System.Windows.Forms.MessageBox]::Show(
-            $(if ($it) { 'ATTENZIONE: chiudere il processo può causare perdita dati. Continuare?' } else { 'WARNING: stopping may cause data loss. Continue?' }),
-            'Stop', 'YesNo', 'Warning')
-        if ($w1 -ne 'Yes') { return }
+        if ([System.Windows.Forms.MessageBox]::Show(
+            $(if ($it) { 'ATTENZIONE: chiudere il processo può causare perdita dati.' } else { 'WARNING: stopping may cause data loss.' }),
+            'Stop', 'YesNo', 'Warning') -ne 'Yes') { return }
         $phrase = 'STOP UNKNOWN'
-        $input = Show-PhrasePrompt -Prompt $(if ($it) { "Digita esattamente: $phrase" } else { "Type exactly: $phrase" }) -Title 'Confirm terminate'
-        if ($input -ne $phrase) { return }
-        if (Invoke-ResolutionAction -ActionName 'Terminate' -Confirm $phrase) {
+        $input = Show-PhrasePrompt -Prompt $(if ($it) { "Digita: $phrase" } else { "Type: $phrase" }) -Title 'Confirm terminate'
+        if ($input -eq $phrase -and (Invoke-ResolutionAction -ActionName 'Terminate' -Confirm $phrase)) {
             $form.DialogResult = 'OK'; $form.Close()
         }
     })
+
+    $btnSaveId.Add_Click({
+        if ([string]::IsNullOrWhiteSpace($tbWhatIs.Text) -or [string]::IsNullOrWhiteSpace($tbWhatDoes.Text)) {
+            [void][System.Windows.Forms.MessageBox]::Show(
+                $(if ($it) { "Compila almeno Cos'e e Cosa fa." } else { 'Fill at least What it is and What it does.' }),
+                'Identify', 'OK', 'Warning')
+            return
+        }
+        $purpose = if ($it) { 'Autorizza: identificazione manuale' } else { 'Authorize: manual identification' }
+        $pwd = Get-AuthPassword -Purpose $purpose
+        if (-not $pwd) { return }
+
+        $idOut = Join-Path $HubRoot 'logs\process-identify-wizard.json'
+        $ia = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $identifyScript,
+            '-WhatItIs', $tbWhatIs.Text.Trim(), '-WhatItDoes', $tbWhatDoes.Text.Trim(),
+            '-SuggestedCategory', ([string]$cmbCat.SelectedItem), '-SuggestedPriority', ([string]$cmbPri.SelectedItem),
+            '-BusinessHint', $tbBusiness.Text.Trim(), '-OperatorNote', $tbNote.Text.Trim(),
+            '-OutputJson', $idOut, '-WindowsPassword', $pwd)
+        if ($ProcessId -gt 0) { $ia += @('-ProcessId', "$ProcessId") }
+        if ($ProcessName) { $ia += @('-ProcessName', $ProcessName) }
+
+        $proc = Start-Process -FilePath $PsHost -ArgumentList $ia -Wait -PassThru -WindowStyle Hidden
+        if ($proc.ExitCode -ne 0) {
+            [void][System.Windows.Forms.MessageBox]::Show('Identify failed.', 'Identify', 'OK', 'Error')
+            return
+        }
+        if ($OnStatus) { & $OnStatus ("Identified: $ProcessName") }
+        [void][System.Windows.Forms.MessageBox]::Show(
+            $(if ($it) { 'Identificazione salvata in KB cache.' } else { 'Identification saved to KB cache.' }),
+            'Identify', 'OK', 'Information')
+        $form.DialogResult = 'OK'
+        $form.Close()
+    })
+
     $btnCancel.Add_Click({ $form.DialogResult = 'Cancel'; $form.Close() })
 
     if ($Owner) { [void]$form.ShowDialog($Owner) } else { [void]$form.ShowDialog() }
     return @{ Ok = ($form.DialogResult -eq 'OK') }
+}
+
+function Show-IdentifyProcessWizard {
+    param(
+        [System.Windows.Forms.Form]$Owner,
+        [string]$HubRoot,
+        [string]$ScriptRoot,
+        [string]$PsHost,
+        [string]$Language = 'en',
+        [scriptblock]$OnStatus,
+        [int]$ProcessId = 0,
+        [string]$ProcessName = ''
+    )
+    return Show-UnknownProcessResolutionWizard -Owner $Owner -HubRoot $HubRoot -ScriptRoot $ScriptRoot `
+        -PsHost $PsHost -Language $Language -OnStatus $OnStatus `
+        -ProcessId $ProcessId -ProcessName $ProcessName -IdentifyOnly
 }

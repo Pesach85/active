@@ -148,7 +148,7 @@ function Apply-MetadataRules {
 
     if (-not $Metadata) { return $null }
 
-    $text = ('{0} {1} {2}' -f $Metadata.CompanyName, $Metadata.ProductName, $Metadata.FileDescription)
+    $text = ('{0} {1} {2}' -f (Get-JsonPropertySafe $Metadata 'CompanyName'), (Get-JsonPropertySafe $Metadata 'ProductName'), (Get-JsonPropertySafe $Metadata 'FileDescription'))
     $rules = @()
     if ($KnowledgeConfig.CompanyCategoryRules) { $rules += @($KnowledgeConfig.CompanyCategoryRules) }
     if ($KnowledgeConfig.DescriptionKeywordRules) { $rules += @($KnowledgeConfig.DescriptionKeywordRules) }
@@ -206,11 +206,13 @@ function Invoke-ProcessWebLearning {
     $timeout = [int]$KnowledgeConfig.WebTimeoutSeconds
     if ($timeout -le 0) { $timeout = 5 }
 
+    if (-not $Metadata) { return $null }
+
     $queries = @()
-    if ($Metadata.ProductName) { $queries += [string]$Metadata.ProductName }
-    if ($Metadata.CompanyName -and $Metadata.CompanyName -notin $queries) {
-        $queries += [string]$Metadata.CompanyName
-    }
+    $pn = Get-JsonPropertySafe $Metadata 'ProductName'
+    $cn = Get-JsonPropertySafe $Metadata 'CompanyName'
+    if ($pn) { $queries += [string]$pn }
+    if ($cn -and $cn -notin $queries) { $queries += [string]$cn }
 
     foreach ($q in $queries) {
         $wiki = Get-WikipediaSummary -Query $q -TimeoutSec $timeout

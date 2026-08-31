@@ -1,5 +1,13 @@
 {
   "SchemaVersion": "OperatorProcessDecisions.v1",
-  "UpdatedAt": "2026-08-31T10:00:00",
-  "Decisions": {}
+  "UpdatedAt": "2026-08-31T10:54:44.0699258+02:00",
+  "Decisions": {
+    "smoketestprocxyz": {
+      "ProcessName": "SmokeTestProcXYZ",
+      "Decision": "Identified",
+      "Note": "Manual: SmokeTestProcess | ",
+      "RecordedAt": "2026-08-31T10:54:44.0731375+02:00",
+      "RecordedBy": "operator"
+    }
+  }
 }
