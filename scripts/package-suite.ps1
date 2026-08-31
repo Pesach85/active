@@ -37,6 +37,13 @@ $items = @(
     (Join-Path $scriptDir "apply-defender-extreme-necessity.ps1"),
     (Join-Path $scriptDir "restore-defender-from-rollback.ps1"),
     (Join-Path $scriptDir "lib\process-pressure-core.ps1"),
+    (Join-Path $scriptDir "lib\resource-budget.ps1"),
+    (Join-Path $scriptDir "build-optimization-context.ps1"),
+    (Join-Path $scriptDir "build-transparency-report.ps1"),
+    (Join-Path $scriptDir "serve-transparency-dashboard.ps1"),
+    (Join-Path $scriptDir "install-orchestrator-task.ps1"),
+    (Join-Path $scriptDir "lib\transparency-policy.ps1"),
+    (Join-Path $scriptDir "lib\transparency-events.ps1"),
     (Join-Path $configDir "process-intelligence.json"),
     (Join-Path $scriptDir "analyze-nvme-readonly-plan.ps1"),
     (Join-Path $scriptDir "analyze-recovery-partition-legacy.ps1"),
@@ -97,6 +104,16 @@ if (Test-Path -LiteralPath $localeSource) {
 $catalogSource = Join-Path $configDir "command-catalog.json"
 if (Test-Path -LiteralPath $catalogSource) {
     Copy-Item -LiteralPath $catalogSource -Destination $targetConfig -Force
+}
+
+$webSource = Join-Path $hubRoot "web\transparency"
+$webTarget = Join-Path $OutputDir "web\transparency"
+if (Test-Path -LiteralPath $webSource) {
+    if (Test-Path -LiteralPath $webTarget) {
+        Remove-Item -LiteralPath $webTarget -Recurse -Force -ErrorAction SilentlyContinue
+    }
+    New-Item -Path (Split-Path $webTarget -Parent) -ItemType Directory -Force | Out-Null
+    Copy-Item -LiteralPath $webSource -Destination $webTarget -Recurse -Force
 }
 
 # Force UTF-8 BOM on packaged PowerShell scripts for Windows PowerShell parsing compatibility.
