@@ -117,12 +117,22 @@ if (-not $SkipPrivacy) {
 }
 
 # Module presence (GUI modularization gate)
-foreach ($mod in @('gui\theme.ps1', 'gui\worker-helpers.ps1', 'gui\async-worker.ps1', 'gui\i18n.ps1', 'gui\command-help.ps1', 'gui\keep-service-wizard.ps1')) {
+foreach ($mod in @('gui\theme.ps1', 'gui\worker-helpers.ps1', 'gui\async-worker.ps1', 'gui\i18n.ps1', 'gui\command-help.ps1', 'gui\keep-service-wizard.ps1', 'gui\transparency-panel.ps1', 'gui\unknown-process-wizard.ps1')) {
     $p = Join-Path $scriptDir $mod
     if (-not (Test-Path -LiteralPath $p)) {
         $failures.Add("Missing module: $mod")
     }
 }
+
+Write-Host '[SMOKE] gui-parse-ps51...'
+$guiParseScript = Join-Path $scriptDir 'test-gui-parse-ps51.ps1'
+$ps51 = (Get-Command powershell.exe -ErrorAction SilentlyContinue).Path
+if (-not $ps51) { $ps51 = 'powershell.exe' }
+$pGuiParse = Start-Process -FilePath $ps51 -ArgumentList @(
+    '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $guiParseScript
+) -Wait -PassThru -WindowStyle Hidden
+if ($pGuiParse.ExitCode -ne 0) { $failures.Add('gui-parse-ps51 failed') }
+else { Write-Host '[SMOKE] gui-parse-ps51 OK' }
 
 # Async-worker StrictMode / unset-variable regression (Bug 28 / EXE HubWorkers)
 Write-Host '[SMOKE] async-worker-registry...'

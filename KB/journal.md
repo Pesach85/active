@@ -2402,3 +2402,24 @@ Fix Throttle MsMpEng Priority=Keep — errore throw invece di UX policy
 
 ### Esito
 ActionBlocked graceful; smoke 24/24 + E2E ALL PASSED
+
+## 2026-08-31 16:20:00
+### Obiettivo
+Fix EXE startup ParseException su transparency-panel.ps1
+
+### Root cause
+- Em-dash (U+2014), ellipsis, bullet Unicode in stringhe GUI
+- EXE (ps2exe / Windows PowerShell 5.1) interpreta mojibake come fine stringa -> parser cascade error linea 237
+
+### Modifiche
+- sanitize-ps-ascii.ps1 esteso per scripts/gui
+- Sanitize integrato in package-suite pre-copy GUI
+- Nuovo smoke test-gui-parse-ps51.ps1
+- v3.11.5 + rebuild EXE
+
+### Pattern da evitare
+- Mai Unicode smart punctuation in script dot-sourced da EXE / PS 5.1
+- Smoke obbligatorio: test-gui-parse-ps51.ps1 dopo mod GUI
+
+### Esito
+GUI-PARSE ALL OK; EXE rebuilt

@@ -99,6 +99,14 @@ foreach ($item in $items) {
 }
 
 $guiSource = Join-Path $scriptDir "gui"
+$sanitizeScript = Join-Path $scriptDir "sanitize-ps-ascii.ps1"
+if (Test-Path -LiteralPath $sanitizeScript) {
+    $sanitizePwsh = (Get-Command pwsh -ErrorAction SilentlyContinue).Path
+    if (-not $sanitizePwsh) { $sanitizePwsh = (Get-Command powershell.exe -ErrorAction SilentlyContinue).Path }
+    if ($sanitizePwsh) {
+        & $sanitizePwsh -NoProfile -ExecutionPolicy Bypass -File $sanitizeScript -Paths @($guiSource) -Recurse | Out-Null
+    }
+}
 $guiTarget = Join-Path $targetScripts "gui"
 if (Test-Path -LiteralPath $guiSource) {
     if (Test-Path -LiteralPath $guiTarget) {

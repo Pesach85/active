@@ -1,4 +1,4 @@
-# Multi-step HITL wizard for extreme apply on catalog-allowlisted KEEP services (Defender first).
+﻿# Multi-step HITL wizard for extreme apply on catalog-allowlisted KEEP services (Defender first).
 # Dot-sourced from system-optimizer-gui.ps1 after theme.ps1.
 
 function Write-KeepWizardStatus {
@@ -116,7 +116,7 @@ function Show-KeepServiceExtremeWizard {
     $tier = [string]$Evaluation.RecommendedTier
     if ($tier -eq 'Observe') {
         [void][System.Windows.Forms.MessageBox]::Show(
-            $(if ($it) { 'Tier Observe — nessuna disabilitazione consigliata. Esegui prima Compute con MsMpEng sotto pressione.' } else { 'Observe tier — disable not recommended. Run Compute while MsMpEng is under pressure first.' }),
+            $(if ($it) { 'Tier Observe - nessuna disabilitazione consigliata. Esegui prima Compute con MsMpEng sotto pressione.' } else { 'Observe tier - disable not recommended. Run Compute while MsMpEng is under pressure first.' }),
             'KEEP Apply', 'OK', 'Information')
         return @{ Ok = $false; Reason = 'ObserveTier' }
     }
@@ -136,7 +136,7 @@ function Show-KeepServiceExtremeWizard {
     }
 
     $dlg = New-Object System.Windows.Forms.Form
-    $dlg.Text = if ($it) { 'KEEP — Apply estremo (HITL)' } else { 'KEEP — Extreme apply (HITL)' }
+    $dlg.Text = if ($it) { 'KEEP - Apply estremo (HITL)' } else { 'KEEP - Extreme apply (HITL)' }
     $dlg.Size = New-Object System.Drawing.Size(520, 580)
     $dlg.StartPosition = 'CenterParent'
     $dlg.FormBorderStyle = 'FixedDialog'
@@ -322,14 +322,14 @@ function Show-KeepServiceExtremeWizard {
         } else {
             "You are about to modify a KEEP service ($($cfg.displayName)).`nTier: $tier`n`nContinue?"
         }
-        if ([System.Windows.Forms.MessageBox]::Show($msg1, 'KEEP Apply — Confirm 1/3', 'YesNo', 'Warning') -ne 'Yes') { return }
+        if ([System.Windows.Forms.MessageBox]::Show($msg1, 'KEEP Apply - Confirm 1/3', 'YesNo', 'Warning') -ne 'Yes') { return }
 
         $msg2 = if ($it) {
             'Seconda conferma: il sistema sarà meno protetto durante la finestra configurata. Procedere?'
         } else {
             'Second confirmation: the system will be less protected during the configured window. Proceed?'
         }
-        if ([System.Windows.Forms.MessageBox]::Show($msg2, 'KEEP Apply — Confirm 2/3', 'YesNo', 'Warning') -ne 'Yes') { return }
+        if ([System.Windows.Forms.MessageBox]::Show($msg2, 'KEEP Apply - Confirm 2/3', 'YesNo', 'Warning') -ne 'Yes') { return }
 
         if ($tier -eq 'ExtremeServiceDisable') {
             $msg3 = if ($it) {
@@ -337,11 +337,11 @@ function Show-KeepServiceExtremeWizard {
             } else {
                 'LAST RESORT: WinDefend service will be stopped. Confirm knowingly?'
             }
-            if ([System.Windows.Forms.MessageBox]::Show($msg3, 'KEEP Apply — Confirm 3/3', 'YesNo', 'Stop') -ne 'Yes') { return }
+            if ([System.Windows.Forms.MessageBox]::Show($msg3, 'KEEP Apply - Confirm 3/3', 'YesNo', 'Stop') -ne 'Yes') { return }
         } else {
             if ([System.Windows.Forms.MessageBox]::Show(
                 $(if ($it) { 'Conferma finale: eseguire ora?' } else { 'Final confirmation: execute now?' }),
-                'KEEP Apply — Confirm 3/3', 'YesNo', 'Warning') -ne 'Yes') { return }
+                'KEEP Apply - Confirm 3/3', 'YesNo', 'Warning') -ne 'Yes') { return }
         }
 
         $reason = [string]$cmbReason.SelectedItem

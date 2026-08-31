@@ -17,7 +17,7 @@ Usare **prima** di modificare script in:
    | `parameter name 'HubRoot'` | Script chiamato con param non dichiarato | Aggiungere `HubRoot` opzionale al callee **oppure** omettere e usare `-WorkingDirectory` |
    | `null-valued expression` su `.Trim()` | stderr/file vuoto | Test `$null -ne $raw` prima di `.Trim()` |
    | `ContentEncoding` null | POST JSON senza charset | Fallback UTF-8 in `Read-RequestBodyJson` |
-   | `Priority=Keep in catalog - action blocked` | Throttle/Terminate su security/vital | Advisory esclude azioni; outcome `ActionBlocked` (no throw); UI disabilita bottoni |
+   | ParseException PS 5.1 / EXE GUI | Unicode em-dash, ellipsis, bullet in `scripts/gui/*.ps1` | Run `sanitize-ps-ascii.ps1`; smoke `test-gui-parse-ps51.ps1` |
 
 3. **HITL gate**
    - Merge catalogo solo con password verificata (`RequireAuthForCatalogMerge`)
