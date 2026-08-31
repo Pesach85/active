@@ -1,6 +1,8 @@
 # Build artifacts
 /dist/**/WindowsOptimizer.exe
 *.exe
+**/bin/
+**/obj/
 
 # Runtime logs and telemetry
 /logs/*.log

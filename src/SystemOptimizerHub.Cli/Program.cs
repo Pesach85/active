@@ -1,0 +1,123 @@
+﻿using System.CommandLine;
+using System.Text.Json;
+using SystemOptimizerHub.Abstractions;
+using SystemOptimizerHub.Core;
+using SystemOptimizerHub.Core.Catalog;
+using SystemOptimizerHub.Core.Models;
+using SystemOptimizerHub.Core.Scoring;
+using SystemOptimizerHub.Linux;
+using SystemOptimizerHub.Windows;
+
+namespace SystemOptimizerHub.Cli;
+
+internal static class Program
+{
+    private static readonly JsonSerializerOptions JsonOut = new() { WriteIndented = true };
+
+    public static async Task<int> Main(string[] args)
+    {
+        var root = new RootCommand("System Optimizer Hub — cross-platform core CLI (migration preview)");
+
+        var versionCmd = new Command("version", "Show hub core and platform version");
+        versionCmd.SetHandler(() =>
+        {
+            var platform = ResolvePlatform();
+            var info = platform.GetPlatformInfo();
+            Console.WriteLine(JsonSerializer.Serialize(new
+            {
+                hubCore = HubVersion.Version,
+                windowsLegacy = HubVersion.WindowsLegacyVersion,
+                linuxPackage = HubVersion.LinuxPackageVersion,
+                platform = info
+            }, JsonOut));
+        });
+        root.AddCommand(versionCmd);
+
+        var catalogCmd = new Command("catalog", "Process intelligence catalog operations");
+        var classifyCmd = new Command("classify", "Classify process necessity from shared catalog");
+        var nameOpt = new Option<string>("--name", "Process name") { IsRequired = true };
+        var catalogOpt = new Option<FileInfo?>("--catalog", () => null, "Path to process-intelligence.json");
+        classifyCmd.AddOption(nameOpt);
+        classifyCmd.AddOption(catalogOpt);
+        classifyCmd.SetHandler((name, catalogFile) =>
+        {
+            var catalogPath = ResolveCatalogPath(catalogFile);
+            var catalog = CatalogLoader.LoadFromFile(catalogPath);
+            var nec = ProcessNecessityResolver.Resolve(name, catalog);
+            Console.WriteLine(JsonSerializer.Serialize(nec, JsonOut));
+        }, nameOpt, catalogOpt);
+        catalogCmd.AddCommand(classifyCmd);
+
+        var blockCmd = new Command("action-blocked", "Test if catalog blocks an action (parity with PS)");
+        var actionOpt = new Option<string>("--action", "Observe|ThrottleBelowNormal|Terminate|...") { IsRequired = true };
+        blockCmd.AddOption(nameOpt);
+        blockCmd.AddOption(actionOpt);
+        blockCmd.AddOption(catalogOpt);
+        blockCmd.SetHandler((name, action, catalogFile) =>
+        {
+            if (!Enum.TryParse<CatalogActionKind>(action, ignoreCase: true, out var kind))
+            {
+                Console.Error.WriteLine($"Unknown action: {action}");
+                Environment.ExitCode = 2;
+                return;
+            }
+            var catalogPath = ResolveCatalogPath(catalogFile);
+            var catalog = CatalogLoader.LoadFromFile(catalogPath);
+            var nec = ProcessNecessityResolver.Resolve(name, catalog);
+            var block = ProcessNecessityResolver.TestCatalogActionBlocked(kind, nec);
+            Console.WriteLine(JsonSerializer.Serialize(new { necessity = nec, block }, JsonOut));
+        }, nameOpt, actionOpt, catalogOpt);
+        catalogCmd.AddCommand(blockCmd);
+        root.AddCommand(catalogCmd);
+
+        var scoreCmd = new Command("score", "Deterministic pressure score (parity helper)");
+        var cpuOpt = new Option<double>("--cpu", () => 0, "CPU percent");
+        var ramOpt = new Option<double>("--ram-mb", () => 0, "RAM MB");
+        var ioOpt = new Option<double>("--io-mb", () => 0, "IO MB/s");
+        scoreCmd.AddOption(cpuOpt);
+        scoreCmd.AddOption(ramOpt);
+        scoreCmd.AddOption(ioOpt);
+        scoreCmd.SetHandler((cpu, ram, io) =>
+        {
+            Console.WriteLine(JsonSerializer.Serialize(new
+            {
+                dominant = PressureScorer.DominantPressure(cpu, ram, io),
+                score = PressureScorer.CompositeScore(cpu, ram, io)
+            }, JsonOut));
+        }, cpuOpt, ramOpt, ioOpt);
+        root.AddCommand(scoreCmd);
+
+        return await root.InvokeAsync(args);
+    }
+
+    private static IPlatformServices ResolvePlatform()
+    {
+        if (WindowsPlatform.IsCurrentOs())
+            return WindowsPlatform.CreateServices();
+        if (LinuxPlatform.IsCurrentOs())
+            return LinuxPlatform.CreateServices();
+        throw new PlatformNotSupportedException("Unsupported OS for platform services.");
+    }
+
+    private static string ResolveCatalogPath(FileInfo? catalogFile)
+    {
+        if (catalogFile is not null && catalogFile.Exists)
+            return catalogFile.FullName;
+
+        var candidates = new[]
+        {
+            Path.Combine(Directory.GetCurrentDirectory(), "config", "process-intelligence.json"),
+            Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "config", "process-intelligence.json"),
+            Path.Combine(AppContext.BaseDirectory, "config", "process-intelligence.json")
+        };
+
+        foreach (var c in candidates)
+        {
+            var full = Path.GetFullPath(c);
+            if (File.Exists(full))
+                return full;
+        }
+
+        throw new FileNotFoundException("process-intelligence.json not found; pass --catalog");
+    }
+}

@@ -32,6 +32,8 @@ Usare **prima** di modificare script in:
 ```powershell
 powershell -File scripts/test-hub-smoke.ps1
 powershell -File scripts/test-identify-chain-e2e.ps1
+dotnet test src/SystemOptimizerHub.sln
+powershell -File scripts/test-core-parity.ps1
 ```
 
 Se toccato dashboard web:
