@@ -73,6 +73,34 @@ function renderReport(data) {
     actionsList.appendChild(li);
   });
 
+  const net = data.Network;
+  const netSummary = document.getElementById('networkSummary');
+  const networkBody = document.getElementById('networkBody');
+  const hiddenNetList = document.getElementById('hiddenNetList');
+  networkBody.innerHTML = '';
+  hiddenNetList.innerHTML = '';
+  if (net && net.Available !== false && net.Summary) {
+    const s = net.Summary;
+    netSummary.textContent = `${s.Established} established · ${s.Listen} listen · loopback ${s.LoopbackOnly} · public ${s.PublicRemote} · T3 ${s.UnknownTrustCount}`;
+    const rows = (net.Connections || []).filter(c => c.TrustLevel === 'T3_Unknown' || c.TrustLevel === 'T2_Review').slice(0, 20);
+    if (!rows.length) {
+      rows.push(...(net.Connections || []).slice(0, 12));
+    }
+    rows.forEach(c => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${c.ProcessName} (${c.PID})</td><td>${c.Local}</td><td>${c.Remote}</td>
+        <td class="${trustClass(c.TrustLevel)}">${c.TrustLevel}</td>`;
+      networkBody.appendChild(tr);
+    });
+    (net.HiddenNetworkProcesses || []).forEach(h => {
+      const li = document.createElement('li');
+      li.innerHTML = `<strong>${h.Name}</strong> PID ${h.PID} · ${h.RamMb}MB · ext=${h.ExternalConnections} — ${h.TrustReason}`;
+      hiddenNetList.appendChild(li);
+    });
+  } else {
+    netSummary.textContent = net && net.Error ? `Network unavailable: ${net.Error}` : 'Network data not collected';
+  }
+
   const dm = data.DelegationManifest || {};
   fillList('policyPrinciples', dm.Principles);
   fillList('policyHuman', dm.HumanOnly);

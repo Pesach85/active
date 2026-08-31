@@ -211,6 +211,7 @@ Invoke-SmokeStep -Name 'transparency-report' `
         if ([string]$j.SchemaVersion -notmatch 'TransparencyReport') { throw 'Unexpected schema' }
         if ($null -eq $j.Posture.Score) { throw 'Posture.Score missing' }
         if ($null -eq $j.DelegationManifest) { throw 'DelegationManifest missing' }
+        if ($null -eq $j.Network) { throw 'Network section missing' }
     }
 
 $defenderEval = Join-Path $logs 'smoke-defender-eval.json'

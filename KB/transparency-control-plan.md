@@ -110,8 +110,17 @@ Documentato in `DelegationManifest` (report JSON):
 Avvio:
 
 ```powershell
-pwsh -File scripts/serve-transparency-dashboard.ps1 -BuildReportFirst -OpenBrowser
+pwsh -File scripts/serve-transparency-dashboard.ps1 -OpenBrowser
 ```
+
+### Troubleshooting — ERR_CONNECTION_REFUSED (8765)
+
+| Causa | Check rapido | Fix |
+|-------|--------------|-----|
+| Server non avviato | `Get-NetTCPConnection -LocalPort 8765 -State Listen` | Avvia da GUI tab Controllo → **Web Dashboard** o comando sopra |
+| Browser aperto troppo presto (v3.7.0) | `logs/transparency-web.log` | **v3.7.1+** attende porta 25s; aggiorna hub |
+| Porta occupata / crash bind | `Get-Content logs/transparency-web.log -Tail 20` | Riavvia; verifica `web/transparency` esiste |
+| Health API | `curl http://127.0.0.1:8765/api/health` | Deve restituire `{"status":"ok"}` |
 
 ---
 
@@ -126,11 +135,13 @@ pwsh -File scripts/serve-transparency-dashboard.ps1 -BuildReportFirst -OpenBrows
 - [x] Orchestrator integration
 - [x] Smoke + ADR-0006
 
-### Fase 2 — Network & service visibility (2 settimane)
+### Fase 2 — Network & service visibility (in corso v3.7.1)
 
-- Snapshot TCP per processi T3
-- Servizi Windows RAM-heavy nel report
-- Alert email/desktop opzionale (HITL)
+- [x] Snapshot TCP Established/Listen → `Network` in TransparencyReport
+- [x] Processi piccoli/nascosti con egress (RAM < 120MB + T3)
+- [x] Fix web dashboard ERR_CONNECTION_REFUSED (listener prima del browser)
+- [ ] Servizi Windows RAM-heavy nel report
+- [ ] Alert desktop opzionale (HITL)
 
 ### Fase 3 — Catalog loop
 

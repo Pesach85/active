@@ -2091,3 +2091,16 @@ TransparencyReport.v1, policy T0-T3, GUI tab, web localhost, KB/ADR/skill, smoke
 
 ### Esito
 Smoke ALL PASSED; package-suite OK; commit push v3.7.0
+
+## 2026-08-31 09:50:00
+### Obiettivo
+Fix ERR_CONNECTION_REFUSED dashboard + monitor rete/processi nascosti (transparency contract)
+
+### Modifiche
+- serve-transparency-dashboard: listener immediato, /api/health, log, port reuse
+- GUI Web Dashboard: Wait-HubTcpPort 25s, no BuildReportFirst blocking
+- network-transparency.ps1: TCP Established/Listen, hidden small egress, T0-T3
+- Report + web + GUI detail sezione Network
+
+### Esito
+Smoke OK; v3.7.1
