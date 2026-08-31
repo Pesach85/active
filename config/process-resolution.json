@@ -1,0 +1,14 @@
+{
+  "SchemaVersion": "ProcessResolutionConfig.v1",
+  "Enabled": true,
+  "ConfirmPhraseTerminate": "STOP UNKNOWN",
+  "ConfirmPhraseMarkNecessary": "KEEP FOR WORK",
+  "MinConfirmStepsTerminate": 2,
+  "OperatorDecisionsPath": "KB/operator-process-decisions.json",
+  "HighRamThresholdMb": 400,
+  "LowRamThresholdMb": 80,
+  "UnidentifiedConfidenceThreshold": 0.72,
+  "PreferReversibleActions": true,
+  "AllowedActions": ["Observe", "ThrottleBelowNormal", "Terminate", "MarkWorkNecessary", "MarkUnneeded"],
+  "NeverTerminateExact": ["System", "csrss", "wininit", "services", "lsass", "svchost", "winlogon", "MsMpEng", "Cursor", "pwsh", "WindowsOptimizer", "SystemOptimizer"]
+}

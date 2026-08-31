@@ -2122,3 +2122,25 @@ Process intelligence classifier con suggerimenti deterministici + KB cache + web
 
 ### Esito
 Smoke ALL PASSED; commit push deploy v3.8.0
+
+## 2026-08-31 10:45:00
+### Obiettivo
+Risoluzione processi non identificati: percorso matematicamente efficiente (reversibile prima), avvertimenti chiari, decisione operatore HITL, AI-aided
+
+### Modifiche
+- `config/process-resolution.json` — soglie RAM, frasi conferma, processi protetti
+- `scripts/lib/process-resolution-policy.ps1` — ranking azioni per costo (Observe=0, Throttle=1, Terminate=10)
+- `scripts/resolve-unknown-process.ps1` — CLI Advisory/Observe/Throttle/Terminate/MarkWorkNecessary/MarkUnneeded
+- `scripts/gui/unknown-process-wizard.ps1` — wizard WinForms con summary AI + conferma frase
+- `KB/operator-process-decisions.json` — decisioni operatore (no auto-merge catalogo)
+- TransparencyReport `ProcessResolutions[]`; GUI tab Controllo pulsante Resolve…
+- Smoke process-resolution-advisory, block-terminate, known; GUI v3.9.0
+
+### Decisioni
+- ThrottleBelowNormal raccomandato per high-RAM non identificati (≥400MB) — reversibile
+- Terminate richiede `STOP UNKNOWN`; catalog Priority=Keep blocca terminate/throttle
+- MarkWorkNecessary richiede `KEEP FOR WORK`; eventi JSONL audit
+- Protected: System, lsass, MsMpEng, Cursor, pwsh, hub scripts
+
+### Esito
+Smoke ALL PASSED; commit push deploy v3.9.0

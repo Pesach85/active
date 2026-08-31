@@ -63,6 +63,9 @@ if (Test-Path -LiteralPath (Join-Path $script:guiDir "keep-service-wizard.ps1"))
 if (Test-Path -LiteralPath (Join-Path $script:guiDir "transparency-panel.ps1")) {
     . (Join-Path $script:guiDir "transparency-panel.ps1")
 }
+if (Test-Path -LiteralPath (Join-Path $script:guiDir "unknown-process-wizard.ps1")) {
+    . (Join-Path $script:guiDir "unknown-process-wizard.ps1")
+}
 $script:guiLanguage = 'en'
 if (Get-Command Initialize-I18n -ErrorAction SilentlyContinue) {
     Initialize-I18n -HubRoot $script:hubRoot -Language $script:guiLanguage

@@ -244,6 +244,40 @@ Invoke-SmokeStep -Name 'process-pressure-hints' `
         if ($null -eq $j.ClassificationHints) { throw 'ClassificationHints missing on PPI report' }
     }
 
+$resAdvOut = Join-Path $logs 'smoke-process-resolution.json'
+Invoke-SmokeStep -Name 'process-resolution-advisory' `
+    -ScriptPath (Join-Path $scriptDir 'resolve-unknown-process.ps1') `
+    -Arguments @('-ProcessName', 'TotallyUnknownProcessXYZ', '-Action', 'Advisory', '-Offline', '-OutputJson', $resAdvOut, '-Quiet') `
+    -OutputPath $resAdvOut `
+    -Validate {
+        param($path)
+        $j = Get-Content -LiteralPath $path -Raw | ConvertFrom-Json
+        if ([string]$j.SchemaVersion -notmatch 'ProcessResolutionResult') { throw 'Unexpected schema' }
+        if ([string]$j.Advisory.RecommendedActionId -notin @('Observe', 'ThrottleBelowNormal')) { throw 'Unexpected recommendation for unknown' }
+        if (-not $j.Advisory.RequiresOperatorApproval) { throw 'RequiresOperatorApproval must be true' }
+    }
+
+$failTerminate = Join-Path $logs 'smoke-res-fail.json'
+if (Test-Path $failTerminate) { Remove-Item $failTerminate -Force }
+Write-Host '[SMOKE] process-resolution-block-terminate...'
+$pFail = Start-Process -FilePath $pwsh -ArgumentList @(
+    '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Join-Path $scriptDir 'resolve-unknown-process.ps1'),
+    '-ProcessName', 'TotallyUnknownProcessXYZ', '-Action', 'Terminate', '-ConfirmPhrase', 'WRONG', '-Offline', '-Quiet'
+) -Wait -PassThru -WindowStyle Hidden
+if ($pFail.ExitCode -eq 0) { $failures.Add('process-resolution-block-terminate should fail with wrong phrase') }
+else { Write-Host '[SMOKE] process-resolution-block-terminate OK' }
+
+$knownAdv = Join-Path $logs 'smoke-res-mysqld.json'
+Invoke-SmokeStep -Name 'process-resolution-known' `
+    -ScriptPath (Join-Path $scriptDir 'resolve-unknown-process.ps1') `
+    -Arguments @('-ProcessName', 'mysqld', '-Action', 'Advisory', '-Offline', '-OutputJson', $knownAdv, '-Quiet') `
+    -OutputPath $knownAdv `
+    -Validate {
+        param($path)
+        $j = Get-Content -LiteralPath $path -Raw | ConvertFrom-Json
+        if ([string]$j.Advisory.RecommendedActionId -eq 'Terminate') { throw 'Should not recommend terminate for known mysqld' }
+    }
+
 $defenderEval = Join-Path $logs 'smoke-defender-eval.json'
 Invoke-SmokeStep -Name 'defender-extreme-eval' `
     -ScriptPath (Join-Path $scriptDir 'evaluate-defender-extreme-necessity.ps1') `

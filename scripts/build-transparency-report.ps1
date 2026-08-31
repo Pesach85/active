@@ -17,6 +17,7 @@ $hubRoot = Split-Path -Parent $scriptDir
 . (Join-Path $scriptDir 'lib\network-transparency.ps1')
 . (Join-Path $scriptDir 'lib\process-knowledge.ps1')
 . (Join-Path $scriptDir 'lib\process-pressure-core.ps1')
+. (Join-Path $scriptDir 'lib\process-resolution-policy.ps1')
 
 $hub = Get-HubPaths -HubRoot $hubRoot
 if (-not $ConfigPath) { $ConfigPath = $hub.ConfigFile }
@@ -380,6 +381,28 @@ if ($pkConfig.Enabled) {
             -KnowledgeConfig $pkConfig `
             -MaintenanceConfig $config `
             -Offline)
+
+        $resCfg = Get-ProcessResolutionConfig -HubRoot $hubRoot
+        $opDec = Get-OperatorProcessDecisions -HubRoot $hubRoot -RelPath ([string]$resCfg.OperatorDecisionsPath)
+        $resList = [System.Collections.Generic.List[object]]::new()
+        foreach ($t in $deduped) {
+            $ps = Get-ProcessLiveSnapshot -ProcessId ([int]$t.PID) -ProcessName ([string]$t.ProcessName)
+            if (-not $ps) {
+                $ps = [ordered]@{
+                    PID = [int]$t.PID
+                    ProcessName = [string]$t.ProcessName
+                    RamMb = [double]$t.RamMb
+                    Responding = $true
+                    PriorityClass = 'Unknown'
+                    Path = ''
+                }
+            }
+            $matchHint = @($result['ClassificationHints'] | Where-Object { $_.ProcessName -ieq $ps.ProcessName } | Select-Object -First 1)
+            $op = Get-OperatorDecisionForProcess -DecisionsObj $opDec -ProcessName ([string]$ps.ProcessName)
+            [void]$resList.Add((Get-ProcessResolutionAdvisory -ProcessSnapshot $ps -KnowledgeHint $matchHint `
+                -ResolutionConfig $resCfg -OperatorDecision $op))
+        }
+        $result['ProcessResolutions'] = @($resList)
     }
 }
 
