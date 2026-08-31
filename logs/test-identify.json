@@ -1,0 +1,37 @@
+﻿{
+    "SchemaVersion":  "ProcessIdentifyResult.v1",
+    "GeneratedAt":  "2026-08-31 11:55:19",
+    "Process":  {
+                    "PID":  8480,
+                    "ProcessName":  "vmware-vmx",
+                    "RamMb":  6547.7,
+                    "CpuSec":  15445.8,
+                    "Responding":  true,
+                    "PriorityClass":  "Normal",
+                    "Path":  "C:\\Program Files (x86)\\VMware\\VMware Workstation\\x64\\vmware-vmx.exe"
+                },
+    "CacheKey":  "vmware-vmx",
+    "CachePath":  "D:\\SystemOptimizerHub\\active\\KB\\process-knowledge-cache.json",
+    "Entry":  {
+                  "ProcessName":  "vmware-vmx",
+                  "WhatItIs":  "Host VMware VM",
+                  "WhatItDoes":  "Allocates guest RAM",
+                  "SuggestedCategory":  "Virtualization",
+                  "SuggestedPriority":  "Keep",
+                  "ResourceProfile":  "Mixed",
+                  "BusinessHint":  "",
+                  "SuggestedActions":  [
+                                           "Operator manual identification â€” review catalog merge separately"
+                                       ],
+                  "Confidence":  0.98,
+                  "Sources":  [
+                                  "operator-manual",
+                                  "PID=8480"
+                              ],
+                  "LearnedAt":  "2026-08-31T11:55:19.2941222+02:00",
+                  "OperatorNote":  "",
+                  "ImagePath":  "C:\\Program Files (x86)\\VMware\\VMware Workstation\\x64\\vmware-vmx.exe"
+              },
+    "Outcome":  "Identified",
+    "Message":  "Manual identification saved to KB cache (not auto-merged to catalog)."
+}

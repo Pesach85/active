@@ -1,4 +1,4 @@
-# Append structured audit event for transparency dashboard (jsonl).
+﻿# Append structured audit event for transparency dashboard (jsonl).
 function Write-TransparencyEvent {
     param(
         [string]$EventsPath,

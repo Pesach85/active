@@ -1,4 +1,4 @@
-# Host resource tier + optimization profile resolver (ultra-light).
+﻿# Host resource tier + optimization profile resolver (ultra-light).
 # Dot-source from build-optimization-context.ps1, hub-orchestrator, llm-advise (future).
 
 function Get-HostResourceSnapshot {
