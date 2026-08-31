@@ -289,7 +289,7 @@ function Save-ProcessKnowledgeCacheEntry {
     param(
         [string]$CachePath,
         [string]$ProcessName,
-        [hashtable]$Entry
+        [object]$Entry
     )
 
     $cache = @{ SchemaVersion = 'ProcessKnowledgeCache.v1'; UpdatedAt = (Get-Date).ToString('o'); Entries = @{} }

@@ -2205,3 +2205,21 @@ Hardening forensics processi/rete + fix ERR_CONNECTION_REFUSED dashboard (on-dem
 
 ### Esito
 Smoke ALL PASSED; commit push deploy v3.10.0
+
+## 2026-08-31 12:00:00
+### Obiettivo
+Fix identify_failed web/GUI anche con password corretta
+
+### Modifiche
+- Password HITL via file temporaneo (`-WindowsPasswordFile`) — no command line plain
+- `operator-auth.ps1`: fallback LogonUser Win32 + ValidateCredentials
+- API/web: errori dettagliati (`auth_failed` / message testuale)
+- Wizard GUI: stesso trasporto password sicuro
+
+### Decisioni
+- Mai `-WindowsPassword` su Start-Process ArgumentList (special chars/spazi)
+- File `.hub-pwd-*.tmp` in logs/ con cleanup immediato
+- LogonUser prova dominio, COMPUTERNAME e `.`
+
+### Esito
+Smoke ALL PASSED; deploy v3.10.2
