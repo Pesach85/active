@@ -54,6 +54,7 @@ $items = @(
     (Join-Path $scriptDir "lib\process-resolution-policy.ps1"),
     (Join-Path $scriptDir "lib\operator-auth.ps1"),
     (Join-Path $scriptDir "identify-unknown-process.ps1"),
+    (Join-Path $scriptDir "resolve-unknown-process.ps1"),
     (Join-Path $configDir "process-resolution.json"),
     (Join-Path $configDir "process-forensics.json"),
     (Join-Path $scriptDir "enrich-process-classification.ps1"),
