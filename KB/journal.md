@@ -2104,3 +2104,21 @@ Fix ERR_CONNECTION_REFUSED dashboard + monitor rete/processi nascosti (transpare
 
 ### Esito
 Smoke OK; v3.7.1
+
+## 2026-08-31 10:20:00
+### Obiettivo
+Process intelligence classifier con suggerimenti deterministici + KB cache + web/LLM incrementale
+
+### Modifiche
+- `scripts/lib/process-knowledge.ps1`, `enrich-process-classification.ps1`, `config/process-knowledge.json`
+- `KB/process-knowledge-cache.json` seed (vmware-vmx, mysqld, charon-svc, mksSandbox)
+- PPI `-IncludeClassificationHints`, TransparencyReport ClassificationHints
+- Smoke process-knowledge + process-pressure-hints; GUI/web hints panel; v3.8.0
+
+### Decisioni
+- Pipeline: catalog → cache → file metadata → KB grep → Wikipedia → Ollama (Tier B+)
+- Mai auto-merge catalogo; RequiresHumanApproval sempre true
+- Offline smoke valida cache deterministica
+
+### Esito
+Smoke ALL PASSED; commit push deploy v3.8.0

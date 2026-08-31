@@ -128,7 +128,8 @@ function Get-NetworkTransparencySnapshot {
     $conns = @()
     try {
         $conns = @(Get-NetTCPConnection -ErrorAction Stop | Where-Object {
-            $_.State -in @('Established', 'Listen') -and $_.AddressFamily -eq 'IPv4'
+            $_.State -in @('Established', 'Listen') -and
+            [string]$_.LocalAddress -notmatch ':'
         })
     } catch {
         return [ordered]@{

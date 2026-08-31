@@ -101,6 +101,16 @@ function renderReport(data) {
     netSummary.textContent = net && net.Error ? `Network unavailable: ${net.Error}` : 'Network data not collected';
   }
 
+  const hintsList = document.getElementById('hintsList');
+  hintsList.innerHTML = '';
+  (data.ClassificationHints || []).forEach(h => {
+    const li = document.createElement('li');
+    li.innerHTML = `<strong>${h.ProcessName}</strong> · ${h.SuggestedCategory} / ${h.SuggestedPriority}
+      · conf ${h.Confidence} · ${h.TrustLevel}<br>
+      <span class="muted">${h.WhatItIs}</span><br>${h.WhatItDoes}`;
+    hintsList.appendChild(li);
+  });
+
   const dm = data.DelegationManifest || {};
   fillList('policyPrinciples', dm.Principles);
   fillList('policyHuman', dm.HumanOnly);
