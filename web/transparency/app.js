@@ -1,6 +1,8 @@
 let reportData = null;
 let wizardTarget = null;
 let wizardPayload = null;
+let wizardOpen = false;
+let refreshTimer = null;
 
 async function fetchReport(refresh = false) {
   const url = refresh ? '/api/refresh' : '/api/report.json';
@@ -152,6 +154,7 @@ function fillList(id, items) {
 }
 
 async function load(refresh = false) {
+  if (wizardOpen && !refresh) return;
   const banner = document.getElementById('offlineBanner');
   try {
     const data = await fetchReport(refresh);
@@ -204,11 +207,13 @@ function formatAdvisory(payload) {
 }
 
 async function openWizard(target, identifyTab = false) {
+  wizardOpen = true;
   wizardTarget = target;
   wizardPayload = null;
   setWizardStatus('');
   document.getElementById('operatorPassword').value = '';
   document.getElementById('wizardOverlay').classList.remove('hidden');
+  document.getElementById('wizardOverlay').setAttribute('aria-hidden', 'false');
   document.getElementById('wizardTitle').textContent = identifyTab
     ? `Identifica: ${target.name} (${target.pid})`
     : `Risolvi: ${target.name} (${target.pid})`;
@@ -227,7 +232,8 @@ async function openWizard(target, identifyTab = false) {
     body: JSON.stringify({ processId: target.pid, processName: target.name, offline: true })
   });
   if (!advRes.ok) {
-    setWizardStatus('Impossibile caricare advisory.', true);
+    const errData = await advRes.json().catch(() => ({}));
+    setWizardStatus(errData.message || errData.error || 'Impossibile caricare advisory.', true);
     return;
   }
   wizardPayload = await advRes.json();
@@ -237,7 +243,7 @@ async function openWizard(target, identifyTab = false) {
     const fr = await fetch('/api/process/forensics', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ processId: target.pid, processName: target.name, includeMemory: true })
+      body: JSON.stringify({ processId: target.pid, processName: target.name, includeMemory: false })
     });
     if (fr.ok) {
       const fp = await fr.json();
@@ -253,6 +259,7 @@ async function openWizard(target, identifyTab = false) {
   document.getElementById('idWhatDoes').value = hint.WhatItDoes || '';
   document.getElementById('idBusiness').value = hint.BusinessHint || '';
   if (hint.SuggestedCategory) document.getElementById('idCategory').value = hint.SuggestedCategory;
+  if (hint.SuggestedPriority) document.getElementById('idPriority').value = hint.SuggestedPriority;
 
   const notRunning = wizardPayload.Process?.NotRunning;
   document.getElementById('btnThrottle').disabled = !!notRunning;
@@ -262,7 +269,9 @@ async function openWizard(target, identifyTab = false) {
 }
 
 function closeWizard() {
+  wizardOpen = false;
   document.getElementById('wizardOverlay').classList.add('hidden');
+  document.getElementById('wizardOverlay').setAttribute('aria-hidden', 'true');
   wizardTarget = null;
   wizardPayload = null;
 }
@@ -302,9 +311,6 @@ async function postAction(action, extra = {}) {
 
 document.getElementById('btnRefresh').addEventListener('click', () => load(true));
 document.getElementById('btnWizardClose').addEventListener('click', closeWizard);
-document.getElementById('wizardOverlay').addEventListener('click', e => {
-  if (e.target.id === 'wizardOverlay') closeWizard();
-});
 
 document.querySelectorAll('.modal-tabs .tab').forEach(tab => {
   tab.addEventListener('click', () => switchTab(tab.dataset.tab));
@@ -374,5 +380,5 @@ document.getElementById('btnSaveIdentify').addEventListener('click', async () =>
 });
 
 load(false);
-setInterval(() => load(false), 30000);
+refreshTimer = setInterval(() => load(false), 30000);
 

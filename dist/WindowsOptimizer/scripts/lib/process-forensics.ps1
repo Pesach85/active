@@ -1,4 +1,4 @@
-﻿# Deep process characterization â€” PE/binary analysis, modules, parent chain, bounded memory strings.
+﻿# Deep process characterization - PE/binary analysis, modules, parent chain, bounded memory strings.
 # Read-only; no process mutation. Used when catalog/cache/metadata are insufficient.
 
 $script:ForensicsLimits = @{

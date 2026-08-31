@@ -132,7 +132,7 @@ function Assert-OperatorWindowsPassword {
         return @{ Ok = $true; Skipped = $true; Identity = (Get-OperatorWindowsIdentity) }
     }
     if (-not (Test-OperatorWindowsPassword -Password $Password)) {
-        throw 'Windows password verification failed â€” action blocked.'
+        throw 'Windows password verification failed - action blocked.'
     }
     return @{ Ok = $true; Skipped = $false; Identity = (Get-OperatorWindowsIdentity) }
 }
@@ -163,4 +163,50 @@ function Resolve-HubProcessScriptArguments {
         $i++
     }
     return @{ ArgumentList = @($out); PasswordFile = $passwordFile }
+}
+
+function Invoke-HubProcessScriptViaRequest {
+    param(
+        [string]$ScriptPath,
+        [object]$RequestBody,
+        [string]$LogsDir,
+        [string]$PwshExe,
+        [string]$HubRoot
+    )
+
+    if (-not (Test-Path -LiteralPath $LogsDir)) {
+        New-Item -Path $LogsDir -ItemType Directory -Force | Out-Null
+    }
+
+    $reqPath = Join-Path $LogsDir (".hub-req-{0}.json" -f ([guid]::NewGuid().ToString('N')))
+    $outPath = Join-Path $LogsDir (".hub-out-{0}.json" -f ([guid]::NewGuid().ToString('N')))
+    $errPath = Join-Path $LogsDir (".hub-err-{0}.log" -f ([guid]::NewGuid().ToString('N')))
+
+    try {
+        ($RequestBody | ConvertTo-Json -Depth 8 -Compress) | Out-File -LiteralPath $reqPath -Encoding utf8 -Force
+        $args = @(
+            '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $ScriptPath,
+            '-RequestJsonPath', $reqPath,
+            '-OutputJson', $outPath,
+            '-Quiet',
+            '-HubRoot', $HubRoot
+        )
+        $proc = Start-Process -FilePath $PwshExe -ArgumentList $args -Wait -PassThru -WindowStyle Hidden `
+            -RedirectStandardError $errPath -WorkingDirectory $HubRoot
+
+        $payload = $null
+        if (Test-Path -LiteralPath $outPath) {
+            try { $payload = Get-Content -LiteralPath $outPath -Raw | ConvertFrom-Json } catch { }
+            Remove-Item -LiteralPath $outPath -Force -ErrorAction SilentlyContinue
+        }
+        $stderr = ''
+        if (Test-Path -LiteralPath $errPath) {
+            $rawErr = Get-Content -LiteralPath $errPath -Raw -ErrorAction SilentlyContinue
+            if ($null -ne $rawErr) { $stderr = $rawErr.Trim() }
+            Remove-Item -LiteralPath $errPath -Force -ErrorAction SilentlyContinue
+        }
+        return @{ ExitCode = $proc.ExitCode; Payload = $payload; Stderr = $stderr }
+    } finally {
+        Remove-Item -LiteralPath $reqPath -Force -ErrorAction SilentlyContinue
+    }
 }

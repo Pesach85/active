@@ -90,11 +90,11 @@ function Resolve-ConnectionTrustLevel {
     }
 
     if (Test-IsPrivateAddress $remoteAddr) {
-        return @{ Level = 'T2_Review'; Reason = 'Private LAN endpoint â€” verify business need'; AgentId = '' }
+        return @{ Level = 'T2_Review'; Reason = 'Private LAN endpoint - verify business need'; AgentId = '' }
     }
 
     if ($remotePort -in @(80, 443) -and $state -eq 'Established') {
-        return @{ Level = 'T2_Review'; Reason = 'Outbound web â€” verify destination'; AgentId = '' }
+        return @{ Level = 'T2_Review'; Reason = 'Outbound web - verify destination'; AgentId = '' }
     }
 
     return @{ Level = 'T3_Unknown'; Reason = 'Unattributed network I/O'; AgentId = '' }

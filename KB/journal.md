@@ -2241,3 +2241,61 @@ Fix identify_failed reale: parser error PS 5.1 su caratteri Unicode nei lib dot-
 
 ### Esito
 Smoke ALL PASSED; deploy v3.10.3
+
+## 2026-08-31 12:06:00
+### Obiettivo
+Fix identify con password contenente caratteri speciali (es. `.`) e messaggi errore specifici
+
+### Root cause
+- Anche con `-WindowsPasswordFile`, testi liberi (WhatItIs, note) e password restavano su `-ArgumentList` → parsing fragile
+- StrictMode: accesso a `$req.businessHint` su JSON senza campo opzionale → PropertyNotFoundException
+
+### Modifiche
+- `-RequestJsonPath`: intero body POST/GUI in file JSON temp, zero contenuto utente su CLI
+- `Invoke-HubProcessScriptViaRequest` in `operator-auth.ps1`
+- Web `/api/process/identify` e `/api/process/action` + wizard GUI migrati
+- Import JSON safe con `$req.PSObject.Properties.Name -contains`
+- `restart-transparency-web.ps1` per reload codice
+- Versione 3.10.4
+
+### Esito
+Test password `fake.password.with.dots` → auth_failed corretto (non parse error); SkipAuth identify vmware-vmx OK; smoke ALL PASSED; dashboard riavviata PID 14812
+
+## 2026-08-31 12:22:00
+### Obiettivo
+Fix autocompletamento wizard + dashboard che si chiude durante password
+
+### Root cause
+- Identificazione manuale sparse sovrascriveva entry kb-seed ricca in cache
+- Confidence 0.98 bloccava arricchimento forensics/metadata
+- Forensics con IncludeMemory su vmware-vmx (6GB+) poteva far crashare il server web (ErrorAction Stop)
+- Auto-refresh ogni 30s + click overlay chiudevano il wizard durante compilazione
+- Em-dash residui in resolve-unknown-process.ps1 (PS 5.1 parse error)
+
+### Modifiche
+- Merge baseline kb-seed in Build-ProcessKnowledgeHint e identify save
+- Server web: try/catch per request, forensics senza memory scan
+- Web app.js: pausa refresh con wizard aperto, no click-outside close
+- Versione 3.10.5
+
+### Esito
+Advisory vmware-vmx ripristina testi ricchi; smoke OK fino a forensics
+
+## 2026-08-31 12:27:00
+### Obiettivo
+Fix "Impossibile caricare advisory" su web dashboard wizard
+
+### Root cause
+- `Invoke-HubProcessScriptViaRequest`: `.Trim()` su stderr null quando file err vuoto → eccezione StrictMode → HTTP 500
+- `Read-RequestBodyJson`: `ContentEncoding` null su POST JSON senza charset (secondario)
+- Endpoint advisory usava ArgumentList legacy invece di RequestJsonPath
+
+### Modifiche
+- Fix null-safe stderr in `operator-auth.ps1` e `serve-transparency-dashboard.ps1`
+- Advisory API migrata a `Invoke-HubProcessScriptViaRequest`
+- UTF-8 fallback in Read-RequestBodyJson
+- Smoke: `transparency-web-advisory` POST test
+- Versione 3.10.6
+
+### Esito
+API `/api/process/advisory` → 200 + KnowledgeHint ricco vmware-vmx; smoke ALL PASSED

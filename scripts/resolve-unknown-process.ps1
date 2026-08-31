@@ -8,6 +8,7 @@ param(
     [string]$OperatorNote = '',
     [string]$WindowsPassword = '',
     [string]$WindowsPasswordFile = '',
+    [string]$RequestJsonPath = '',
     [string]$OutputJson = '',
     [string]$HubRoot = '',
     [switch]$DryRun,
@@ -32,6 +33,20 @@ if (-not $HubRoot) { $HubRoot = Split-Path -Parent $scriptDir }
 $hub = Get-HubPaths -HubRoot $HubRoot
 $resCfg = Get-ProcessResolutionConfig -HubRoot $HubRoot
 $knowCfg = Get-ProcessKnowledgeConfig -HubRoot $HubRoot
+
+if ($RequestJsonPath -and (Test-Path -LiteralPath $RequestJsonPath)) {
+    $req = Get-Content -LiteralPath $RequestJsonPath -Raw | ConvertFrom-Json
+    $reqNames = @($req.PSObject.Properties.Name)
+    if ($reqNames -contains 'processId' -and $req.processId) { $ProcessId = [int]$req.processId }
+    if ($reqNames -contains 'processName' -and $req.processName) { $ProcessName = [string]$req.processName }
+    if ($reqNames -contains 'action' -and $req.action) { $Action = [string]$req.action }
+    if ($reqNames -contains 'confirmPhrase' -and $req.confirmPhrase) { $ConfirmPhrase = [string]$req.confirmPhrase }
+    if ($reqNames -contains 'operatorNote' -and $req.operatorNote) { $OperatorNote = [string]$req.operatorNote }
+    if ($reqNames -contains 'password' -and $req.password) { $WindowsPassword = [string]$req.password }
+    if ($reqNames -contains 'dryRun' -and $req.dryRun) { $DryRun = $true }
+    if ($reqNames -contains 'offline' -and $req.offline) { $Offline = $true }
+}
+
 $WindowsPassword = Get-OperatorPasswordFromParam -Password $WindowsPassword -PasswordFile $WindowsPasswordFile
 $catalog = Get-ProcessIntelligenceCatalog -CatalogPath (Join-Path $HubRoot 'config\process-intelligence.json')
 $maintenanceConfig = $null
@@ -112,25 +127,25 @@ $result = [ordered]@{
 
 if ($Action -eq 'Advisory') {
     $result.Outcome = 'AdvisoryOnly'
-    $result.Message = 'No action taken — review Advisory.RecommendedActionId'
+    $result.Message = 'No action taken - review Advisory.RecommendedActionId'
 }
 else {
     if ($snap.NotRunning) {
         $result.Outcome = 'ProcessNotRunning'
-        $result.Message = 'Process is not running — cannot apply this action. Refresh the list and pick a live process.'
+        $result.Message = 'Process is not running - cannot apply this action. Refresh the list and pick a live process.'
     }
     else {
     [void](Assert-OperatorWindowsPassword -Password $WindowsPassword -SkipAuth:$SkipAuth)
 
     $nec = Resolve-ProcessNecessity -ProcessName ([string]$snap.ProcessName) -Catalog $catalog
     if ([string]$nec.Priority -eq 'Keep' -and $Action -in @('Terminate', 'ThrottleBelowNormal')) {
-        throw "Process '$($snap.ProcessName)' is Priority=Keep in catalog — action blocked."
+        throw "Process '$($snap.ProcessName)' is Priority=Keep in catalog - action blocked."
     }
 
     switch ($Action) {
         'Observe' {
             $result.Outcome = if ($DryRun) { 'DryRunObserve' } else { 'Observed' }
-            $result.Message = 'Operator chose observe — no system mutation.'
+            $result.Message = 'Operator chose observe - no system mutation.'
             if (-not $DryRun) {
                 Write-TransparencyEvent -EventsPath $eventsPath -Action 'ProcessObserve' `
                     -Detail ("PID={0} Name={1}" -f $snap.PID, $snap.ProcessName) `
@@ -150,7 +165,7 @@ else {
                     -AgentId 'process-resolution' -ControlLevel 'T0_Observed'
             }
             $result.Outcome = if ($DryRun) { 'DryRunMarkWorkNecessary' } else { 'MarkedWorkNecessary' }
-            $result.Message = 'Recorded operator decision — process treated as work-necessary.'
+            $result.Message = 'Recorded operator decision - process treated as work-necessary.'
         }
         'MarkUnneeded' {
             if (-not $DryRun) {
@@ -160,7 +175,7 @@ else {
                     -Detail ("Name={0}" -f $snap.ProcessName) -AgentId 'process-resolution' -ControlLevel 'T2_Review'
             }
             $result.Outcome = if ($DryRun) { 'DryRunMarkUnneeded' } else { 'MarkedUnneeded' }
-            $result.Message = 'Recorded as unneeded — terminate still requires HITL.'
+            $result.Message = 'Recorded as unneeded - terminate still requires HITL.'
         }
         'ThrottleBelowNormal' {
             if ([int]$snap.PID -le 0) { throw 'Throttle requires running process PID' }
