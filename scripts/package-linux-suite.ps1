@@ -24,6 +24,7 @@ New-Item -Path $targetConfig -ItemType Directory -Force | Out-Null
 $items = @(
     (Join-Path $linuxDir 'analyze-process-pressure.sh'),
     (Join-Path $linuxDir 'apply-process-pressure-safe.sh'),
+    (Join-Path $linuxDir 'VERSION'),
     (Join-Path $configDir 'process-intelligence.json')
 )
 
@@ -40,7 +41,9 @@ foreach ($item in $items) {
 }
 
 $readme = @"
-Linux Optimizer — Process Pressure Intelligence
+Linux Optimizer — Process Pressure Intelligence (v0.2.0)
+
+Hub Core migration preview: shared catalog with Windows; bash PPI until hub CLI parity (ADR-0007).
 
 Analyze top CPU/RAM/IO processes (deterministic two-snapshot scoring):
 
@@ -55,6 +58,11 @@ Safe apply on Linux (renice, reversible):
 
   chmod +x scripts/linux/apply-process-pressure-safe.sh
   ./scripts/linux/apply-process-pressure-safe.sh /tmp/process-pressure.json /tmp/apply.json
+
+Cross-platform CLI (preview, requires .NET 9):
+
+  dotnet run --project /path/to/active/src/SystemOptimizerHub.Cli -- catalog classify --name chrome
+  dotnet publish src/SystemOptimizerHub.Cli -c Release -r linux-x64 --self-contained -p:PublishSingleFile=true
 "@
 
 Set-Content -LiteralPath (Join-Path $OutputDir 'README.txt') -Value $readme -Encoding UTF8
