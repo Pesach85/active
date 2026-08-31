@@ -374,7 +374,7 @@ document.getElementById('btnSaveIdentify').addEventListener('click', async () =>
     setWizardStatus(detail, true);
     return;
   }
-  setWizardStatus('Identificazione salvata in KB cache.');
+  setWizardStatus(data.Message || 'Identificazione salvata. Trust T1 aggiornato nel catalogo.');
   document.getElementById('operatorPassword').value = '';
   await load(true);
 });

@@ -617,7 +617,7 @@ function Build-ProcessKnowledgeHint {
         Sources = @($sources)
         TrustLevel = if ($confidence -ge 0.9) { 'T1_Delegated' } elseif ($confidence -ge 0.75) { 'T2_Review' } else { 'T3_Unknown' }
         RequiresHumanApproval = $true
-        MergePolicy = 'Human must approve before writing process-intelligence.json'
+        MergePolicy = 'Operator identify with Windows password auto-merges catalog when enabled'
     }
 
     $minPersist = [double]$KnowledgeConfig.MinConfidenceToPersist

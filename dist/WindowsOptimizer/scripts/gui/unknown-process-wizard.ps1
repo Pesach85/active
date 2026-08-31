@@ -147,9 +147,9 @@ function Show-UnknownProcessResolutionWizard {
 
     $lblIdIntro = New-Object System.Windows.Forms.Label
     $lblIdIntro.Text = if ($it) {
-        "Descrivi cos'e questo processo. Salvato in KB cache (no merge automatico catalogo)."
+        "Descrivi cos'e questo processo. Dopo il salvataggio: KB cache + merge catalogo (T1) + report."
     } else {
-        'Describe what this process is. Saved to KB cache (no automatic catalog merge).'
+        'Describe what this process is. On save: KB cache + catalog merge (T1) + report refresh.'
     }
     $lblIdIntro.AutoSize = $true
     $lblIdIntro.MaximumSize = New-Object System.Drawing.Size(620, 0)

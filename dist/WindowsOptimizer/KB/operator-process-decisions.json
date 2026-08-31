@@ -1,20 +1,20 @@
 {
+  "UpdatedAt": "2026-08-31T12:42:12.5677300+02:00",
+  "SchemaVersion": "OperatorProcessDecisions.v1",
   "Decisions": {
-    "vmware-vmx": {
-      "ProcessName": "vmware-vmx",
-      "Decision": "Identified",
-      "Note": "Manual: Host VMware VM | ",
-      "RecordedAt": "2026-08-31T12:03:54.4672642+02:00",
-      "RecordedBy": "operator"
-    },
     "smoketestprocxyz": {
       "ProcessName": "SmokeTestProcXYZ",
       "Decision": "Identified",
       "Note": "Manual: SmokeTestProcess | ",
-      "RecordedAt": "2026-08-31T12:28:27.4174131+02:00",
+      "RecordedAt": "2026-08-31T12:42:12.5700920+02:00",
+      "RecordedBy": "operator"
+    },
+    "vmware-vmx": {
+      "ProcessName": "vmware-vmx",
+      "Decision": "Identified",
+      "Note": "Manual: Host VMware VM | ",
+      "RecordedAt": "2026-08-31T12:35:10.4300102+02:00",
       "RecordedBy": "operator"
     }
-  },
-  "SchemaVersion": "OperatorProcessDecisions.v1",
-  "UpdatedAt": "2026-08-31T12:28:27.4145701+02:00"
+  }
 }

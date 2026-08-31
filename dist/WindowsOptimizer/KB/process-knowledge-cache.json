@@ -1,26 +1,5 @@
 {
-  "SchemaVersion": "ProcessKnowledgeCache.v1",
   "Entries": {
-    "charon-svc": {
-      "ProcessName": "charon-svc",
-      "WhatItIs": "StrongSwan IKE/IPsec VPN daemon (charon service wrapper on Windows)",
-      "WhatItDoes": "Maintains VPN tunnels; loopback traffic to companion process is normal",
-      "SuggestedCategory": "VPN",
-      "SuggestedPriority": "Review",
-      "ResourceProfile": "NetworkIO",
-      "BusinessHint": "Keep if corporate VPN requires StrongSwan; classify as business-critical after operator confirm",
-      "SuggestedActions": [
-        "Verify VPN profile owner",
-        "Add to catalog as Keep if mandatory for work",
-        "Disconnect VPN when not needed"
-      ],
-      "Confidence": 0.88,
-      "Sources": [
-        "kb-seed",
-        "https://wiki.strongswan.org/projects/strongswan/wiki/Charon"
-      ],
-      "LearnedAt": "2026-08-31T10:00:00"
-    },
     "mkssandbox": {
       "ProcessName": "mksSandbox",
       "WhatItIs": "VMware VMX sandbox helper (isolated GUI/input for guest)",
@@ -55,7 +34,7 @@
         "operator-manual",
         "PID=8480"
       ],
-      "LearnedAt": "2026-08-31T12:03:54.3154728+02:00",
+      "LearnedAt": "2026-08-31T12:35:10.31253+02:00",
       "OperatorNote": "",
       "ImagePath": "C:\\Program Files (x86)\\VMware\\VMware Workstation\\x64\\vmware-vmx.exe"
     },
@@ -79,6 +58,26 @@
       ],
       "LearnedAt": "2026-08-31T10:00:00"
     },
+    "charon-svc": {
+      "ProcessName": "charon-svc",
+      "WhatItIs": "StrongSwan IKE/IPsec VPN daemon (charon service wrapper on Windows)",
+      "WhatItDoes": "Maintains VPN tunnels; loopback traffic to companion process is normal",
+      "SuggestedCategory": "VPN",
+      "SuggestedPriority": "Review",
+      "ResourceProfile": "NetworkIO",
+      "BusinessHint": "Keep if corporate VPN requires StrongSwan; classify as business-critical after operator confirm",
+      "SuggestedActions": [
+        "Verify VPN profile owner",
+        "Add to catalog as Keep if mandatory for work",
+        "Disconnect VPN when not needed"
+      ],
+      "Confidence": 0.88,
+      "Sources": [
+        "kb-seed",
+        "https://wiki.strongswan.org/projects/strongswan/wiki/Charon"
+      ],
+      "LearnedAt": "2026-08-31T10:00:00"
+    },
     "smoketestprocxyz": {
       "ProcessName": "SmokeTestProcXYZ",
       "WhatItIs": "SmokeTestProcess",
@@ -95,10 +94,11 @@
         "operator-manual",
         "PID=0"
       ],
-      "LearnedAt": "2026-08-31T12:28:27.3029460+02:00",
+      "LearnedAt": "2026-08-31T12:42:12.4051606+02:00",
       "OperatorNote": "",
       "ImagePath": ""
     }
   },
-  "UpdatedAt": "2026-08-31T12:28:27.3781854+02:00"
+  "UpdatedAt": "2026-08-31T12:42:12.5010029+02:00",
+  "SchemaVersion": "ProcessKnowledgeCache.v1"
 }
