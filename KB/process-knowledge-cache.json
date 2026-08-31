@@ -21,24 +21,6 @@
       ],
       "LearnedAt": "2026-08-31T10:00:00"
     },
-    "mkssandbox": {
-      "ProcessName": "mksSandbox",
-      "WhatItIs": "VMware VMX sandbox helper (isolated GUI/input for guest)",
-      "WhatItDoes": "Supports VMware guest display and input isolation",
-      "SuggestedCategory": "Virtualization",
-      "SuggestedPriority": "Tune",
-      "ResourceProfile": "MemoryHeavy",
-      "BusinessHint": "Child of VMware stack â€” classify with vmware-vmx",
-      "SuggestedActions": [
-        "Treat as part of VMware VM lifecycle",
-        "Stops when VM is powered off"
-      ],
-      "Confidence": 0.9,
-      "Sources": [
-        "kb-seed"
-      ],
-      "LearnedAt": "2026-08-31T10:00:00"
-    },
     "vmware-vmx": {
       "ProcessName": "vmware-vmx",
       "WhatItIs": "Host VMware VM",
@@ -55,29 +37,49 @@
         "operator-manual",
         "PID=8480"
       ],
-      "LearnedAt": "2026-08-31T12:03:54.3154728+02:00",
+      "LearnedAt": "2026-08-31T12:45:27.7256449+02:00",
       "OperatorNote": "",
       "ImagePath": "C:\\Program Files (x86)\\VMware\\VMware Workstation\\x64\\vmware-vmx.exe"
     },
-    "mysqld": {
-      "ProcessName": "mysqld",
-      "WhatItIs": "MySQL/MariaDB database server daemon",
-      "WhatItDoes": "Serves SQL databases; RAM scales with buffer pool and connections",
-      "SuggestedCategory": "Database",
-      "SuggestedPriority": "Tune",
-      "ResourceProfile": "MemoryHeavy",
-      "BusinessHint": "Keep if local apps (WordPress, dev stack) need DB; stop service when not developing",
+    "e2eidentifychainxyz": {
+      "ProcessName": "E2eIdentifyChainXYZ",
+      "WhatItIs": "E2E chain test process",
+      "WhatItDoes": "Validates identify to catalog to report pipeline",
+      "SuggestedCategory": "Other",
+      "SuggestedPriority": "Review",
+      "ResourceProfile": "Mixed",
+      "BusinessHint": "",
       "SuggestedActions": [
-        "Confirm which app uses the DB",
-        "Lower innodb_buffer_pool_size if over-provisioned",
-        "Stop MySQL Windows service when unused"
+        "Operator manual identification - catalog auto-merge on auth"
       ],
-      "Confidence": 0.93,
+      "Confidence": 0.98,
       "Sources": [
-        "kb-seed",
-        "https://dev.mysql.com/doc/refman/8.0/en/mysqld.html"
+        "operator-manual",
+        "PID=0"
       ],
-      "LearnedAt": "2026-08-31T10:00:00"
+      "LearnedAt": "2026-08-31T12:57:24.3194854+02:00",
+      "OperatorNote": "",
+      "ImagePath": ""
+    },
+    "startmenuexperiencehost": {
+      "ProcessName": "StartMenuExperienceHost",
+      "WhatItIs": "Windows Start Experience Host",
+      "WhatItDoes": "Product: Microsoft® Windows® Operating System by Microsoft Corporation",
+      "SuggestedCategory": "Other",
+      "SuggestedPriority": "Tune",
+      "ResourceProfile": "Mixed",
+      "BusinessHint": "",
+      "SuggestedActions": [
+        "Operator manual identification - catalog auto-merge on auth"
+      ],
+      "Confidence": 0.98,
+      "Sources": [
+        "operator-manual",
+        "PID=12272"
+      ],
+      "LearnedAt": "2026-08-31T12:52:35.5180764+02:00",
+      "OperatorNote": "",
+      "ImagePath": "C:\\WINDOWS\\SystemApps\\Microsoft.Windows.StartMenuExperienceHost_cw5n1h2txyewy\\StartMenuExperienceHost.exe"
     },
     "smoketestprocxyz": {
       "ProcessName": "SmokeTestProcXYZ",
@@ -95,10 +97,56 @@
         "operator-manual",
         "PID=0"
       ],
-      "LearnedAt": "2026-08-31T12:28:27.3029460+02:00",
+      "LearnedAt": "2026-08-31T12:56:52.496347+02:00",
       "OperatorNote": "",
       "ImagePath": ""
+    },
+    "mkssandbox": {
+      "ProcessName": "mksSandbox",
+      "WhatItIs": "VMware VMX sandbox helper (isolated GUI/input for guest)",
+      "WhatItDoes": "Supports VMware guest display and input isolation",
+      "SuggestedCategory": "Virtualization",
+      "SuggestedPriority": "Keep",
+      "ResourceProfile": "MemoryHeavy",
+      "BusinessHint": "Child of VMware stack Ã¢â‚¬â€ classify with vmware-vmx",
+      "SuggestedActions": [
+        "Treat as part of VMware VM lifecycle",
+        "Stops when VM is powered off"
+      ],
+      "Confidence": 0.98,
+      "Sources": [
+        "operator-manual",
+        "PID=9428",
+        "kb-seed"
+      ],
+      "LearnedAt": "2026-08-31T12:50:43.2933684+02:00",
+      "OperatorNote": "",
+      "ImagePath": "C:\\Program Files (x86)\\VMware\\VMware Workstation\\x64\\mksSandbox.exe"
+    },
+    "mysqld": {
+      "ProcessName": "mysqld",
+      "WhatItIs": "MySQL/MariaDB database server daemon",
+      "WhatItDoes": "Serves SQL databases; RAM scales with buffer pool and connections",
+      "SuggestedCategory": "Database",
+      "SuggestedPriority": "Keep",
+      "ResourceProfile": "MemoryHeavy",
+      "BusinessHint": "Keep if local apps (WordPress, dev stack) need DB; stop service when not developing",
+      "SuggestedActions": [
+        "Confirm which app uses the DB",
+        "Lower innodb_buffer_pool_size if over-provisioned",
+        "Stop MySQL Windows service when unused"
+      ],
+      "Confidence": 0.98,
+      "Sources": [
+        "operator-manual",
+        "PID=7136",
+        "kb-seed",
+        "https://dev.mysql.com/doc/refman/8.0/en/mysqld.html"
+      ],
+      "LearnedAt": "2026-08-31T12:51:39.7501891+02:00",
+      "OperatorNote": "",
+      "ImagePath": "D:\\MySQL9_7Server\\bin\\mysqld.exe"
     }
   },
-  "UpdatedAt": "2026-08-31T12:28:27.3781854+02:00"
+  "UpdatedAt": "2026-08-31T12:57:24.4396828+02:00"
 }

@@ -2312,3 +2312,25 @@ Auto-merge catalogo + refresh report dopo identificazione manuale (password = HI
 
 ### Esito
 Smoke ALL PASSED incl. process-catalog-merge; v3.11.0
+
+## 2026-08-31 12:52:00
+### Obiettivo
+Fix HubRoot param + quality gate catena identify + smoke E2E
+
+### Root cause
+- `build-transparency-report.ps1` non accettava `-HubRoot` → merge catalogo falliva dopo identify con password
+- Pattern `$PID` read-only già fixato in v3.11.1
+
+### Modifiche
+- `HubRoot` opzionale in `build-transparency-report.ps1`
+- `docs/knowledge/identify-catalog-quality-gate.md` + AGENTS.md
+- `scripts/test-identify-chain-e2e.ps1` (5 step end-to-end)
+- v3.11.2
+
+### Pattern da evitare (hint KB)
+- Non usare `$pid` come variabile locale PowerShell
+- Verificare `param()` prima di passare argomenti a script figli via pipeline/caller
+- Smoke obbligatorio: `test-hub-smoke.ps1` + `test-identify-chain-e2e.ps1` su catena identify
+
+### Esito
+E2E ALL PASSED + smoke ALL PASSED; deploy v3.11.2
