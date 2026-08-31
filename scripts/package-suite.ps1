@@ -41,6 +41,9 @@ $items = @(
     (Join-Path $scriptDir "build-optimization-context.ps1"),
     (Join-Path $scriptDir "build-transparency-report.ps1"),
     (Join-Path $scriptDir "serve-transparency-dashboard.ps1"),
+    (Join-Path $scriptDir "run-transparency-web.bat"),
+    (Join-Path $scriptDir "lib\process-forensics.ps1"),
+    (Join-Path $scriptDir "ensure-transparency-web.ps1"),
     (Join-Path $scriptDir "install-orchestrator-task.ps1"),
     (Join-Path $scriptDir "lib\transparency-policy.ps1"),
     (Join-Path $scriptDir "lib\transparency-events.ps1"),
@@ -50,6 +53,7 @@ $items = @(
     (Join-Path $scriptDir "lib\operator-auth.ps1"),
     (Join-Path $scriptDir "identify-unknown-process.ps1"),
     (Join-Path $configDir "process-resolution.json"),
+    (Join-Path $configDir "process-forensics.json"),
     (Join-Path $scriptDir "enrich-process-classification.ps1"),
     (Join-Path $configDir "process-knowledge.json"),
     (Join-Path $configDir "process-intelligence.json"),
@@ -182,3 +186,4 @@ Quick Cleanup (safe targets):
 
 Set-Content -LiteralPath (Join-Path $OutputDir "README.txt") -Value $readme -Encoding UTF8
 Write-Host "Package ready at: $OutputDir"
+

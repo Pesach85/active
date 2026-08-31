@@ -4,6 +4,8 @@
 $script:ProcessKnowledgeSchema = 'ProcessKnowledgeHint.v1'
 $script:WebRequestsThisRun = 0
 
+. (Join-Path $PSScriptRoot 'process-forensics.ps1')
+
 function Get-ProcessKnowledgeConfig {
     param([string]$HubRoot, [string]$ConfigPath = '')
 
@@ -498,6 +500,16 @@ function Build-ProcessKnowledgeHint {
         }
     }
 
+    if ($confidence -lt 0.85 -and $ProcessId -gt 0 -and (Get-Command Get-ProcessForensicProfile -ErrorAction SilentlyContinue)) {
+        $forensics = Get-ProcessForensicProfile -ProcessId $ProcessId -ProcessName $name -ImagePath $ImagePath `
+            -HubRoot $HubRoot -Deep -IncludeMemory:(-not $ImagePath)
+        if ($forensics -and (Get-Command Merge-ForensicsIntoHint -ErrorAction SilentlyContinue)) {
+            $hint = Merge-ForensicsIntoHint -Hint $hint -Forensics $forensics
+            if ($hint.Sources -notcontains 'process-forensics') {
+                $hint.Sources = @($hint.Sources) + @('process-forensics')
+            }
+        }
+    }
     return $hint
 }
 
@@ -512,6 +524,7 @@ function Get-ProcessKnowledgeHintsForTargets {
     )
 
     $script:WebRequestsThisRun = 0
+
     $max = [int]$KnowledgeConfig.MaxEnrichPerRun
     if ($max -le 0) { $max = 6 }
 
@@ -530,7 +543,7 @@ function Get-ProcessKnowledgeHintsForTargets {
 
         $hint = Build-ProcessKnowledgeHint `
             -ProcessName $name `
-            -Pid ([int](Get-JsonPropertySafe $t 'PID')) `
+            -ProcessId ([int](Get-JsonPropertySafe $t 'PID')) `
             -ImagePath ([string](Get-JsonPropertySafe $t 'ImagePath')) `
             -RamMb ([double](Get-JsonPropertySafe $t 'RamMb')) `
             -DominantPressure ([string](Get-JsonPropertySafe $t 'DominantPressure')) `
@@ -548,3 +561,6 @@ function Get-ProcessKnowledgeHintsForTargets {
     }
     return @($hints)
 }
+
+
+

@@ -114,9 +114,13 @@ function renderReport(data) {
   hintsList.innerHTML = '';
   (data.ClassificationHints || []).forEach(hint => {
     const li = document.createElement('li');
+    let forensicsLine = '';
+    if (hint.Forensics && hint.Forensics.Inferences && hint.Forensics.Inferences.length) {
+      forensicsLine = `<br><span class="muted">Forensics: ${hint.Forensics.Inferences.join(' · ')}</span>`;
+    }
     li.innerHTML = `<strong>${hint.ProcessName}</strong> · ${hint.SuggestedCategory} / ${hint.SuggestedPriority}
       · conf ${hint.Confidence} · ${hint.TrustLevel}<br>
-      <span class="muted">${hint.WhatItIs}</span><br>${hint.WhatItDoes}`;
+      <span class="muted">${hint.WhatItIs}</span><br>${hint.WhatItDoes}${forensicsLine}`;
     hintsList.appendChild(li);
   });
 
@@ -148,12 +152,17 @@ function fillList(id, items) {
 }
 
 async function load(refresh = false) {
+  const banner = document.getElementById('offlineBanner');
   try {
     const data = await fetchReport(refresh);
+    if (banner) banner.classList.add('hidden');
     renderReport(data);
   } catch (e) {
     document.getElementById('postureScore').textContent = '!';
-    document.getElementById('postureGrade').textContent = 'Errore caricamento';
+    document.getElementById('postureGrade').textContent = 'Server non avviato';
+    document.getElementById('postureNotes').innerHTML =
+      '<li>Avvia da GUI → Control → Web Dashboard, oppure esegui <code>scripts\\run-transparency-web.bat</code></li>';
+    if (banner) banner.classList.remove('hidden');
   }
 }
 
@@ -219,6 +228,21 @@ async function openWizard(target, identifyTab = false) {
   }
   wizardPayload = await advRes.json();
   document.getElementById('wizardAdvisory').textContent = formatAdvisory(wizardPayload);
+
+  try {
+    const fr = await fetch('/api/process/forensics', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ processId: target.pid, processName: target.name, includeMemory: true })
+    });
+    if (fr.ok) {
+      const fp = await fr.json();
+      if (fp.Inferences && fp.Inferences.length) {
+        document.getElementById('wizardAdvisory').textContent +=
+          '\n\n=== FORENSICS (PE / moduli / memoria) ===\n' + fp.Inferences.join('\n');
+      }
+    }
+  } catch { }
 
   const hint = wizardPayload.KnowledgeHint || {};
   document.getElementById('idWhatIs').value = hint.WhatItIs || '';
@@ -346,3 +370,4 @@ document.getElementById('btnSaveIdentify').addEventListener('click', async () =>
 
 load(false);
 setInterval(() => load(false), 30000);
+

@@ -428,3 +428,4 @@ if ($dir -and -not (Test-Path -LiteralPath $dir)) { New-Item -Path $dir -ItemTyp
 
 Write-Host ("Transparency posture={0}/100 tier={1} unknownHighRam={2} -> {3}" -f $posture, $profile.Tier, @($unknownHighRam).Count, $OutputJson)
 $result
+

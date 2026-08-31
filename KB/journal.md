@@ -2164,3 +2164,24 @@ Zero terminale: wizard GUI+web per risolvere/identificare processi sconosciuti c
 
 ### Esito
 Smoke ALL PASSED; v3.9.1
+
+## 2026-08-31 11:30:00
+### Obiettivo
+Hardening forensics processi/rete + fix ERR_CONNECTION_REFUSED dashboard (on-demand localhost)
+
+### Modifiche
+- `scripts/lib/process-forensics.ps1` — PE header, Authenticode, parent chain, moduli, stringhe binario, ReadProcessMemory bounded
+- `config/process-forensics.json` — limiti lettura memoria/file
+- `process-knowledge.ps1` + `network-transparency.ps1` — deep scan T3 quando conf &lt; 0.85 / hidden egress
+- `ensure-transparency-web.ps1` — avvio idempotente, PID file, health gate
+- `run-transparency-web.bat` — shortcut avvio + browser
+- Web: banner offline, API `/api/process/forensics`, forensics in hints/wizard
+- Smoke: process-forensics + transparency-web-ensure; GUI v3.10.0
+
+### Decisioni
+- Forensics read-only; memoria solo regioni committed bounded (256KB max)
+- Dashboard non residente (Tier C feather) — avvio esplicito GUI/bat/ensure
+- Port 8765 occupata: health check prima di reuse; stale PID cleanup
+
+### Esito
+Smoke ALL PASSED; commit push deploy v3.10.0
