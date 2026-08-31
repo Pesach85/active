@@ -2144,3 +2144,23 @@ Risoluzione processi non identificati: percorso matematicamente efficiente (reve
 
 ### Esito
 Smoke ALL PASSED; commit push deploy v3.9.0
+
+## 2026-08-31 11:00:00
+### Obiettivo
+Zero terminale: wizard GUI+web per risolvere/identificare processi sconosciuti con auth password Windows
+
+### Modifiche
+- `operator-auth.ps1` — ValidateCredentials Windows locale/dominio
+- `identify-unknown-process.ps1` — identificazione manuale → KB cache + operator decisions
+- Wizard EXE: tab Identify, process picker, password dialog prima di ogni azione
+- Web dashboard: modal Risolvi/Identifica, API `/api/process/*`, `/api/operator-identity`
+- `resolve-unknown-process.ps1` — ProcessNotFound/NotRunning JSON (no throw su DryRun); auth obbligatoria
+- GUI: doppio click RAM, pulsanti Resolve/Identify; smoke identify + dryrun missing PID
+
+### Decisioni
+- Password Windows per ogni mutazione (Observe, Throttle, Terminate, Identify)
+- localhost only; password mai loggata
+- Identify → cache KB only, mai auto-merge catalogo
+
+### Esito
+Smoke ALL PASSED; v3.9.1
