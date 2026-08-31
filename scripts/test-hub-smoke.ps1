@@ -318,7 +318,20 @@ else {
     try {
         $h = Invoke-WebRequest -Uri 'http://127.0.0.1:8765/api/health' -TimeoutSec 5 -UseBasicParsing
         if ($h.StatusCode -ne 200) { $failures.Add('transparency-web health not 200') }
-        else { Write-Host '[SMOKE] transparency-web-ensure OK' }
+        else {
+            Write-Host '[SMOKE] transparency-web-ensure OK'
+            try {
+                $advBody = @{ processId = $PID; processName = (Get-Process -Id $PID).ProcessName; offline = $true } | ConvertTo-Json
+                $adv = Invoke-WebRequest -Uri 'http://127.0.0.1:8765/api/process/advisory' -Method POST `
+                    -Body $advBody -ContentType 'application/json' -TimeoutSec 30 -UseBasicParsing
+                if ($adv.StatusCode -ne 200) { $failures.Add('transparency-web advisory not 200') }
+                else {
+                    $advJson = $adv.Content | ConvertFrom-Json
+                    if (-not $advJson.KnowledgeHint) { $failures.Add('transparency-web advisory missing KnowledgeHint') }
+                    else { Write-Host '[SMOKE] transparency-web-advisory OK' }
+                }
+            } catch { $failures.Add("transparency-web advisory: $($_.Exception.Message)") }
+        }
     } catch { $failures.Add("transparency-web health: $($_.Exception.Message)") }
 }
 

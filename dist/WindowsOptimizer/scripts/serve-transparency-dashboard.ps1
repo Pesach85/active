@@ -143,8 +143,16 @@ function Get-ContentType {
 function Read-RequestBodyJson {
     param([System.Net.HttpListenerContext]$Context)
 
-    $reader = New-Object System.IO.StreamReader($Context.Request.InputStream, $Context.Request.ContentEncoding)
-    $raw = $reader.ReadToEnd()
+    $encoding = $Context.Request.ContentEncoding
+    if (-not $encoding) {
+        $encoding = [System.Text.UTF8Encoding]::new($false)
+    }
+    $reader = New-Object System.IO.StreamReader($Context.Request.InputStream, $encoding)
+    try {
+        $raw = $reader.ReadToEnd()
+    } finally {
+        $reader.Dispose()
+    }
     if ([string]::IsNullOrWhiteSpace($raw)) { return @{} }
     return ($raw | ConvertFrom-Json)
 }
@@ -184,7 +192,8 @@ function Invoke-HubProcessScript {
         }
         $stderr = ''
         if (Test-Path -LiteralPath $errLog) {
-            $stderr = (Get-Content -LiteralPath $errLog -Raw -ErrorAction SilentlyContinue).Trim()
+            $rawErr = Get-Content -LiteralPath $errLog -Raw -ErrorAction SilentlyContinue
+            if ($null -ne $rawErr) { $stderr = $rawErr.Trim() }
             Remove-Item -LiteralPath $errLog -Force -ErrorAction SilentlyContinue
         }
         return @{ ExitCode = $proc.ExitCode; Payload = $payload; Stderr = $stderr }
@@ -218,9 +227,12 @@ if ($BuildReportFirst) {
 
 try {
     while ($listener.IsListening) {
-        $context = $listener.GetContext()
-        $path = $context.Request.Url.LocalPath
-        if ($path -eq '/') { $path = '/index.html' }
+        $context = $null
+        $path = ''
+        try {
+            $context = $listener.GetContext()
+            $path = $context.Request.Url.LocalPath
+            if ($path -eq '/') { $path = '/index.html' }
 
         if ($path -eq '/api/report.json') {
             if (-not (Test-Path -LiteralPath $reportPath)) {
@@ -252,12 +264,22 @@ try {
 
         if ($context.Request.HttpMethod -eq 'POST' -and $path -eq '/api/process/advisory') {
             $body = Read-RequestBodyJson -Context $context
-            $args = @('-Action', 'Advisory', '-Offline')
-            if ($body.processId) { $args += @('-ProcessId', [string][int]$body.processId) }
-            if ($body.processName) { $args += @('-ProcessName', [string]$body.processName) }
-            $run = Invoke-HubProcessScript -ScriptPath $resolveScript -ArgumentList $args
+            $reqBody = @{
+                action = 'Advisory'
+                offline = $true
+            }
+            if ($body -and $body.PSObject.Properties['processId']) { $reqBody.processId = [int]$body.processId }
+            if ($body -and $body.PSObject.Properties['processName']) { $reqBody.processName = [string]$body.processName }
+            . (Join-Path $scriptDir 'lib\operator-auth.ps1')
+            $run = Invoke-HubProcessScriptViaRequest -ScriptPath $resolveScript -RequestBody $reqBody `
+                -LogsDir $hub.Logs -PwshExe $pwshExe -HubRoot $hubRoot
             if ($run.ExitCode -ne 0 -or -not $run.Payload) {
-                Send-JsonResponse -Context $context -StatusCode 400 -Payload @{ error = 'advisory_failed'; exitCode = $run.ExitCode }
+                $msg = if ($run.Stderr) { [string]$run.Stderr } else { 'advisory_failed' }
+                Send-JsonResponse -Context $context -StatusCode 400 -Payload @{
+                    error = 'advisory_failed'
+                    exitCode = $run.ExitCode
+                    message = $msg
+                }
             } else {
                 Send-JsonResponse -Context $context -Payload $run.Payload
             }
@@ -271,18 +293,21 @@ try {
                 Send-JsonResponse -Context $context -StatusCode 400 -Payload @{ error = 'action_required' }
                 continue
             }
-            $args = @('-Action', $action)
-            if ($body.processId) { $args += @('-ProcessId', [string][int]$body.processId) }
-            if ($body.processName) { $args += @('-ProcessName', [string]$body.processName) }
-            if ($body.confirmPhrase) { $args += @('-ConfirmPhrase', [string]$body.confirmPhrase) }
-            if ($body.operatorNote) { $args += @('-OperatorNote', [string]$body.operatorNote) }
-            if ($body.password) { $args += @('-WindowsPassword', [string]$body.password) }
-            if ($body.dryRun) { $args += '-DryRun' }
-            $run = Invoke-HubProcessScript -ScriptPath $resolveScript -ArgumentList $args
+            if (-not $body.password) {
+                Send-JsonResponse -Context $context -StatusCode 401 -Payload @{ error = 'password_required' }
+                continue
+            }
+            . (Join-Path $scriptDir 'lib\operator-auth.ps1')
+            $run = Invoke-HubProcessScriptViaRequest -ScriptPath $resolveScript -RequestBody $body `
+                -LogsDir $hub.Logs -PwshExe $pwshExe -HubRoot $hubRoot
             if ($run.ExitCode -ne 0) {
+                $msg = $null
+                if ($run.Payload -and $run.Payload.Message) { $msg = [string]$run.Payload.Message }
+                elseif ($run.Stderr) { $msg = [string]$run.Stderr }
                 Send-JsonResponse -Context $context -StatusCode 403 -Payload @{
-                    error = 'action_failed'
+                    error = if ($msg -match 'password verification failed') { 'auth_failed' } else { 'action_failed' }
                     exitCode = $run.ExitCode
+                    message = $msg
                     result = $run.Payload
                 }
             } else {
@@ -301,18 +326,9 @@ try {
                 Send-JsonResponse -Context $context -StatusCode 401 -Payload @{ error = 'password_required' }
                 continue
             }
-            $args = @(
-                '-WhatItIs', [string]$body.whatItIs,
-                '-WhatItDoes', [string]$body.whatItDoes,
-                '-SuggestedCategory', ([string]$body.category),
-                '-SuggestedPriority', ([string]$body.priority),
-                '-BusinessHint', ([string]$body.businessHint),
-                '-OperatorNote', ([string]$body.note),
-                '-WindowsPassword', [string]$body.password
-            )
-            if ($body.processId) { $args += @('-ProcessId', [string][int]$body.processId) }
-            if ($body.processName) { $args += @('-ProcessName', [string]$body.processName) }
-            $run = Invoke-HubProcessScript -ScriptPath $identifyScript -ArgumentList $args
+            . (Join-Path $scriptDir 'lib\operator-auth.ps1')
+            $run = Invoke-HubProcessScriptViaRequest -ScriptPath $identifyScript -RequestBody $body `
+                -LogsDir $hub.Logs -PwshExe $pwshExe -HubRoot $hubRoot
             if ($run.ExitCode -ne 0) {
                 $msg = $null
                 if ($run.Payload -and $run.Payload.Message) { $msg = [string]$run.Payload.Message }
@@ -331,14 +347,22 @@ try {
 
         if ($context.Request.HttpMethod -eq 'POST' -and $path -eq '/api/process/forensics') {
             $body = Read-RequestBodyJson -Context $context
-            . (Join-Path $scriptDir 'lib\process-forensics.ps1')
-            $fp = Get-ProcessForensicProfile `
-                -ProcessId ([int]$body.processId) `
-                -ProcessName ([string]$body.processName) `
-                -HubRoot $hubRoot `
-                -Deep `
-                -IncludeMemory:([bool]$body.includeMemory)
-            Send-JsonResponse -Context $context -Payload $fp
+            try {
+                . (Join-Path $scriptDir 'lib\process-forensics.ps1')
+                $fp = Get-ProcessForensicProfile `
+                    -ProcessId ([int]$body.processId) `
+                    -ProcessName ([string]$body.processName) `
+                    -HubRoot $hubRoot `
+                    -Deep `
+                    -IncludeMemory:($false)
+                Send-JsonResponse -Context $context -Payload $fp
+            } catch {
+                Write-WebLog ("Forensics error: {0}" -f $_.Exception.Message)
+                Send-JsonResponse -Context $context -StatusCode 500 -Payload @{
+                    error = 'forensics_failed'
+                    message = $_.Exception.Message
+                }
+            }
             continue
         }
 
@@ -362,6 +386,17 @@ try {
             Send-Response -Context $context -ContentType (Get-ContentType $fullFile) -BodyBytes $bytes
         } else {
             Send-Response -Context $context -StatusCode 404 -BodyBytes ([System.Text.Encoding]::UTF8.GetBytes('Not found'))
+        }
+        } catch {
+            Write-WebLog ("Request error [{0}]: {1}" -f $path, $_.Exception.Message)
+            if ($context) {
+                try {
+                    Send-JsonResponse -Context $context -StatusCode 500 -Payload @{
+                        error = 'request_failed'
+                        message = $_.Exception.Message
+                    }
+                } catch { }
+            }
         }
     }
 } catch {

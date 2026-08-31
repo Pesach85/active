@@ -2,9 +2,9 @@
 param(
     [int]$ProcessId = 0,
     [string]$ProcessName = '',
-    [Parameter(Mandatory = $true)]
+    [Parameter(Mandatory = $false)]
     [string]$WhatItIs,
-    [Parameter(Mandatory = $true)]
+    [Parameter(Mandatory = $false)]
     [string]$WhatItDoes,
     [string]$SuggestedCategory = 'Unknown',
     [ValidateSet('Keep', 'Tune', 'Review', 'Unknown')]
@@ -13,6 +13,7 @@ param(
     [string]$OperatorNote = '',
     [string]$WindowsPassword = '',
     [string]$WindowsPasswordFile = '',
+    [string]$RequestJsonPath = '',
     [string]$OutputJson = '',
     [string]$HubRoot = '',
     [switch]$SkipAuth,
@@ -36,6 +37,24 @@ $hub = Get-HubPaths -HubRoot $HubRoot
 $knowCfg = Get-ProcessKnowledgeConfig -HubRoot $HubRoot
 $resCfg = Get-ProcessResolutionConfig -HubRoot $HubRoot
 
+if ($RequestJsonPath -and (Test-Path -LiteralPath $RequestJsonPath)) {
+    $req = Get-Content -LiteralPath $RequestJsonPath -Raw | ConvertFrom-Json
+    $reqNames = @($req.PSObject.Properties.Name)
+    if ($reqNames -contains 'processId' -and $req.processId) { $ProcessId = [int]$req.processId }
+    if ($reqNames -contains 'processName' -and $req.processName) { $ProcessName = [string]$req.processName }
+    if ($reqNames -contains 'whatItIs' -and $req.whatItIs) { $WhatItIs = [string]$req.whatItIs }
+    if ($reqNames -contains 'whatItDoes' -and $req.whatItDoes) { $WhatItDoes = [string]$req.whatItDoes }
+    if ($reqNames -contains 'category' -and $req.category) { $SuggestedCategory = [string]$req.category }
+    if ($reqNames -contains 'priority' -and $req.priority) { $SuggestedPriority = [string]$req.priority }
+    if ($reqNames -contains 'businessHint' -and $req.businessHint) { $BusinessHint = [string]$req.businessHint }
+    if ($reqNames -contains 'note' -and $req.note) { $OperatorNote = [string]$req.note }
+    if ($reqNames -contains 'password' -and $req.password) { $WindowsPassword = [string]$req.password }
+}
+
+if ([string]::IsNullOrWhiteSpace($WhatItIs) -or [string]::IsNullOrWhiteSpace($WhatItDoes)) {
+    throw 'WhatItIs and WhatItDoes are required.'
+}
+
 $WindowsPassword = Get-OperatorPasswordFromParam -Password $WindowsPassword -PasswordFile $WindowsPasswordFile
 
 try {
@@ -44,7 +63,7 @@ try {
 $snap = Get-ProcessLiveSnapshot -ProcessId $ProcessId -ProcessName $ProcessName
 if (-not $snap) {
     if (-not $ProcessName) {
-        throw 'Process not found — provide -ProcessName or a running -ProcessId'
+        throw 'Process not found - provide -ProcessName or a running -ProcessId'
     }
     $snap = [ordered]@{
         PID = 0
@@ -60,6 +79,10 @@ if (-not $snap) {
 $cachePath = Join-Path $HubRoot (($knowCfg.CachePath -replace '/', '\'))
 $key = Get-CacheEntryKey -ProcessName ([string]$snap.ProcessName)
 
+$cacheObj = Get-ProcessKnowledgeCache -HubRoot $HubRoot -CacheRelPath ([string]$knowCfg.CachePath)
+$existing = Get-ProcessKnowledgeFromCache -Cache $cacheObj -ProcessName ([string]$snap.ProcessName) -TtlDays 99999
+$seedBaseline = Get-ProcessKnowledgeSeedEntry -HubRoot $HubRoot -ProcessName ([string]$snap.ProcessName)
+
 $entry = [ordered]@{
     ProcessName = [string]$snap.ProcessName
     WhatItIs = $WhatItIs.Trim()
@@ -68,12 +91,26 @@ $entry = [ordered]@{
     SuggestedPriority = $SuggestedPriority
     ResourceProfile = 'Mixed'
     BusinessHint = $BusinessHint.Trim()
-    SuggestedActions = @('Operator manual identification — review catalog merge separately')
+    SuggestedActions = @('Operator manual identification - review catalog merge separately')
     Confidence = 0.98
     Sources = @('operator-manual', "PID=$($snap.PID)")
     LearnedAt = (Get-Date).ToString('o')
     OperatorNote = $OperatorNote.Trim()
     ImagePath = [string]$snap.Path
+}
+
+$mergeBaseline = $seedBaseline
+if ($existing) {
+    $existingDoes = [string](Get-JsonPropertySafe $existing 'WhatItDoes')
+    $seedDoes = if ($seedBaseline) { [string](Get-JsonPropertySafe $seedBaseline 'WhatItDoes') } else { '' }
+    if ($existingDoes.Length -gt $seedDoes.Length) {
+        $mergeBaseline = $existing
+    } elseif (-not $mergeBaseline) {
+        $mergeBaseline = $existing
+    }
+}
+if ($mergeBaseline) {
+    $entry = Merge-OperatorManualCacheEntry -Existing $mergeBaseline -New $entry
 }
 
 Save-ProcessKnowledgeCacheEntry -CachePath $cachePath -ProcessName ([string]$snap.ProcessName) -Entry $entry

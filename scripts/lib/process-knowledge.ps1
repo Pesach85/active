@@ -78,6 +78,124 @@ function Get-ProcessKnowledgeFromCache {
     return $entry
 }
 
+function Get-ProcessKnowledgeSeedEntry {
+    param([string]$HubRoot, [string]$ProcessName)
+
+    $candidates = @(
+        (Join-Path $HubRoot 'dist\WindowsOptimizer\KB\process-knowledge-cache.json'),
+        (Join-Path $HubRoot 'KB\process-knowledge-seed.json')
+    )
+    foreach ($path in $candidates) {
+        if (-not (Test-Path -LiteralPath $path)) { continue }
+        try {
+            $raw = Get-Content -LiteralPath $path -Raw | ConvertFrom-Json
+            if (-not $raw.Entries) { continue }
+            $seedCache = @{ Entries = $raw.Entries }
+            $hit = Get-ProcessKnowledgeFromCache -Cache $seedCache -ProcessName $ProcessName -TtlDays 99999
+            if ($hit) { return $hit }
+        } catch { }
+    }
+    return $null
+}
+
+function Merge-SparseKnowledgeFields {
+    param(
+        [string]$WhatItIs,
+        [string]$WhatItDoes,
+        [string]$BusinessHint,
+        [string]$Category,
+        [string]$Priority,
+        [string]$ResourceProfile,
+        $Baseline,
+        [ref]$SuggestedActions
+    )
+
+    if (-not $Baseline) {
+        return @{
+            WhatItIs = $WhatItIs
+            WhatItDoes = $WhatItDoes
+            BusinessHint = $BusinessHint
+            Category = $Category
+            Priority = $Priority
+            ResourceProfile = $ResourceProfile
+        }
+    }
+
+    $baseWhatIs = [string](Get-JsonPropertySafe $Baseline 'WhatItIs')
+    $baseWhatDoes = [string](Get-JsonPropertySafe $Baseline 'WhatItDoes')
+    $baseHint = [string](Get-JsonPropertySafe $Baseline 'BusinessHint')
+    $baseCat = [string](Get-JsonPropertySafe $Baseline 'SuggestedCategory')
+    $basePri = [string](Get-JsonPropertySafe $Baseline 'SuggestedPriority')
+    $baseRes = [string](Get-JsonPropertySafe $Baseline 'ResourceProfile')
+
+    if ([string]::IsNullOrWhiteSpace($WhatItIs) -or ($baseWhatIs.Length -gt $WhatItIs.Length + 15)) {
+        if ($baseWhatIs) { $WhatItIs = $baseWhatIs }
+    }
+    if ([string]::IsNullOrWhiteSpace($WhatItDoes) -or ($baseWhatDoes.Length -gt $WhatItDoes.Length + 15)) {
+        if ($baseWhatDoes) { $WhatItDoes = $baseWhatDoes }
+    }
+    if ([string]::IsNullOrWhiteSpace($BusinessHint) -and $baseHint) { $BusinessHint = $baseHint }
+    if (($Category -eq 'Unknown' -or [string]::IsNullOrWhiteSpace($Category)) -and $baseCat) { $Category = $baseCat }
+    if (($Priority -eq 'Review' -or [string]::IsNullOrWhiteSpace($Priority)) -and $basePri) { $Priority = $basePri }
+    if (($ResourceProfile -eq 'Mixed' -or [string]::IsNullOrWhiteSpace($ResourceProfile)) -and $baseRes) { $ResourceProfile = $baseRes }
+
+    $baseActions = @(Get-JsonPropertySafe $Baseline 'SuggestedActions')
+    if ($SuggestedActions.Value.Count -le 1 -and $baseActions.Count -gt 0) {
+        $onlyManual = ($SuggestedActions.Value.Count -eq 1) -and ([string]$SuggestedActions.Value[0] -match 'Operator manual identification')
+        if ($SuggestedActions.Value.Count -eq 0 -or $onlyManual) {
+            $SuggestedActions.Value = @($baseActions | ForEach-Object { [string]$_ })
+        }
+    }
+
+    return @{
+        WhatItIs = $WhatItIs
+        WhatItDoes = $WhatItDoes
+        BusinessHint = $BusinessHint
+        Category = $Category
+        Priority = $Priority
+        ResourceProfile = $ResourceProfile
+    }
+}
+
+function Merge-OperatorManualCacheEntry {
+    param($Existing, [object]$New)
+
+    if (-not $Existing) { return $New }
+
+    $actions = [ref]@([string[]]@($New.SuggestedActions))
+    $merged = Merge-SparseKnowledgeFields `
+        -WhatItIs ([string]$New.WhatItIs) `
+        -WhatItDoes ([string]$New.WhatItDoes) `
+        -BusinessHint ([string]$New.BusinessHint) `
+        -Category ([string]$New.SuggestedCategory) `
+        -Priority ([string]$New.SuggestedPriority) `
+        -ResourceProfile ([string]$New.ResourceProfile) `
+        -Baseline $Existing `
+        -SuggestedActions $actions
+
+    $sources = [System.Collections.Generic.List[string]]::new()
+    foreach ($s in @($New.Sources)) { if ($s) { [void]$sources.Add([string]$s) } }
+    foreach ($s in @(Get-JsonPropertySafe $Existing 'Sources')) {
+        if ($s -and $s -notin $sources) { [void]$sources.Add([string]$s) }
+    }
+
+    return [ordered]@{
+        ProcessName = [string]$New.ProcessName
+        WhatItIs = $merged.WhatItIs
+        WhatItDoes = $merged.WhatItDoes
+        SuggestedCategory = $merged.Category
+        SuggestedPriority = $merged.Priority
+        ResourceProfile = $merged.ResourceProfile
+        BusinessHint = $merged.BusinessHint
+        SuggestedActions = @($actions.Value)
+        Confidence = [double]$New.Confidence
+        Sources = @($sources)
+        LearnedAt = [string]$New.LearnedAt
+        OperatorNote = [string]$New.OperatorNote
+        ImagePath = if ($New.ImagePath) { [string]$New.ImagePath } else { [string](Get-JsonPropertySafe $Existing 'ImagePath') }
+    }
+}
+
 function Get-JsonPropertySafe {
     param($Object, [string]$Name)
     if ($null -eq $Object) { return $null }
@@ -438,6 +556,28 @@ function Build-ProcessKnowledgeHint {
 
     if (-not $whatItIs) { $whatItIs = "Windows process '$name' - insufficient local facts" }
     if (-not $whatItDoes) { $whatItDoes = 'Run operator review; check Task Manager path, startup entries, and business ownership.' }
+
+    $baseline = Get-ProcessKnowledgeSeedEntry -HubRoot $HubRoot -ProcessName $name
+    if (-not $baseline -and $confidence -ge 0.9) {
+        $cachedBaseline = Get-ProcessKnowledgeFromCache -Cache $cacheObj -ProcessName $name -TtlDays 99999
+        $cachedSources = @(Get-JsonPropertySafe $cachedBaseline 'Sources')
+        if ($cachedBaseline -and ($cachedSources -contains 'kb-seed')) { $baseline = $cachedBaseline }
+    }
+    $actionRef = [ref]@($suggestedActions)
+    $enriched = Merge-SparseKnowledgeFields `
+        -WhatItIs $whatItIs -WhatItDoes $whatItDoes -BusinessHint $businessHint `
+        -Category $category -Priority $priority -ResourceProfile $resourceProfile `
+        -Baseline $baseline -SuggestedActions $actionRef
+    $whatItIs = $enriched.WhatItIs
+    $whatItDoes = $enriched.WhatItDoes
+    $businessHint = $enriched.BusinessHint
+    $category = $enriched.Category
+    $priority = $enriched.Priority
+    $resourceProfile = $enriched.ResourceProfile
+    $suggestedActions = [System.Collections.Generic.List[string]]::new()
+    foreach ($a in @($actionRef.Value)) { [void]$suggestedActions.Add([string]$a) }
+    if ($baseline -and ($sources -notcontains 'kb-seed')) { [void]$sources.Add('kb-seed-baseline') }
+
     if ($confidence -lt 0.55) { $confidence = 0.55 }
     if (@($suggestedActions).Count -eq 0) {
         [void]$suggestedActions.Add('Identify owner application in Task Manager -> Properties -> path')
@@ -500,15 +640,20 @@ function Build-ProcessKnowledgeHint {
         }
     }
 
-    if ($confidence -lt 0.85 -and $ProcessId -gt 0 -and (Get-Command Get-ProcessForensicProfile -ErrorAction SilentlyContinue)) {
-        $forensics = Get-ProcessForensicProfile -ProcessId $ProcessId -ProcessName $name -ImagePath $ImagePath `
-            -HubRoot $HubRoot -Deep -IncludeMemory:(-not $ImagePath)
-        if ($forensics -and (Get-Command Merge-ForensicsIntoHint -ErrorAction SilentlyContinue)) {
-            $hint = Merge-ForensicsIntoHint -Hint $hint -Forensics $forensics
-            if ($hint.Sources -notcontains 'process-forensics') {
-                $hint.Sources = @($hint.Sources) + @('process-forensics')
+    $sparseManual = ($sources -contains 'operator-manual') -and (
+        [string]::IsNullOrWhiteSpace($businessHint) -or $whatItDoes.Length -lt 60
+    )
+    if (($confidence -lt 0.85 -or $sparseManual) -and $ProcessId -gt 0 -and (Get-Command Get-ProcessForensicProfile -ErrorAction SilentlyContinue)) {
+        try {
+            $forensics = Get-ProcessForensicProfile -ProcessId $ProcessId -ProcessName $name -ImagePath $ImagePath `
+                -HubRoot $HubRoot -Deep -IncludeMemory:($false)
+            if ($forensics -and (Get-Command Merge-ForensicsIntoHint -ErrorAction SilentlyContinue)) {
+                $hint = Merge-ForensicsIntoHint -Hint $hint -Forensics $forensics
+                if ($hint.Sources -notcontains 'process-forensics') {
+                    $hint.Sources = @($hint.Sources) + @('process-forensics')
+                }
             }
-        }
+        } catch { }
     }
     return $hint
 }
