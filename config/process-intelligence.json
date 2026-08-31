@@ -1,116 +1,403 @@
-{
-  "SchemaVersion": "ProcessIntelligence.v1",
-  "vitalExact": [
-    "System", "Idle", "Registry", "Memory Compression", "smss", "csrss", "wininit", "winlogon",
-    "services", "lsass", "svchost", "dwm", "fontdrvhost", "sihost", "explorer"
-  ],
-  "vitalPatterns": [
-    "^System$", "^Secure System$", "WmiPrvSE", "WUDFHost", "dllhost"
-  ],
-  "securityExact": [
-    "MsMpEng", "NisSrv", "Sense", "SecurityHealthService", "SecurityHealthSystray", "MpDefenderCoreService"
-  ],
-  "platformServicePatterns": [
-    "SearchIndexer", "WSearch", "WmiApSrv", "spoolsv", "WUDFHost", "WUDFHost"
-  ],
-  "knownApplications": {
-    "chrome": {
-      "category": "Browser",
-      "priority": "Tune",
-      "pressureMitigations": {
-        "CPUBound": ["Reduce open tabs", "Disable hardware acceleration if GPU driver issue", "Check extensions"],
-        "MemoryHeavy": ["Close unused profiles", "Use sleeping tabs feature"],
-        "IOHeavy": ["Clear cache", "Move user data to SSD if on HDD"]
-      },
-      "references": [
-        "https://support.google.com/chrome/answer/1385029",
-        "https://learn.microsoft.com/en-us/deployedge/"
-      ]
-    },
-    "msedge": {
-      "category": "Browser",
-      "priority": "Tune",
-      "pressureMitigations": {
-        "CPUBound": ["Disable startup boost", "Review extensions"],
-        "MemoryHeavy": ["Enable sleeping tabs", "Close background apps"],
-        "IOHeavy": ["Limit sync folders", "Clear browsing data cache"]
-      },
-      "references": ["https://learn.microsoft.com/en-us/deployedge/"]
-    },
-    "code": {
-      "category": "IDE",
-      "priority": "Tune",
-      "pressureMitigations": {
-        "CPUBound": ["Disable unused extensions", "Exclude large folders from watcher"],
-        "MemoryHeavy": ["Increase swap on low-RAM systems", "Close unused windows"],
-        "IOHeavy": ["Move workspace to SSD", "Disable file watcher on node_modules"]
-      },
-      "references": ["https://code.visualstudio.com/docs/setup/setup-overview"]
-    },
-    "onedrive": {
-      "category": "Sync",
-      "priority": "Tune",
-      "pressureMitigations": {
-        "IOHeavy": ["Pause sync during heavy work", "Choose folders to sync only"],
-        "MemoryHeavy": ["Limit concurrent uploads"]
-      },
-      "references": ["https://support.microsoft.com/en-us/office/sync-files-with-onedrive-in-windows"]
-    },
-    "MsMpEng": {
-      "category": "Security",
-      "priority": "Keep",
-      "pressureMitigations": {
-        "CPUBound": ["Schedule scan outside work hours", "Add build folder exclusions after review"],
-        "IOHeavy": ["Exclude trusted dev paths only after security review"]
-      },
-      "references": ["https://learn.microsoft.com/en-us/microsoft-365/security/defender-endpoint/"]
-    }
-  },
-  "optionalBackgroundPatterns": [
-    "AnyDesk", "TeamViewer", "Zoom", "AdobeARM", "GoogleUpdate", "EdgeUpdate", "OneDriveSetup"
-  ],
-  "safeActionDefinitions": {
-    "ObserveOnly": { "level": "Safe", "requiresHitl": false, "reversible": true },
-    "LowerProcessPriority": { "level": "Safe", "requiresHitl": false, "reversible": true },
-    "DisableStartupEntry": { "level": "Moderate", "requiresHitl": true, "reversible": true },
-    "PauseSyncClient": { "level": "Moderate", "requiresHitl": true, "reversible": true },
-    "TerminateProcess": { "level": "Aggressive", "requiresHitl": true, "reversible": false }
-  },
-  "extremeNecessityDefender": {
-    "neverAutoApply": true,
-    "escalationOrder": ["Observe", "TuneExclusions", "TemporaryRealtimeOff", "ExtremeServiceDisable"],
-    "tiers": {
-      "Observe": { "minCompositeScore": 0, "maxCompositeScore": 54, "level": "Safe", "description": "Monitor only — pressure within normal tuning range." },
-      "TuneExclusions": { "minCompositeScore": 55, "maxCompositeScore": 69, "level": "Moderate", "description": "Add path exclusions and off-hours scan schedule before any disable." },
-      "TemporaryRealtimeOff": { "minCompositeScore": 70, "maxCompositeScore": 84, "level": "Aggressive", "maxDurationMinutes": 60, "description": "Time-boxed real-time protection off — requires Tamper Protection off + explicit HITL." },
-      "ExtremeServiceDisable": { "minCompositeScore": 85, "level": "Aggressive", "maxDurationMinutes": 120, "description": "Last resort: stop WinDefend service — double HITL, mandatory rollback timer." }
-    },
-    "reasonCodes": {
-      "DevBuild": "Trusted dev/build workload blocked by scan I/O",
-      "EmergencyPerf": "System unusable until immediate relief",
-      "ForensicCapture": "Controlled capture with secondary AV",
-      "VendorSupport": "Microsoft/vendor guided troubleshooting"
-    },
-    "weights": {
-      "pressureScore": 0.35,
-      "cpuPercent": 0.25,
-      "ioMbPerSec": 0.20,
-      "workingSetMb": 0.10,
-      "dominantPressureMatch": 0.10
-    },
-    "references": [
-      "https://learn.microsoft.com/en-us/microsoft-365/security/defender-endpoint/",
-      "https://learn.microsoft.com/en-us/powershell/module/defender/set-mppreference"
-    ]
-  },
-  "keepExtremeDisableAllowlist": {
-    "MsMpEng": {
-      "displayName": "Microsoft Defender (MsMpEng / WinDefend)",
-      "applyScript": "apply-defender-extreme-necessity.ps1",
-      "evaluateScript": "evaluate-defender-extreme-necessity.ps1",
-      "confirmPhrase": "DISABLE DEFENDER",
-      "minConfirmSteps": 6,
-      "notes": "GUI wizard: 3 checkboxes + confirm phrase + 3 MessageBox gates + admin elevation."
-    }
-  }
+﻿{
+    "SchemaVersion":  "ProcessIntelligence.v1",
+    "vitalExact":  [
+                       "System",
+                       "Idle",
+                       "Registry",
+                       "Memory Compression",
+                       "smss",
+                       "csrss",
+                       "wininit",
+                       "winlogon",
+                       "services",
+                       "lsass",
+                       "svchost",
+                       "dwm",
+                       "fontdrvhost",
+                       "sihost",
+                       "explorer"
+                   ],
+    "vitalPatterns":  [
+                          "^System$",
+                          "^Secure System$",
+                          "WmiPrvSE",
+                          "WUDFHost",
+                          "dllhost"
+                      ],
+    "securityExact":  [
+                          "MsMpEng",
+                          "NisSrv",
+                          "Sense",
+                          "SecurityHealthService",
+                          "SecurityHealthSystray",
+                          "MpDefenderCoreService"
+                      ],
+    "platformServicePatterns":  [
+                                    "SearchIndexer",
+                                    "WSearch",
+                                    "WmiApSrv",
+                                    "spoolsv",
+                                    "WUDFHost",
+                                    "WUDFHost"
+                                ],
+    "knownApplications":  {
+                              "chrome":  {
+                                             "category":  "Browser",
+                                             "priority":  "Tune",
+                                             "pressureMitigations":  {
+                                                                         "CPUBound":  [
+                                                                                          "Reduce open tabs",
+                                                                                          "Disable hardware acceleration if GPU driver issue",
+                                                                                          "Check extensions"
+                                                                                      ],
+                                                                         "MemoryHeavy":  [
+                                                                                             "Close unused profiles",
+                                                                                             "Use sleeping tabs feature"
+                                                                                         ],
+                                                                         "IOHeavy":  [
+                                                                                         "Clear cache",
+                                                                                         "Move user data to SSD if on HDD"
+                                                                                     ]
+                                                                     },
+                                             "references":  [
+                                                                "https://support.google.com/chrome/answer/1385029",
+                                                                "https://learn.microsoft.com/en-us/deployedge/"
+                                                            ]
+                                         },
+                              "msedge":  {
+                                             "category":  "Browser",
+                                             "priority":  "Tune",
+                                             "pressureMitigations":  {
+                                                                         "CPUBound":  [
+                                                                                          "Disable startup boost",
+                                                                                          "Review extensions"
+                                                                                      ],
+                                                                         "MemoryHeavy":  [
+                                                                                             "Enable sleeping tabs",
+                                                                                             "Close background apps"
+                                                                                         ],
+                                                                         "IOHeavy":  [
+                                                                                         "Limit sync folders",
+                                                                                         "Clear browsing data cache"
+                                                                                     ]
+                                                                     },
+                                             "references":  [
+                                                                "https://learn.microsoft.com/en-us/deployedge/"
+                                                            ]
+                                         },
+                              "code":  {
+                                           "category":  "IDE",
+                                           "priority":  "Tune",
+                                           "pressureMitigations":  {
+                                                                       "CPUBound":  [
+                                                                                        "Disable unused extensions",
+                                                                                        "Exclude large folders from watcher"
+                                                                                    ],
+                                                                       "MemoryHeavy":  [
+                                                                                           "Increase swap on low-RAM systems",
+                                                                                           "Close unused windows"
+                                                                                       ],
+                                                                       "IOHeavy":  [
+                                                                                       "Move workspace to SSD",
+                                                                                       "Disable file watcher on node_modules"
+                                                                                   ]
+                                                                   },
+                                           "references":  [
+                                                              "https://code.visualstudio.com/docs/setup/setup-overview"
+                                                          ]
+                                       },
+                              "onedrive":  {
+                                               "category":  "Sync",
+                                               "priority":  "Tune",
+                                               "pressureMitigations":  {
+                                                                           "IOHeavy":  [
+                                                                                           "Pause sync during heavy work",
+                                                                                           "Choose folders to sync only"
+                                                                                       ],
+                                                                           "MemoryHeavy":  [
+                                                                                               "Limit concurrent uploads"
+                                                                                           ]
+                                                                       },
+                                               "references":  [
+                                                                  "https://support.microsoft.com/en-us/office/sync-files-with-onedrive-in-windows"
+                                                              ]
+                                           },
+                              "MsMpEng":  {
+                                              "category":  "Security",
+                                              "priority":  "Keep",
+                                              "pressureMitigations":  {
+                                                                          "CPUBound":  [
+                                                                                           "Schedule scan outside work hours",
+                                                                                           "Add build folder exclusions after review"
+                                                                                       ],
+                                                                          "IOHeavy":  [
+                                                                                          "Exclude trusted dev paths only after security review"
+                                                                                      ]
+                                                                      },
+                                              "references":  [
+                                                                 "https://learn.microsoft.com/en-us/microsoft-365/security/defender-endpoint/"
+                                                             ]
+                                          },
+                              "smokecatalogmergexyz":  {
+                                                           "category":  "Other",
+                                                           "priority":  "Review",
+                                                           "displayName":  "SmokeCatalogMergeXYZ",
+                                                           "description":  "Smoke catalog merge validation process",
+                                                           "whatItDoes":  "Ensures identify pipeline can write process-intelligence catalog entries",
+                                                           "resourceProfile":  "Mixed",
+                                                           "businessHint":  "Smoke test entry - safe to remove",
+                                                           "pressureMitigations":  {
+                                                                                       "MemoryHeavy":  [
+                                                                                                           "Review smoke test process SmokeCatalogMergeXYZ"
+                                                                                                       ]
+                                                                                   },
+                                                           "references":  [
+
+                                                                          ],
+                                                           "mergedAt":  "2026-08-31T12:56:53.7363518+02:00",
+                                                           "mergedFrom":  [
+                                                                              "operator-manual-identify",
+                                                                              "kb-hint-enrichment"
+                                                                          ]
+                                                       },
+                              "vmware-vmx":  {
+                                                 "category":  "Virtualization",
+                                                 "priority":  "Keep",
+                                                 "displayName":  "vmware-vmx",
+                                                 "description":  "Host VMware VM",
+                                                 "whatItDoes":  "Allocates guest RAM",
+                                                 "resourceProfile":  "Mixed",
+                                                 "businessHint":  "",
+                                                 "pressureMitigations":  {
+                                                                             "MemoryHeavy":  [
+                                                                                                 "Review if RAM justified for active work on vmware-vmx"
+                                                                                             ],
+                                                                             "CPUBound":  [
+                                                                                              "Check for runaway loops or updates"
+                                                                                          ],
+                                                                             "IOHeavy":  [
+                                                                                             "Check disk usage by parent application"
+                                                                                         ]
+                                                                         },
+                                                 "references":  [
+
+                                                                ],
+                                                 "mergedAt":  "2026-08-31T12:45:29.043234+02:00",
+                                                 "mergedFrom":  [
+                                                                    "operator-manual-identify",
+                                                                    "kb-hint-enrichment"
+                                                                ]
+                                             },
+                              "e2eidentifychainxyz":  {
+                                                          "category":  "Other",
+                                                          "priority":  "Review",
+                                                          "displayName":  "E2eIdentifyChainXYZ",
+                                                          "description":  "Windows process \u0027E2eIdentifyChainXYZ\u0027 - insufficient local facts",
+                                                          "whatItDoes":  "Run operator review; check Task Manager path, startup entries, and business ownership.",
+                                                          "resourceProfile":  "Mixed",
+                                                          "businessHint":  "Already classified in process-intelligence.json - no merge needed.",
+                                                          "pressureMitigations":  {
+                                                                                      "MemoryHeavy":  [
+                                                                                                          "Review if RAM justified for active work on E2eIdentifyChainXYZ"
+                                                                                                      ],
+                                                                                      "CPUBound":  [
+                                                                                                       "Check for runaway loops or updates"
+                                                                                                   ],
+                                                                                      "IOHeavy":  [
+                                                                                                      "Check disk usage by parent application"
+                                                                                                  ]
+                                                                                  },
+                                                          "references":  [
+
+                                                                         ],
+                                                          "mergedAt":  "2026-08-31T12:57:25.7491938+02:00",
+                                                          "mergedFrom":  [
+                                                                             "operator-manual-identify",
+                                                                             "kb-hint-enrichment"
+                                                                         ]
+                                                      },
+                              "mkssandbox":  {
+                                                 "category":  "Virtualization",
+                                                 "priority":  "Keep",
+                                                 "displayName":  "mksSandbox",
+                                                 "description":  "VMware VMX sandbox helper (isolated GUI/input for guest)",
+                                                 "whatItDoes":  "Catalog match - review mitigations for dominant pressure.",
+                                                 "resourceProfile":  "MemoryHeavy",
+                                                 "businessHint":  "Already classified in process-intelligence.json - no merge needed.",
+                                                 "pressureMitigations":  {
+                                                                             "MemoryHeavy":  [
+                                                                                                 "Review if RAM justified for active work on mksSandbox"
+                                                                                             ],
+                                                                             "CPUBound":  [
+                                                                                              "Check for runaway loops or updates"
+                                                                                          ],
+                                                                             "IOHeavy":  [
+                                                                                             "Check disk usage by parent application"
+                                                                                         ]
+                                                                         },
+                                                 "references":  [
+
+                                                                ],
+                                                 "mergedAt":  "2026-08-31T12:50:43.8652276+02:00",
+                                                 "mergedFrom":  [
+                                                                    "operator-manual-identify",
+                                                                    "kb-hint-enrichment"
+                                                                ]
+                                             },
+                              "mysqld":  {
+                                             "category":  "Database",
+                                             "priority":  "Keep",
+                                             "displayName":  "mysqld",
+                                             "description":  "MySQL/MariaDB database server daemon",
+                                             "whatItDoes":  "Serves SQL databases; RAM scales with buffer pool and connections",
+                                             "resourceProfile":  "MemoryHeavy",
+                                             "businessHint":  "Keep if local apps (WordPress, dev stack) need DB; stop service when not developing",
+                                             "pressureMitigations":  {
+                                                                         "MemoryHeavy":  [
+                                                                                             "Review if RAM justified for active work on mysqld"
+                                                                                         ],
+                                                                         "CPUBound":  [
+                                                                                          "Check for runaway loops or updates"
+                                                                                      ],
+                                                                         "IOHeavy":  [
+                                                                                         "Check disk usage by parent application"
+                                                                                     ]
+                                                                     },
+                                             "references":  [
+                                                                "https://dev.mysql.com/doc/refman/8.0/en/mysqld.html"
+                                                            ],
+                                             "mergedAt":  "2026-08-31T12:51:40.256727+02:00",
+                                             "mergedFrom":  [
+                                                                "operator-manual-identify",
+                                                                "kb-hint-enrichment"
+                                                            ]
+                                         },
+                              "startmenuexperiencehost":  {
+                                                              "category":  "Other",
+                                                              "priority":  "Tune",
+                                                              "displayName":  "StartMenuExperienceHost",
+                                                              "description":  "Windows Start Experience Host",
+                                                              "whatItDoes":  "Product: MicrosoftÂ® WindowsÂ® Operating System by Microsoft Corporation",
+                                                              "resourceProfile":  "Mixed",
+                                                              "businessHint":  "",
+                                                              "pressureMitigations":  {
+                                                                                          "MemoryHeavy":  [
+                                                                                                              "Review if RAM justified for active work on StartMenuExperienceHost"
+                                                                                                          ],
+                                                                                          "CPUBound":  [
+                                                                                                           "Check for runaway loops or updates"
+                                                                                                       ],
+                                                                                          "IOHeavy":  [
+                                                                                                          "Check disk usage by parent application"
+                                                                                                      ]
+                                                                                      },
+                                                              "references":  [
+
+                                                                             ],
+                                                              "mergedAt":  "2026-08-31T12:52:36.7384563+02:00",
+                                                              "mergedFrom":  [
+                                                                                 "operator-manual-identify",
+                                                                                 "kb-hint-enrichment"
+                                                                             ]
+                                                          }
+                          },
+    "optionalBackgroundPatterns":  [
+                                       "AnyDesk",
+                                       "TeamViewer",
+                                       "Zoom",
+                                       "AdobeARM",
+                                       "GoogleUpdate",
+                                       "EdgeUpdate",
+                                       "OneDriveSetup"
+                                   ],
+    "safeActionDefinitions":  {
+                                  "ObserveOnly":  {
+                                                      "level":  "Safe",
+                                                      "requiresHitl":  false,
+                                                      "reversible":  true
+                                                  },
+                                  "LowerProcessPriority":  {
+                                                               "level":  "Safe",
+                                                               "requiresHitl":  false,
+                                                               "reversible":  true
+                                                           },
+                                  "DisableStartupEntry":  {
+                                                              "level":  "Moderate",
+                                                              "requiresHitl":  true,
+                                                              "reversible":  true
+                                                          },
+                                  "PauseSyncClient":  {
+                                                          "level":  "Moderate",
+                                                          "requiresHitl":  true,
+                                                          "reversible":  true
+                                                      },
+                                  "TerminateProcess":  {
+                                                           "level":  "Aggressive",
+                                                           "requiresHitl":  true,
+                                                           "reversible":  false
+                                                       }
+                              },
+    "extremeNecessityDefender":  {
+                                     "neverAutoApply":  true,
+                                     "escalationOrder":  [
+                                                             "Observe",
+                                                             "TuneExclusions",
+                                                             "TemporaryRealtimeOff",
+                                                             "ExtremeServiceDisable"
+                                                         ],
+                                     "tiers":  {
+                                                   "Observe":  {
+                                                                   "minCompositeScore":  0,
+                                                                   "maxCompositeScore":  54,
+                                                                   "level":  "Safe",
+                                                                   "description":  "Monitor only ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â pressure within normal tuning range."
+                                                               },
+                                                   "TuneExclusions":  {
+                                                                          "minCompositeScore":  55,
+                                                                          "maxCompositeScore":  69,
+                                                                          "level":  "Moderate",
+                                                                          "description":  "Add path exclusions and off-hours scan schedule before any disable."
+                                                                      },
+                                                   "TemporaryRealtimeOff":  {
+                                                                                "minCompositeScore":  70,
+                                                                                "maxCompositeScore":  84,
+                                                                                "level":  "Aggressive",
+                                                                                "maxDurationMinutes":  60,
+                                                                                "description":  "Time-boxed real-time protection off ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â requires Tamper Protection off + explicit HITL."
+                                                                            },
+                                                   "ExtremeServiceDisable":  {
+                                                                                 "minCompositeScore":  85,
+                                                                                 "level":  "Aggressive",
+                                                                                 "maxDurationMinutes":  120,
+                                                                                 "description":  "Last resort: stop WinDefend service ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â double HITL, mandatory rollback timer."
+                                                                             }
+                                               },
+                                     "reasonCodes":  {
+                                                         "DevBuild":  "Trusted dev/build workload blocked by scan I/O",
+                                                         "EmergencyPerf":  "System unusable until immediate relief",
+                                                         "ForensicCapture":  "Controlled capture with secondary AV",
+                                                         "VendorSupport":  "Microsoft/vendor guided troubleshooting"
+                                                     },
+                                     "weights":  {
+                                                     "pressureScore":  0.35,
+                                                     "cpuPercent":  0.25,
+                                                     "ioMbPerSec":  0.2,
+                                                     "workingSetMb":  0.1,
+                                                     "dominantPressureMatch":  0.1
+                                                 },
+                                     "references":  [
+                                                        "https://learn.microsoft.com/en-us/microsoft-365/security/defender-endpoint/",
+                                                        "https://learn.microsoft.com/en-us/powershell/module/defender/set-mppreference"
+                                                    ]
+                                 },
+    "keepExtremeDisableAllowlist":  {
+                                        "MsMpEng":  {
+                                                        "displayName":  "Microsoft Defender (MsMpEng / WinDefend)",
+                                                        "applyScript":  "apply-defender-extreme-necessity.ps1",
+                                                        "evaluateScript":  "evaluate-defender-extreme-necessity.ps1",
+                                                        "confirmPhrase":  "DISABLE DEFENDER",
+                                                        "minConfirmSteps":  6,
+                                                        "notes":  "GUI wizard: 3 checkboxes + confirm phrase + 3 MessageBox gates + admin elevation."
+                                                    }
+                                    }
 }

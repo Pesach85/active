@@ -1,20 +1,48 @@
 {
-  "UpdatedAt": "2026-08-31T12:42:12.5677300+02:00",
-  "SchemaVersion": "OperatorProcessDecisions.v1",
+  "UpdatedAt": "2026-08-31T12:53:45.6489162+02:00",
   "Decisions": {
-    "smoketestprocxyz": {
-      "ProcessName": "SmokeTestProcXYZ",
-      "Decision": "Identified",
-      "Note": "Manual: SmokeTestProcess | ",
-      "RecordedAt": "2026-08-31T12:42:12.5700920+02:00",
-      "RecordedBy": "operator"
-    },
     "vmware-vmx": {
       "ProcessName": "vmware-vmx",
       "Decision": "Identified",
       "Note": "Manual: Host VMware VM | ",
       "RecordedAt": "2026-08-31T12:35:10.4300102+02:00",
       "RecordedBy": "operator"
+    },
+    "mkssandbox": {
+      "ProcessName": "mksSandbox",
+      "Decision": "Identified",
+      "Note": "Manual: VMware VMX sandbox helper (isolated GUI/input for guest) | ",
+      "RecordedAt": "2026-08-31T12:50:58.3635676+02:00",
+      "RecordedBy": "operator"
+    },
+    "startmenuexperiencehost": {
+      "ProcessName": "StartMenuExperienceHost",
+      "Decision": "Identified",
+      "Note": "Manual: Windows Start Experience Host | ",
+      "RecordedAt": "2026-08-31T12:52:52.6363379+02:00",
+      "RecordedBy": "operator"
+    },
+    "mysqld": {
+      "ProcessName": "mysqld",
+      "Decision": "Identified",
+      "Note": "Manual: MySQL/MariaDB database server daemon | ",
+      "RecordedAt": "2026-08-31T12:51:53.4944471+02:00",
+      "RecordedBy": "operator"
+    },
+    "e2eidentifychainxyz": {
+      "ProcessName": "E2eIdentifyChainXYZ",
+      "Decision": "Identified",
+      "Note": "Manual: E2E chain test process | ",
+      "RecordedAt": "2026-08-31T12:52:14.1622199+02:00",
+      "RecordedBy": "operator"
+    },
+    "smoketestprocxyz": {
+      "ProcessName": "SmokeTestProcXYZ",
+      "Decision": "Identified",
+      "Note": "Manual: SmokeTestProcess | ",
+      "RecordedAt": "2026-08-31T12:53:45.6521729+02:00",
+      "RecordedBy": "operator"
     }
-  }
+  },
+  "SchemaVersion": "OperatorProcessDecisions.v1"
 }

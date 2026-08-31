@@ -2,6 +2,7 @@
 param(
     [string]$OutputJson = '',
     [string]$ConfigPath = '',
+    [string]$HubRoot = '',
     [int]$TopProcesses = 15,
     [switch]$IncludeRawSignals
 )
@@ -10,7 +11,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$hubRoot = Split-Path -Parent $scriptDir
+if (-not $HubRoot) { $HubRoot = Split-Path -Parent $scriptDir }
 . (Join-Path $scriptDir 'hub-common.ps1')
 . (Join-Path $scriptDir 'lib\resource-budget.ps1')
 . (Join-Path $scriptDir 'lib\transparency-policy.ps1')

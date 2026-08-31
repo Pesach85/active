@@ -38,6 +38,13 @@ Per ogni richiesta di ottimizzazione/manutenzione:
 3. Audit-first prima di azioni distruttive
 4. Registra obiettivo, task, modifiche, decisioni, esito in KB
 
+Per modifiche alla catena **Identify → Catalog → Trust T1**, applicare anche [`docs/knowledge/identify-catalog-quality-gate.md`](../docs/knowledge/identify-catalog-quality-gate.md) e smoke:
+
+```powershell
+powershell -File scripts/test-hub-smoke.ps1
+powershell -File scripts/test-identify-chain-e2e.ps1
+```
+
 ## Guardrail operativi
 
 - PowerShell Core quando disponibile (`ensure-powershell-core.ps1`)
