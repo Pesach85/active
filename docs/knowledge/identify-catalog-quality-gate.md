@@ -17,7 +17,7 @@ Usare **prima** di modificare script in:
    | `parameter name 'HubRoot'` | Script chiamato con param non dichiarato | Aggiungere `HubRoot` opzionale al callee **oppure** omettere e usare `-WorkingDirectory` |
    | `null-valued expression` su `.Trim()` | stderr/file vuoto | Test `$null -ne $raw` prima di `.Trim()` |
    | `ContentEncoding` null | POST JSON senza charset | Fallback UTF-8 in `Read-RequestBodyJson` |
-   | `property 'NotRunning' cannot be found` | Snapshot live senza campo `NotRunning` + StrictMode | `NotRunning=$false` in `Get-ProcessLiveSnapshot`; usare `Test-ProcessSnapshotNotRunning` |
+   | `Priority=Keep in catalog - action blocked` | Throttle/Terminate su security/vital | Advisory esclude azioni; outcome `ActionBlocked` (no throw); UI disabilita bottoni |
 
 3. **HITL gate**
    - Merge catalogo solo con password verificata (`RequireAuthForCatalogMerge`)

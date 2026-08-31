@@ -90,6 +90,7 @@ if (-not $snap) {
 
 $opDec = Get-OperatorProcessDecisions -HubRoot $HubRoot -RelPath ([string]$resCfg.OperatorDecisionsPath)
 $operatorDecision = Get-OperatorDecisionForProcess -DecisionsObj $opDec -ProcessName ([string]$snap.ProcessName)
+$catalogNecessity = Resolve-ProcessNecessity -ProcessName ([string]$snap.ProcessName) -Catalog $catalog
 
 $hint = Build-ProcessKnowledgeHint `
     -ProcessName ([string]$snap.ProcessName) `
@@ -108,7 +109,8 @@ $advisory = Get-ProcessResolutionAdvisory `
     -ProcessSnapshot $snap `
     -KnowledgeHint $hint `
     -ResolutionConfig $resCfg `
-    -OperatorDecision $operatorDecision
+    -OperatorDecision $operatorDecision `
+    -CatalogNecessity $catalogNecessity
 
 $eventsPath = Join-Path $hub.Logs 'transparency-events.jsonl'
 $rollbackPath = Join-Path $hub.Logs ("process-resolution-rollback-{0}.json" -f (Get-Date -Format 'yyyyMMdd-HHmmss'))
@@ -121,6 +123,7 @@ $result = [ordered]@{
     Process = $snap
     KnowledgeHint = $hint
     Advisory = $advisory
+    CatalogNecessity = $catalogNecessity
     Outcome = 'Pending'
     Message = ''
 }
@@ -137,11 +140,12 @@ else {
     else {
     [void](Assert-OperatorWindowsPassword -Password $WindowsPassword -SkipAuth:$SkipAuth)
 
-    $nec = Resolve-ProcessNecessity -ProcessName ([string]$snap.ProcessName) -Catalog $catalog
-    if ([string]$nec.Priority -eq 'Keep' -and $Action -in @('Terminate', 'ThrottleBelowNormal')) {
-        throw "Process '$($snap.ProcessName)' is Priority=Keep in catalog - action blocked."
+    $block = Test-ProcessCatalogActionBlocked -Action $Action -CatalogNecessity $catalogNecessity
+    if ($block.Blocked) {
+        $result.Outcome = 'ActionBlocked'
+        $result.Message = [string]$block.Reason
     }
-
+    else {
     switch ($Action) {
         'Observe' {
             $result.Outcome = if ($DryRun) { 'DryRunObserve' } else { 'Observed' }
@@ -223,6 +227,7 @@ else {
                 $result.Message = 'Process terminated by operator HITL decision.'
             }
         }
+    }
     }
     }
 }

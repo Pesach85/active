@@ -291,6 +291,34 @@ Invoke-SmokeStep -Name 'process-resolution-live-observe' `
         if ($j.Process.PSObject.Properties['NotRunning'] -and $j.Process.NotRunning) { throw 'Live snapshot must not be NotRunning' }
     }
 
+$keepAdvOut = Join-Path $logs 'smoke-res-keep-advisory.json'
+Invoke-SmokeStep -Name 'process-resolution-keep-advisory' `
+    -ScriptPath (Join-Path $scriptDir 'resolve-unknown-process.ps1') `
+    -Arguments @('-ProcessName', 'MsMpEng', '-Action', 'Advisory', '-Offline', '-OutputJson', $keepAdvOut, '-Quiet') `
+    -OutputPath $keepAdvOut `
+    -Validate {
+        param($path)
+        $j = Get-Content -LiteralPath $path -Raw | ConvertFrom-Json
+        if ([string]$j.CatalogNecessity.Priority -ne 'Keep') { throw 'MsMpEng must be Priority=Keep' }
+        $blocked = @($j.Advisory.BlockedActionIds)
+        if ($blocked -notcontains 'ThrottleBelowNormal') { throw 'Throttle must be blocked for Keep' }
+        if ($blocked -notcontains 'Terminate') { throw 'Terminate must be blocked for Keep' }
+        $ids = @($j.Advisory.Options | ForEach-Object { [string]$_.ActionId })
+        if ($ids -contains 'ThrottleBelowNormal') { throw 'Advisory must not offer Throttle for Keep' }
+    }
+
+$keepBlockOut = Join-Path $logs 'smoke-res-keep-blocked.json'
+Invoke-SmokeStep -Name 'process-resolution-keep-blocked' `
+    -ScriptPath (Join-Path $scriptDir 'resolve-unknown-process.ps1') `
+    -Arguments @('-ProcessName', 'MsMpEng', '-Action', 'ThrottleBelowNormal', '-SkipAuth', '-Offline', '-OutputJson', $keepBlockOut, '-Quiet') `
+    -OutputPath $keepBlockOut `
+    -Validate {
+        param($path)
+        $j = Get-Content -LiteralPath $path -Raw | ConvertFrom-Json
+        if ([string]$j.Outcome -ne 'ActionBlocked') { throw "Expected ActionBlocked got $($j.Outcome)" }
+        if (-not [string]$j.Message) { throw 'ActionBlocked must include Message' }
+    }
+
 $idOut = Join-Path $logs 'smoke-process-identify.json'
 Invoke-SmokeStep -Name 'process-identify-manual' `
     -ScriptPath (Join-Path $scriptDir 'identify-unknown-process.ps1') `

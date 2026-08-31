@@ -116,9 +116,16 @@ function Show-UnknownProcessResolutionWizard {
 
     $notRunning = $false
     if ($data.Process.PSObject.Properties['NotRunning'] -and $data.Process.NotRunning) { $notRunning = $true }
-    if ($notRunning) {
-        $btnThrottle.Enabled = $false
-        $btnStop.Enabled = $false
+    $blocked = @()
+    if ($data.Advisory -and $data.Advisory.BlockedActionIds) { $blocked = @($data.Advisory.BlockedActionIds) }
+    if ($notRunning -or ($blocked -contains 'ThrottleBelowNormal')) { $btnThrottle.Enabled = $false }
+    if ($notRunning -or ($blocked -contains 'Terminate')) { $btnStop.Enabled = $false }
+    if ($data.CatalogNecessity -and [string]$data.CatalogNecessity.Priority -eq 'Keep' -and $OnStatus) {
+        & $OnStatus $(if ($it) {
+            'Priority=Keep: Throttle/Stop bloccati. Usa Osserva o tuning schedule/scope.'
+        } else {
+            'Priority=Keep: Throttle/Stop blocked. Use Observe or tune schedule/scope.'
+        })
     }
 
     $pnlAdvBtns.Controls.AddRange(@($btnObserve, $btnThrottle, $btnKeep, $btnStop))

@@ -2356,3 +2356,49 @@ Fix azioni Risolvi (Throttle/Observe) su processo live — errore NotRunning
 
 ### Esito
 MsMpEng Observe OK; smoke + E2E ALL PASSED
+
+## 2026-08-31 13:10:00
+### Obiettivo
+Fix Throttle MsMpEng Priority=Keep — errore throw invece di UX policy
+
+### Root cause
+- MsMpEng in `securityExact` → Priority=Keep (corretto)
+- Advisory mostrava Throttle/Stop come opzioni ma backend faceva `throw` → stack trace in UI
+- Inconsistenza advisory ↔ enforcement catalogo
+
+### Modifiche
+- `Get-ProcessResolutionAdvisory`: esclude Throttle/Terminate se Keep; `BlockedActionIds`
+- `Test-ProcessCatalogActionBlocked` → outcome `ActionBlocked` (exit 0, no throw)
+- Web/GUI: disabilita bottoni Throttle/Stop + messaggio operatore
+- Smoke: `process-resolution-keep-advisory`, `process-resolution-keep-blocked`
+- v3.11.4
+
+### Pattern da evitare
+- Non `throw` per policy catalogo — usare outcome strutturato
+- Advisory deve riflettere azioni realmente consentite
+
+### Esito
+ActionBlocked graceful; smoke 24/24 + E2E ALL PASSED
+
+## 2026-08-31 13:10:00
+### Obiettivo
+Fix Throttle MsMpEng Priority=Keep — errore throw invece di UX policy
+
+### Root cause
+- MsMpEng in `securityExact` → Priority=Keep (corretto)
+- Advisory mostrava Throttle/Stop come opzioni ma backend faceva `throw` → stack trace in UI
+- Inconsistenza advisory ↔ enforcement catalogo
+
+### Modifiche
+- `Get-ProcessResolutionAdvisory`: esclude Throttle/Terminate se Keep; `BlockedActionIds`
+- `Test-ProcessCatalogActionBlocked` → outcome `ActionBlocked` (exit 0, no throw)
+- Web/GUI: disabilita bottoni Throttle/Stop + messaggio operatore
+- Smoke: `process-resolution-keep-advisory`, `process-resolution-keep-blocked`
+- v3.11.4
+
+### Pattern da evitare
+- Non `throw` per policy catalogo — usare outcome strutturato
+- Advisory deve riflettere azioni realmente consentite
+
+### Esito
+ActionBlocked graceful; smoke 24/24 + E2E ALL PASSED
