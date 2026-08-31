@@ -11,7 +11,8 @@
     "privacy": "Privacy",
     "automation": "Automazione",
     "diagnostics": "Diagnostica",
-    "settings": "Impostazioni"
+    "settings": "Impostazioni",
+    "control": "Controllo"
   },
   "sections": {
     "primary_actions": "AZIONI PRINCIPALI",

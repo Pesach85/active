@@ -18,6 +18,7 @@ if (-not (Test-Path -LiteralPath $ConfigPath)) {
 }
 
 . (Join-Path $PSScriptRoot 'hub-common.ps1')
+. (Join-Path $PSScriptRoot 'lib\transparency-events.ps1')
 $config = Get-MaintenanceConfig -ConfigPath $ConfigPath
 
 $logDirectory = [string]$config.LogDirectory
@@ -27,6 +28,25 @@ if (-not [System.IO.Path]::IsPathRooted($logDirectory)) {
 $logPath = Join-Path -Path $logDirectory -ChildPath ([string]$config.LogFileName)
 if (-not (Test-Path -LiteralPath $logDirectory)) {
     New-Item -Path $logDirectory -ItemType Directory -Force | Out-Null
+}
+
+$hub = Get-HubPaths
+$transparencyEventsPath = Join-Path $hub.Logs 'transparency-events.jsonl'
+$transparency = $null
+if ($config -is [hashtable]) { $transparency = $config['Transparency'] }
+elseif ($config.Transparency) { $transparency = $config.Transparency }
+if ($transparency) {
+    $enabled = $true
+    if ($transparency -is [hashtable]) {
+        if ($transparency.ContainsKey('Enabled')) { $enabled = [bool]$transparency['Enabled'] }
+        $ep = $transparency['EventsPath']
+    } else {
+        $enabled = [bool]$transparency.Enabled
+        $ep = $transparency.EventsPath
+    }
+    if ($enabled -and $ep) {
+        $transparencyEventsPath = Resolve-HubPath -HubRoot $hub.HubRoot -Path ([string]$ep)
+    }
 }
 
 $cpuHistory = @{}
@@ -115,7 +135,9 @@ while ($true) {
                     try {
                         if ($proc.PriorityClass -ne $throttlePriority) {
                             $proc.PriorityClass = $throttlePriority
-                            Write-Log -Level "WARN" -Message ("Throttle PID={0} Name={1} CPU={2:N1}% RAM={3}MB Priority={4}" -f $proc.Id, $proc.ProcessName, $cpuPercent, $memoryMb, $proc.PriorityClass)
+                            $msg = ("Throttle PID={0} Name={1} CPU={2:N1}% RAM={3}MB Priority={4}" -f $proc.Id, $proc.ProcessName, $cpuPercent, $memoryMb, $proc.PriorityClass)
+                            Write-Log -Level "WARN" -Message $msg
+                            Write-TransparencyEvent -EventsPath $transparencyEventsPath -Action 'ThrottlePriority' -Detail $msg -AgentId 'resource-monitor'
                         }
                     } catch {
                         Write-Log -Level "ERROR" -Message ("Cannot change priority PID={0} Name={1}: {2}" -f $proc.Id, $proc.ProcessName, $_.Exception.Message)
@@ -132,7 +154,9 @@ while ($true) {
                 if ($terminateNow) {
                     try {
                         Stop-Process -Id $proc.Id -Force -ErrorAction Stop
-                        Write-Log -Level "CRITICAL" -Message ("Terminated PID={0} Name={1} after violations={2}" -f $proc.Id, $proc.ProcessName, $violationCounter[$procKey])
+                        $msg = ("Terminated PID={0} Name={1} after violations={2}" -f $proc.Id, $proc.ProcessName, $violationCounter[$procKey])
+                        Write-Log -Level "CRITICAL" -Message $msg
+                        Write-TransparencyEvent -EventsPath $transparencyEventsPath -Action 'TerminateProcess' -Detail $msg -AgentId 'resource-monitor' -ControlLevel 'T2_Review'
                     } catch {
                         Write-Log -Level "ERROR" -Message ("Cannot terminate PID={0} Name={1}: {2}" -f $proc.Id, $proc.ProcessName, $_.Exception.Message)
                     }

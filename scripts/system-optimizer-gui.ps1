@@ -60,6 +60,9 @@ if (Test-Path -LiteralPath (Join-Path $script:guiDir "command-help.ps1")) {
 if (Test-Path -LiteralPath (Join-Path $script:guiDir "keep-service-wizard.ps1")) {
     . (Join-Path $script:guiDir "keep-service-wizard.ps1")
 }
+if (Test-Path -LiteralPath (Join-Path $script:guiDir "transparency-panel.ps1")) {
+    . (Join-Path $script:guiDir "transparency-panel.ps1")
+}
 $script:guiLanguage = 'en'
 if (Get-Command Initialize-I18n -ErrorAction SilentlyContinue) {
     Initialize-I18n -HubRoot $script:hubRoot -Language $script:guiLanguage
@@ -1270,8 +1273,27 @@ $tabPrivacy.Controls.Add($pnlPrivacyProgress)
 $tabPrivacy.Controls.Add($pnlPrivacyHeader)
 $tabPrivacy.ResumeLayout($false)
 
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Control & Transparency Tab
+# ═══════════════════════════════════════════════════════════════════════════════
+$script:transparencyUi = $null
+if (Get-Command New-TransparencyTab -ErrorAction SilentlyContinue) {
+    $hubPathsForTransparency = Get-HubPaths -HubRoot $script:hubRoot
+    $script:transparencyUi = New-TransparencyTab `
+        -HubRoot $script:hubRoot `
+        -ScriptRoot $script:scriptRoot `
+        -ConfigPath $hubPathsForTransparency.ConfigFile `
+        -OnStatus { param($m) Append-Status $m } `
+        -TestBusy { Test-AnyOperationRunning }
+    $tabTransparency = $script:transparencyUi.Tab
+} else {
+    $tabTransparency = New-Object System.Windows.Forms.TabPage
+    $tabTransparency.Text = 'Control'
+    $tabTransparency.BackColor = $clrBg
+}
+
 # ── Assemble ──────────────────────────────────────────────────────────────────
-$tabs.TabPages.AddRange(@($tabDashboard, $tabDeepScan, $tabPrivacy, $tabTasks, $tabLogs, $tabConfig))
+$tabs.TabPages.AddRange(@($tabDashboard, $tabDeepScan, $tabPrivacy, $tabTransparency, $tabTasks, $tabLogs, $tabConfig))
 
 # Dock layout processes children from highest index first. Edge-docked controls
 # (Top/Bottom) must have HIGHER indices so they claim space BEFORE Fill.
@@ -1280,6 +1302,12 @@ $form.Controls.Add($tabs)          # index 0 → Dock=Fill  → docked last  →
 $form.Controls.Add($pnlStatusBar)  # index 1 → Dock=Bottom → docked second
 $form.Controls.Add($pnlHeader)     # index 2 → Dock=Top    → docked first → 64px from top
 $form.ResumeLayout($false)
+
+$tabs.Add_SelectedIndexChanged({
+    if ($tabs.SelectedTab -eq $tabTransparency -and $script:transparencyUi -and $script:transparencyUi.Refresh) {
+        & $script:transparencyUi.Refresh
+    }
+})
 
 function Apply-GuiLanguage {
     if (-not (Get-Command Get-I18n -ErrorAction SilentlyContinue)) { return }
@@ -1290,6 +1318,10 @@ function Apply-GuiLanguage {
     $tabDashboard.Text = Get-I18n 'tabs.home'
     $tabDeepScan.Text = Get-I18n 'tabs.health'
     $tabPrivacy.Text = Get-I18n 'tabs.privacy'
+    $tabTransparency.Text = Get-I18n 'tabs.control'
+    if (Get-Command Set-TransparencyTabLanguage -ErrorAction SilentlyContinue) {
+        Set-TransparencyTabLanguage -Controls $script:transparencyUi
+    }
     $tabTasks.Text = Get-I18n 'tabs.automation'
     $tabLogs.Text = Get-I18n 'tabs.diagnostics'
     $tabConfig.Text = Get-I18n 'tabs.settings'
@@ -1676,7 +1708,7 @@ function Refresh-Drives {
 
 function Reload-Tasks {
     $listTasks.Items.Clear()
-    $names = @("SystemResourceMonitor", "StorageCleanupSafe")
+    $names = @('SystemResourceMonitor', 'SystemOptimizerHub-Orchestrator', 'StorageCleanupSafe')
 
     foreach ($name in $names) {
         try {
@@ -2955,6 +2987,9 @@ function Poll-CoreInstall {
 
     Append-Status ("Core Install completed in {0}s." -f $durationSec)
     Reload-Tasks
+    if ($script:transparencyUi -and $script:transparencyUi.Refresh) {
+        & $script:transparencyUi.Refresh
+    }
     $progressAnalysis.Value = 100
     $script:coreInstallProcess = $null
     $script:coreInstallStartedAt = $null
@@ -4462,6 +4497,9 @@ $form.Add_Shown({
     $lblStatusRight.Text = ("Hub: {0}  |  PS: {1}" -f $script:hubRoot, (Split-Path -Leaf $script:psHost))
     Refresh-Drives
     Reload-Tasks
+    if ($script:transparencyUi -and $script:transparencyUi.Refresh) {
+        & $script:transparencyUi.Refresh
+    }
     if ($script:autoAnalyzeOnStartup) {
         Append-Status ("Auto-analyze on startup enabled (Settings). Depth={0}, Top={1}." -f [string]$cmbDepth.SelectedItem, [int]$numTop.Value)
         $startupTimer = New-Object System.Windows.Forms.Timer

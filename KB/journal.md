@@ -1,4 +1,7 @@
-## 2026-08-28 — GUI KEEP extreme wizard v3.5.0
+### Esito
+Smoke ALL PASSED; push `c397d51` v3.5.2.
+
+## 2026-08-28 — Bug 30 health apply wbadmin hang
 
 ### Obiettivo
 Disabilitazione servizi KEEP (Defender) da GUI con wizard multi-conferma + elevazione admin.
@@ -2040,3 +2043,51 @@ Bug 28 global HubWorkers; smoke async-worker-registry; package; build EXE; commi
 
 ### Esito
 Smoke ALL PASSED (incl. async-worker-registry); package + EXE v3.2.1 ricostruito in dist/
+
+## 2026-08-29 11:30:00
+### Obiettivo
+Continuous optimization ultra-light (Tier C feather) + NBD foundation senza LLM residente
+
+### Task
+Studio budget RAM; resource-budget.ps1; build-optimization-context; orchestrator feather cadence; smoke; v3.6.0
+
+### Modifiche
+- `KB/continuous-optimization-resource-budget.md` — sizing per host 7577 e portable tier A/B/C
+- `scripts/lib/resource-budget.ps1` — Get-HostResourceSnapshot, Resolve-OptimizationProfile, Test-LlmAdvisoryAllowed
+- `scripts/build-optimization-context.ps1` — OptimizationContext.v1 da JSON esistenti (<15 MB)
+- `scripts/hub-orchestrator.ps1` — cicli profilati, PPI raro, context ogni ciclo
+- `config/sys-maintenance.json` — LoopInterval 60s, Orchestrator 600s, ContinuousOptimization + LlmAdvisory off
+- ADR-0005 + ollama-plan aggiornati; GUI v3.6.0
+
+### Decisioni
+- Tier C (16GB, C: critico): profile **feather**, LLM disabilitato; hub always-on <80 MB target
+- Ollama solo on-demand Fase 1b dopo baseline 48h; mai 3B+ su laptop 16GB
+- PPI ogni 12 cicli orchestrator (~2h), DurationSec 3, Top 5
+
+### Esito
+Smoke ALL PASSED (incl. optimization-context); package-suite OK; llm-advise.ps1 deferred Fase 1b
+
+## 2026-08-31 09:35:00
+### Obiettivo
+Pannello Controllo & Trasparenza (EXE + web) + analisi cybersecurity con contratto condiviso operatore/AI
+
+### Task
+TransparencyReport.v1, policy T0-T3, GUI tab, web localhost, KB/ADR/skill, smoke, commit push v3.7.0
+
+### Modifiche
+- `scripts/lib/transparency-policy.ps1`, `build-transparency-report.ps1`, `serve-transparency-dashboard.ps1`
+- `scripts/gui/transparency-panel.ps1` — tab Controllo in GUI
+- `web/transparency/` — dashboard read-only
+- `monitor-resources.ps1` — eventi JSONL audit throttle/terminate
+- `hub-orchestrator.ps1` — report ogni ciclo; `install-orchestrator-task.ps1`
+- ADR-0006, KB/transparency-control-plan.md, Transparency Guardian agent + skill
+- GUI v3.7.0, smoke transparency-report
+
+### Decisioni
+- T3_Unknown high-RAM: mai auto-azione; classificare in PPI catalog
+- Web solo 127.0.0.1, read-only; stesso JSON per EXE e browser
+- Posture score guida priorità operatore e AI
+- AutoTerminate monitor resta off by default; se on → T2_Review + penalty posture
+
+### Esito
+Smoke ALL PASSED; package-suite OK; commit push v3.7.0

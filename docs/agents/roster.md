@@ -12,6 +12,7 @@ Agenti dominio-specifici per manutenzione Windows. Ispirati al modello [agency-a
 | Hardware Health Agent | [hardware-health-agent.md](hardware-health-agent.md) | Memoria, NVMe, CPU MCE, termiche | Problemi hardware/firmware |
 | Automation Engineer | [automation-engineer.md](automation-engineer.md) | Script PS, task schedulati, rollback JSON | Nuove automazioni, packaging |
 | Security Reviewer | [security-reviewer.md](security-reviewer.md) | Secrets, permessi, pre-push, dati sensibili | Prima di commit/push/apply |
+| Transparency Guardian | [transparency-guardian.md](transparency-guardian.md) | Postura runtime, T0–T3, control plane, RAM unknown | Monitoraggio attivo, audit cybersecurity |
 | KB Curator | [kb-curator.md](kb-curator.md) | Documentazione, runbook, ADR, journal | Dopo ogni task significativo |
 
 ## Decomposizione tipica

@@ -26,6 +26,7 @@ Prima di agire, consultare [`docs/knowledge/decision-framework.md`](../docs/know
 | Hardware Health Agent | `docs/agents/hardware-health-agent.md` |
 | Automation Engineer | `docs/agents/automation-engineer.md` |
 | Security Reviewer | `docs/agents/security-reviewer.md` |
+| Transparency Guardian | `docs/agents/transparency-guardian.md` |
 | KB Curator | `docs/agents/kb-curator.md` |
 
 ## Quality gate (obbligatorio)

@@ -187,6 +187,32 @@ Invoke-SmokeStep -Name 'process-pressure' `
         }
     }
 
+$optCtx = Join-Path $logs 'smoke-optimization-context.json'
+Invoke-SmokeStep -Name 'optimization-context' `
+    -ScriptPath (Join-Path $scriptDir 'build-optimization-context.ps1') `
+    -Arguments @('-OutputJson', $optCtx) `
+    -OutputPath $optCtx `
+    -Validate {
+        param($path)
+        $j = Get-Content -LiteralPath $path -Raw | ConvertFrom-Json
+        if ([string]$j.SchemaVersion -notmatch 'OptimizationContext') { throw 'Unexpected schema' }
+        if ($null -eq $j.Host.Tier) { throw 'Host.Tier missing' }
+        if ($null -eq $j.RecommendedCadence) { throw 'RecommendedCadence missing' }
+    }
+
+$transparencyOut = Join-Path $logs 'smoke-transparency.json'
+Invoke-SmokeStep -Name 'transparency-report' `
+    -ScriptPath (Join-Path $scriptDir 'build-transparency-report.ps1') `
+    -Arguments @('-OutputJson', $transparencyOut) `
+    -OutputPath $transparencyOut `
+    -Validate {
+        param($path)
+        $j = Get-Content -LiteralPath $path -Raw | ConvertFrom-Json
+        if ([string]$j.SchemaVersion -notmatch 'TransparencyReport') { throw 'Unexpected schema' }
+        if ($null -eq $j.Posture.Score) { throw 'Posture.Score missing' }
+        if ($null -eq $j.DelegationManifest) { throw 'DelegationManifest missing' }
+    }
+
 $defenderEval = Join-Path $logs 'smoke-defender-eval.json'
 Invoke-SmokeStep -Name 'defender-extreme-eval' `
     -ScriptPath (Join-Path $scriptDir 'evaluate-defender-extreme-necessity.ps1') `

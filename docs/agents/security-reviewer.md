@@ -32,6 +32,10 @@ Prevenire leak di dati sensibili e azioni non autorizzate prima di commit, push 
 - EXE built ignorati
 - Mai commit `.env`, credenziali, token MCP in chiaro
 
+## Runtime transparency (v3.7+)
+
+Per attività background e RAM anomala, usare **Transparency Guardian** e `build-transparency-report.ps1`. Security Reviewer copre pre-push; Transparency Guardian copre postura runtime (T0–T3, agent registry). Vedi ADR-0006.
+
 ## Comandi
 
 ```powershell

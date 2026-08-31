@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Controllo &amp; Trasparenza — System Optimizer Hub</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <h1>Controllo &amp; Trasparenza</h1>
+      <p class="subtitle">Tutte le attività monitorabili · contratto condiviso operatore + AI</p>
+    </div>
+    <div class="topbar-actions">
+      <button id="btnRefresh" type="button">Aggiorna report</button>
+      <span id="lastUpdate" class="muted">—</span>
+    </div>
+  </header>
+
+  <main class="grid">
+    <section class="card posture" id="cardPosture">
+      <h2>Postura sicurezza</h2>
+      <div class="score-wrap">
+        <div class="score" id="postureScore">—</div>
+        <div class="grade" id="postureGrade">—</div>
+      </div>
+      <ul id="postureNotes" class="notes"></ul>
+    </section>
+
+    <section class="card host" id="cardHost">
+      <h2>Host</h2>
+      <dl id="hostStats" class="stats"></dl>
+    </section>
+
+    <section class="card wide" id="cardRam">
+      <h2>Consumo RAM (Top processi)</h2>
+      <p class="hint">T3 = sconosciuto · da classificare prima di qualsiasi azione automatica</p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Processo</th>
+              <th>RAM MB</th>
+              <th>Trust</th>
+              <th>Motivo</th>
+            </tr>
+          </thead>
+          <tbody id="ramBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card" id="cardAgents">
+      <h2>Agenti registrati</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Agente</th><th>Stato</th><th>Controllo</th></tr>
+          </thead>
+          <tbody id="agentsBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card" id="cardActions">
+      <h2>Azioni automatiche recenti</h2>
+      <ul id="actionsList" class="actions"></ul>
+    </section>
+
+    <section class="card wide policy" id="cardPolicy">
+      <h2>Contratto delega (operatore ↔ AI)</h2>
+      <div class="policy-cols">
+        <div>
+          <h3>Principi</h3>
+          <ul id="policyPrinciples"></ul>
+        </div>
+        <div>
+          <h3>Solo operatore umano</h3>
+          <ul id="policyHuman"></ul>
+        </div>
+        <div>
+          <h3>Delegato all'AI (se abilitato)</h3>
+          <ul id="policyAi"></ul>
+        </div>
+      </div>
+      <div class="levels" id="controlLevels"></div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    Solo localhost · read-only · nessuna mutazione OS da questa pagina
+  </footer>
+  <script src="app.js"></script>
+</body>
+</html>

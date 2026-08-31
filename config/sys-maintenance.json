@@ -1,5 +1,5 @@
 {
-  "LoopIntervalSeconds": 20,
+  "LoopIntervalSeconds": 60,
   "StorageCheckEveryCycles": 12,
   "LogDirectory": "logs",
   "LogFileName": "resource-monitor.log",
@@ -54,11 +54,30 @@
   },
   "Orchestrator": {
     "Enabled": true,
-    "HeartbeatIntervalSeconds": 300,
+    "HeartbeatIntervalSeconds": 600,
     "LogRotationDays": 7,
     "HeartbeatFile": "logs/hub-orchestrator-heartbeat.json",
+    "StateFile": "logs/hub-orchestrator-state.json",
     "RunWheaMonitor": true,
     "RunFsIntegrityScan": true
+  },
+  "ContinuousOptimization": {
+    "Enabled": true,
+    "Profile": "auto",
+    "ContextOutputPath": "logs/optimization-context-latest.json",
+    "BuildContextEachCycle": true,
+    "RunPpiOnCycle": true
+  },
+  "LlmAdvisory": {
+    "Enabled": false,
+    "OllamaUrl": "http://127.0.0.1:11434",
+    "Model": "qwen2.5:0.5b-instruct",
+    "MaxContextTokens": 2048,
+    "KeepAliveSeconds": 0,
+    "TimeoutSeconds": 20,
+    "MinFreeRamMbForLlm": 6144,
+    "IdleCpuThresholdPercent": 45,
+    "OnlyWhenIdle": true
   },
   "FsIntegrity": {
     "Enabled": true,
@@ -137,5 +156,17 @@
       ".txt",
       ".md"
     ]
+  },
+  "Transparency": {
+    "Enabled": true,
+    "ReportOutputPath": "logs/transparency-report-latest.json",
+    "EventsPath": "logs/transparency-events.jsonl",
+    "BuildReportEachOrchestratorCycle": true,
+    "UnknownRamThresholdMb": 400,
+    "WebDashboard": {
+      "Enabled": true,
+      "BindAddress": "127.0.0.1",
+      "Port": 8765
+    }
   }
 }

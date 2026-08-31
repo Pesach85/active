@@ -1,7 +1,7 @@
 ﻿# Obsidian theme + control factories for System Optimizer Hub GUI.
 # Dot-sourced by system-optimizer-gui.ps1 — variables land in caller scope.
 
-$script:appVersion = "3.5.2"
+$script:appVersion = "3.7.0"
 
 $clrBg       = [System.Drawing.Color]::FromArgb(8, 11, 19)
 $clrSurface  = [System.Drawing.Color]::FromArgb(15, 22, 36)
