@@ -85,7 +85,7 @@ function Get-ControlLevelLabel {
         'T0_Observed' { return 'Human observed' }
         'T1_Delegated' { return 'AI delegated (whitelisted)' }
         'T2_Review' { return 'Review required' }
-        default { return 'Unknown — investigate' }
+        default { return 'Unknown â€” investigate' }
     }
 }
 

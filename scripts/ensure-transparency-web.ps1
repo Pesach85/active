@@ -106,8 +106,7 @@ if (Test-PortListening -Address $BindAddress -ListenPort $Port) {
     }
 }
 
-$pwsh = (Get-Command pwsh -ErrorAction SilentlyContinue).Path
-if (-not $pwsh) { $pwsh = (Get-Command powershell).Path }
+$pwsh = Get-HubPwshExecutable
 
 $logDir = Split-Path -Parent $stdoutLog
 if ($logDir -and -not (Test-Path -LiteralPath $logDir)) {

@@ -16,7 +16,7 @@ function Show-OperatorPasswordDialog {
     }
 
     $form = New-Object System.Windows.Forms.Form
-    $form.Text = if ($it) { 'Conferma identità Windows' } else { 'Confirm Windows identity' }
+    $form.Text = if ($it) { 'Conferma identitÃ  Windows' } else { 'Confirm Windows identity' }
     $form.Size = New-Object System.Drawing.Size(440, 200)
     $form.StartPosition = 'CenterParent'
     $form.FormBorderStyle = 'FixedDialog'

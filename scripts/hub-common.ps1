@@ -230,3 +230,25 @@ function Assert-HubAdmin {
         throw ("{0} requires an elevated PowerShell session (Run as administrator)." -f $ActionName)
     }
 }
+
+function Get-HubPwshExecutable {
+    $cmd = Get-Command pwsh -ErrorAction SilentlyContinue
+    if ($cmd -and $cmd.Path) { return [string]$cmd.Path }
+
+    $candidates = @(
+        (Join-Path ${env:ProgramFiles} 'PowerShell\7\pwsh.exe'),
+        (Join-Path ${env:ProgramFiles} 'PowerShell\7-preview\pwsh.exe')
+    )
+    if (${env:ProgramFiles(x86)}) {
+        $candidates += (Join-Path ${env:ProgramFiles(x86)} 'PowerShell\7\pwsh.exe')
+    }
+    foreach ($candidate in $candidates) {
+        if ($candidate -and (Test-Path -LiteralPath $candidate)) {
+            return $candidate
+        }
+    }
+
+    $legacy = Get-Command powershell.exe -ErrorAction SilentlyContinue
+    if ($legacy -and $legacy.Path) { return [string]$legacy.Path }
+    return 'powershell.exe'
+}

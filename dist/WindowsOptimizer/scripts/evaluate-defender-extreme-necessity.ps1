@@ -35,7 +35,7 @@ if ($InputJson -and (Test-Path -LiteralPath $InputJson)) {
 
 $msmp = Get-DefenderProcessRowFromReport -Report $report
 if (-not $msmp) {
-    Write-Host 'MsMpEng not in report — running quick 4s pressure sample...'
+    Write-Host 'MsMpEng not in report â€” running quick 4s pressure sample...'
     $analyzer = Join-Path $scriptDir 'analyze-process-pressure.ps1'
     $tmp = Join-Path $hubRoot 'logs\defender-eval-pressure.json'
     & $analyzer -DurationSec 4 -Top 15 -OutputJson $tmp | Out-Null

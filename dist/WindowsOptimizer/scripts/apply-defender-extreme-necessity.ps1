@@ -10,7 +10,7 @@
   DevBuild | EmergencyPerf | ForensicCapture | VendorSupport
 
 .PARAMETER ExclusionPaths
-  For TuneExclusions — trusted folder paths to exclude from scanning.
+  For TuneExclusions â€” trusted folder paths to exclude from scanning.
 #>
 [CmdletBinding(SupportsShouldProcess)]
 param(

@@ -1,10 +1,10 @@
 ﻿<#
 .SYNOPSIS
-    Privacy Scanner — finds likely plaintext credentials and secrets (read-only).
+    Privacy Scanner â€” finds likely plaintext credentials and secrets (read-only).
 
 .DESCRIPTION
     Audit-first scan of configured paths. Never writes to scanned files.
-    Output JSON uses redacted previews only — no plaintext secrets in reports.
+    Output JSON uses redacted previews only â€” no plaintext secrets in reports.
 
 .PARAMETER OutputJson
     Path for PrivacyScanReport v1 JSON output.

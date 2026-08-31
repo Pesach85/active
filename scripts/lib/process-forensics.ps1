@@ -175,7 +175,8 @@ function Get-PeHeaderSummary {
                 $fs.Seek($peOffset + 24 + 96, [System.IO.SeekOrigin]::Begin) | Out-Null
             }
             $entryPoint = $br.ReadUInt32()
-            $fs.Seek($peOffset + 24 + ($isPe32Plus ? 44 : 28), [System.IO.SeekOrigin]::Begin) | Out-Null
+            $subsystemOffset = if ($isPe32Plus) { 44 } else { 28 }
+            $fs.Seek($peOffset + 24 + $subsystemOffset, [System.IO.SeekOrigin]::Begin) | Out-Null
             $subsystem = $br.ReadUInt16()
             $subsystemName = switch ($subsystem) {
                 1 { 'Native' }

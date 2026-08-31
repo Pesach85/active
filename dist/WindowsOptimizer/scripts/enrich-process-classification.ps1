@@ -70,7 +70,7 @@ foreach ($n in $ProcessNames) {
 }
 
 if (@($targets).Count -eq 0) {
-    throw 'No targets — pass -ProcessNames or -InputJson with unknown processes.'
+    throw 'No targets â€” pass -ProcessNames or -InputJson with unknown processes.'
 }
 
 $hints = Get-ProcessKnowledgeHintsForTargets `

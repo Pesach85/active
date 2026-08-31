@@ -40,7 +40,7 @@ $resCfg = Get-ProcessResolutionConfig -HubRoot $HubRoot
 $snap = Get-ProcessLiveSnapshot -ProcessId $ProcessId -ProcessName $ProcessName
 if (-not $snap) {
     if (-not $ProcessName) {
-        throw 'Process not found — provide -ProcessName or a running -ProcessId'
+        throw 'Process not found â€” provide -ProcessName or a running -ProcessId'
     }
     $snap = [ordered]@{
         PID = 0
@@ -64,7 +64,7 @@ $entry = [ordered]@{
     SuggestedPriority = $SuggestedPriority
     ResourceProfile = 'Mixed'
     BusinessHint = $BusinessHint.Trim()
-    SuggestedActions = @('Operator manual identification — review catalog merge separately')
+    SuggestedActions = @('Operator manual identification â€” review catalog merge separately')
     Confidence = 0.98
     Sources = @('operator-manual', "PID=$($snap.PID)")
     LearnedAt = (Get-Date).ToString('o')

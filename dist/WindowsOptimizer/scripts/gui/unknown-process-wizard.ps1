@@ -1,4 +1,4 @@
-﻿# HITL wizard: resolve + manually identify unknown processes — no terminal required.
+﻿# HITL wizard: resolve + manually identify unknown processes â€” no terminal required.
 
 function Show-UnknownProcessResolutionWizard {
     param(
@@ -81,7 +81,7 @@ function Show-UnknownProcessResolutionWizard {
     [void]$lines.Add("=== $(if ($it) { 'PROCESSO' } else { 'PROCESS' }) ===")
     [void]$lines.Add(("{0} PID={1} RAM={2}MB" -f $data.Process.ProcessName, $data.Process.PID, $data.Process.RamMb))
     if ($data.Process.NotRunning) {
-        [void]$lines.Add($(if ($it) { '⚠ Processo non in esecuzione — azioni mutanti non disponibili.' } else { '⚠ Process not running — mutating actions unavailable.' }))
+        [void]$lines.Add($(if ($it) { 'âš  Processo non in esecuzione â€” azioni mutanti non disponibili.' } else { 'âš  Process not running â€” mutating actions unavailable.' }))
     }
     [void]$lines.Add('')
     [void]$lines.Add('=== AI / KB (Cursor aided) ===')
@@ -91,12 +91,12 @@ function Show-UnknownProcessResolutionWizard {
     if ($hint.BusinessHint) { [void]$lines.Add("Hint: $($hint.BusinessHint)") }
     [void]$lines.Add('')
     [void]$lines.Add('=== WARNINGS ===')
-    foreach ($w in @($adv.Warnings)) { [void]$lines.Add("• $w") }
+    foreach ($w in @($adv.Warnings)) { [void]$lines.Add("â€¢ $w") }
     [void]$lines.Add('')
     [void]$lines.Add(">>> RECOMMENDED: $($adv.RecommendedActionId)")
     [void]$lines.Add('')
     foreach ($o in @($adv.Options)) {
-        [void]$lines.Add(("[{0}] {1} — cost={2}" -f $o.ActionId, $o.Label, $o.EfficiencyCost))
+        [void]$lines.Add(("[{0}] {1} â€” cost={2}" -f $o.ActionId, $o.Label, $o.EfficiencyCost))
     }
     $txt.Text = ($lines -join [Environment]::NewLine)
 
@@ -111,7 +111,7 @@ function Show-UnknownProcessResolutionWizard {
     $btnThrottle.Location = New-Object System.Drawing.Point(118, 8)
     $btnKeep = New-Btn $(if ($it) { 'Necessario' } else { 'Work OK' }) $clrCyan 100 36
     $btnKeep.Location = New-Object System.Drawing.Point(224, 8)
-    $btnStop = New-Btn 'Stop…' $clrRed 90 36
+    $btnStop = New-Btn 'Stopâ€¦' $clrRed 90 36
     $btnStop.Location = New-Object System.Drawing.Point(330, 8)
 
     $notRunning = $false
@@ -167,7 +167,7 @@ function Show-UnknownProcessResolutionWizard {
     $cmbCat.Location = New-Object System.Drawing.Point(8, 312)
     [void]$cmbCat.Items.AddRange(@('Unknown', 'Browser', 'Database', 'Virtualization', 'VPN', 'Security', 'IDE', 'Sync', 'Platform', 'DevTool', 'Game', 'Other'))
 
-    $lblPri = New-FieldLabel $(if ($it) { 'Priorità:' } else { 'Priority:' }) 292
+    $lblPri = New-FieldLabel $(if ($it) { 'PrioritÃ :' } else { 'Priority:' }) 292
     $lblPri.Location = New-Object System.Drawing.Point(240, 292)
     $cmbPri = New-Object System.Windows.Forms.ComboBox
     $cmbPri.DropDownStyle = 'DropDownList'
@@ -237,7 +237,7 @@ function Show-UnknownProcessResolutionWizard {
         $proc = Start-Process -FilePath $PsHost -ArgumentList $a -Wait -PassThru -WindowStyle Hidden
         if ($proc.ExitCode -ne 0) {
             [void][System.Windows.Forms.MessageBox]::Show(
-                $(if ($it) { 'Azione fallita — vedi logs/process-resolution-latest.json' } else { 'Action failed — see logs/process-resolution-latest.json' }),
+                $(if ($it) { 'Azione fallita â€” vedi logs/process-resolution-latest.json' } else { 'Action failed â€” see logs/process-resolution-latest.json' }),
                 'Resolve', 'OK', 'Error')
             return $false
         }
@@ -286,7 +286,7 @@ function Show-UnknownProcessResolutionWizard {
     })
     $btnStop.Add_Click({
         if ([System.Windows.Forms.MessageBox]::Show(
-            $(if ($it) { 'ATTENZIONE: chiudere il processo può causare perdita dati.' } else { 'WARNING: stopping may cause data loss.' }),
+            $(if ($it) { 'ATTENZIONE: chiudere il processo puÃ² causare perdita dati.' } else { 'WARNING: stopping may cause data loss.' }),
             'Stop', 'YesNo', 'Warning') -ne 'Yes') { return }
         $phrase = 'STOP UNKNOWN'
         $input = Show-PhrasePrompt -Prompt $(if ($it) { "Digita: $phrase" } else { "Type: $phrase" }) -Title 'Confirm terminate'

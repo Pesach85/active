@@ -1,7 +1,7 @@
 ﻿# Obsidian theme + control factories for System Optimizer Hub GUI.
-# Dot-sourced by system-optimizer-gui.ps1 — variables land in caller scope.
+# Dot-sourced by system-optimizer-gui.ps1 â€” variables land in caller scope.
 
-$script:appVersion = "3.10.0"
+$script:appVersion = "3.10.1"
 
 $clrBg       = [System.Drawing.Color]::FromArgb(8, 11, 19)
 $clrSurface  = [System.Drawing.Color]::FromArgb(15, 22, 36)
@@ -46,7 +46,7 @@ function Set-NoTheme {
     try { [WO_Ux]::SetWindowTheme($Ctrl.Handle, "", "") | Out-Null } catch {}
 }
 
-# Flat button factory — regular font + padding avoids clipped Italian labels
+# Flat button factory â€” regular font + padding avoids clipped Italian labels
 function New-Btn {
     param([string]$Text, [System.Drawing.Color]$Bg, [int]$W = 140, [int]$H = 38)
     $b = New-Object System.Windows.Forms.Button

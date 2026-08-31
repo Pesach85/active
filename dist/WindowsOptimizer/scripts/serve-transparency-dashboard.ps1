@@ -94,11 +94,11 @@ if (Test-PortInUse -Address $BindAddress -ListenPort $Port) {
         $existingHealthy = ($healthCheck.StatusCode -eq 200)
     } catch { }
     if ($existingHealthy) {
-        Write-WebLog "Port $Port already serving hub dashboard — reusing."
+        Write-WebLog "Port $Port already serving hub dashboard â€” reusing."
         if ($OpenBrowser) { Start-Process $prefix | Out-Null }
         exit 0
     }
-    Write-WebLog "Port $Port occupied but not hub health — attempting bind anyway."
+    Write-WebLog "Port $Port occupied but not hub health â€” attempting bind anyway."
 }
 
 $pidFile = Join-Path $hub.Logs 'transparency-web.pid'
@@ -162,8 +162,7 @@ function Send-JsonResponse {
 
 $resolveScript = Join-Path $scriptDir 'resolve-unknown-process.ps1'
 $identifyScript = Join-Path $scriptDir 'identify-unknown-process.ps1'
-$pwshExe = (Get-Command pwsh -ErrorAction SilentlyContinue).Path
-if (-not $pwshExe) { $pwshExe = (Get-Command powershell).Path }
+$pwshExe = Get-HubPwshExecutable
 
 function Invoke-HubProcessScript {
     param(

@@ -1,4 +1,4 @@
-﻿# Deep process characterization — PE/binary analysis, modules, parent chain, bounded memory strings.
+﻿# Deep process characterization â€” PE/binary analysis, modules, parent chain, bounded memory strings.
 # Read-only; no process mutation. Used when catalog/cache/metadata are insufficient.
 
 $script:ForensicsLimits = @{
@@ -175,7 +175,8 @@ function Get-PeHeaderSummary {
                 $fs.Seek($peOffset + 24 + 96, [System.IO.SeekOrigin]::Begin) | Out-Null
             }
             $entryPoint = $br.ReadUInt32()
-            $fs.Seek($peOffset + 24 + ($isPe32Plus ? 44 : 28), [System.IO.SeekOrigin]::Begin) | Out-Null
+            $subsystemOffset = if ($isPe32Plus) { 44 } else { 28 }
+            $fs.Seek($peOffset + 24 + $subsystemOffset, [System.IO.SeekOrigin]::Begin) | Out-Null
             $subsystem = $br.ReadUInt16()
             $subsystemName = switch ($subsystem) {
                 1 { 'Native' }
