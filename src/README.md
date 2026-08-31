@@ -4,7 +4,7 @@ Cross-platform domain core replacing PowerShell logic incrementally.
 
 ## Version
 
-- **Hub Core / CLI:** 0.2.0
+- **Hub Core / CLI:** 0.3.0
 - **Windows PS legacy:** 3.11.x (production until parity gate)
 - **Linux package:** 0.2.0
 

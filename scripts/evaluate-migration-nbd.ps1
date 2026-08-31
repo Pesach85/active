@@ -159,7 +159,7 @@ if (-not $gatesPassed -and $Apply) {
 $result = [ordered]@{
     SchemaVersion = 'MigrationNbdReport.v1'
     GeneratedAt = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss')
-    HubCoreVersion = '0.2.0'
+    HubCoreVersion = '0.3.0'
     Decision = $decision
     PassThreshold = $passThreshold
     GatesApplied = [bool]$Apply
