@@ -24,8 +24,23 @@ if (-not (Test-Path -LiteralPath $logs)) {
     New-Item -Path $logs -ItemType Directory -Force | Out-Null
 }
 
+$cliProject = Join-Path $HubRoot 'src\SystemOptimizerHub.Cli\SystemOptimizerHub.Cli.csproj'
+
+Write-Host '[SMOKE] dotnet build hub CLI (once)...'
+dotnet build $cliProject -v q --nologo
+if ($LASTEXITCODE -ne 0) { throw 'dotnet build hub CLI failed' }
+
 $pwshCmd = Get-Command pwsh -ErrorAction SilentlyContinue
 $pwsh = if ($pwshCmd) { $pwshCmd.Path } else { (Get-Command powershell).Path }
+
+function Invoke-HubCliSmoke {
+    param([string[]]$CliArgs, [string]$OutFile)
+    $errFile = Join-Path $HubRoot 'logs\smoke-hub-cli.err'
+    $allArgs = @('run', '--project', $cliProject, '--no-build', '-v', 'q', '--') + $CliArgs
+    $p = Start-Process -FilePath 'dotnet' -ArgumentList $allArgs -Wait -PassThru -WindowStyle Hidden `
+        -RedirectStandardOutput $OutFile -RedirectStandardError $errFile
+    return $p.ExitCode
+}
 
 $failures = [System.Collections.Generic.List[string]]::new()
 
@@ -177,6 +192,80 @@ Write-Output "OK"
     }
 } catch {
     $failures.Add(("async-worker-registry exception: {0}" -f $_.Exception.Message))
+}
+
+# Transparency tab StrictMode / unset $tab regression (Bug 31 / EXE Refresh on Shown)
+Write-Host '[SMOKE] transparency-panel-registry...'
+try {
+    $hubCommonTp = Join-Path $scriptDir 'hub-common.ps1'
+    $themeTp = Join-Path $scriptDir 'gui\theme.ps1'
+    $panelTp = Join-Path $scriptDir 'gui\transparency-panel.ps1'
+    $probeTp = Join-Path $logs 'smoke-transparency-panel-probe.ps1'
+    @'
+param([string]$HubCommon, [string]$Theme, [string]$Panel)
+Set-StrictMode -Version Latest
+$ErrorActionPreference = "Stop"
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
+. $HubCommon
+. $Theme
+. $Panel
+if (-not (Get-Command Get-HubTransparencyPanel -ErrorAction SilentlyContinue)) {
+    throw "Get-HubTransparencyPanel missing"
+}
+$tmp = Join-Path $env:TEMP ("hub-tp-smoke-" + [guid]::NewGuid().ToString("N"))
+New-Item -ItemType Directory -Path $tmp -Force | Out-Null
+New-Item -ItemType Directory -Path (Join-Path $tmp "logs") -Force | Out-Null
+$cfg = Join-Path $tmp "config.json"
+"{}" | Set-Content -LiteralPath $cfg -Encoding utf8
+$ui = New-TransparencyTab -HubRoot $tmp -ScriptRoot $tmp -ConfigPath $cfg -OnStatus { param($m) } -TestBusy { $false }
+if ($null -eq $ui -or $null -eq $ui.Tab -or $null -eq $ui.Refresh) { throw "New-TransparencyTab returned incomplete UI" }
+Remove-Variable -Name tab -ErrorAction SilentlyContinue
+Set-StrictMode -Version Latest
+& $ui.Refresh
+$st = Get-HubTransparencyPanel
+if ($null -eq $st) { throw "global HubTransparencyPanel missing after New-TransparencyTab" }
+if ($null -eq $st.Tab) { throw "panel Tab missing" }
+$c = & $st.GetTrustColor "T0_Observed"
+if ($null -eq $c) { throw "GetTrustColor returned null" }
+$fake = [pscustomobject]@{
+    Posture = [pscustomobject]@{ Score = 80; Grade = 'Good' }
+    RegisteredAgents = @()
+    RamConsumers = @()
+    DelegationManifest = [pscustomobject]@{
+        Principles = @('p')
+        HumanOnly = @('h')
+        AiDelegatedWhenEnabled = @('d')
+    }
+    RecentAutomatedActions = @()
+    UnknownHighRam = @()
+}
+& $st.ShowReport $fake
+if ($st.LblPosture.Text -notmatch '80') { throw "ShowReport did not update posture" }
+Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue
+Write-Output "OK"
+'@ | Set-Content -LiteralPath $probeTp -Encoding utf8
+    $pTp = Start-Process -FilePath $ps51 -ArgumentList @(
+        '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $probeTp,
+        '-HubCommon', $hubCommonTp,
+        '-Theme', $themeTp,
+        '-Panel', $panelTp
+    ) -Wait -PassThru -NoNewWindow -RedirectStandardOutput (Join-Path $logs 'smoke-transparency-panel.out.log') -RedirectStandardError (Join-Path $logs 'smoke-transparency-panel.err.log')
+    $outTp = ''
+    if (Test-Path (Join-Path $logs 'smoke-transparency-panel.out.log')) {
+        $outTp = Get-Content (Join-Path $logs 'smoke-transparency-panel.out.log') -Raw
+    }
+    $errTp = ''
+    if (Test-Path (Join-Path $logs 'smoke-transparency-panel.err.log')) {
+        $errTp = Get-Content (Join-Path $logs 'smoke-transparency-panel.err.log') -Raw
+    }
+    if ($pTp.ExitCode -ne 0 -or $outTp -notmatch 'OK') {
+        $failures.Add(("transparency-panel-registry failed exit={0} out={1} err={2}" -f $pTp.ExitCode, $outTp.Trim(), $errTp.Trim()))
+    } else {
+        Write-Host '[SMOKE] transparency-panel-registry OK'
+    }
+} catch {
+    $failures.Add(("transparency-panel-registry exception: {0}" -f $_.Exception.Message))
 }
 
 $pressureOut = Join-Path $logs 'smoke-process-pressure.json'
@@ -384,6 +473,68 @@ else {
     if (-not $hit) { $hit = $cat.knownApplications.PSObject.Properties[$smokeCatName] }
     if (-not $hit) { $failures.Add('process-catalog-merge: entry not found in catalog') }
     else { Write-Host '[SMOKE] process-catalog-merge OK' }
+}
+
+Write-Host '[SMOKE] hub-auth-verify-skip...'
+$authOut = Join-Path $logs 'smoke-hub-auth-verify.json'
+$authEc = Invoke-HubCliSmoke -CliArgs @('auth', 'verify', '--skip-auth') -OutFile $authOut
+if ($authEc -ne 0) { $failures.Add('hub-auth-verify-skip: CLI exit non-zero') }
+else {
+    $authJ = Get-Content -LiteralPath $authOut -Raw | ConvertFrom-Json
+    if (-not $authJ.ok) { $failures.Add('hub-auth-verify-skip: ok=false') }
+    else { Write-Host '[SMOKE] hub-auth-verify-skip OK' }
+}
+
+Write-Host '[SMOKE] hub-catalog-merge-direct...'
+. (Join-Path $scriptDir 'lib\process-catalog-merge.ps1')
+$hubCoreCatName = 'HubCatalogMergeCoreXYZ'
+$hubCoreCache = [ordered]@{
+    ProcessName = $hubCoreCatName
+    WhatItIs = 'Hub Core catalog merge smoke process'
+    WhatItDoes = 'Validates hub catalog merge-direct CLI'
+    SuggestedCategory = 'Other'
+    SuggestedPriority = 'Review'
+    ResourceProfile = 'Mixed'
+    BusinessHint = 'Core smoke'
+}
+$hubCoreHint = [ordered]@{
+    WhatItIs = $hubCoreCache.WhatItIs
+    WhatItDoes = $hubCoreCache.WhatItDoes
+    SuggestedCategory = 'Other'
+    SuggestedPriority = 'Review'
+    ResourceProfile = 'Mixed'
+    BusinessHint = 'Core smoke'
+    Sources = @('smoke-test')
+}
+$hubMergeIn = [ordered]@{
+    ProcessName = $hubCoreCatName
+    CacheEntry = $hubCoreCache
+    Hint = $hubCoreHint
+    Confidence = 0.98
+}
+$hubMergeInFile = Join-Path $logs 'smoke-hub-catalog-merge-input.json'
+($hubMergeIn | ConvertTo-Json -Depth 10) | Out-File -LiteralPath $hubMergeInFile -Encoding utf8 -Force
+$smokeCatTmp = Join-Path $logs 'smoke-hub-catalog-tmp'
+if (-not (Test-Path -LiteralPath $smokeCatTmp)) { New-Item -Path $smokeCatTmp -ItemType Directory -Force | Out-Null }
+$smokeTmpCatalog = Join-Path $smokeCatTmp 'process-intelligence.json'
+Copy-Item -LiteralPath $catPath -Destination $smokeTmpCatalog -Force
+$hubMergeOut = Join-Path $logs 'smoke-hub-catalog-merge-direct.json'
+$hubMergeEc = Invoke-HubCliSmoke -CliArgs @(
+    'catalog', 'merge-direct', '--name', $hubCoreCatName, '--input', $hubMergeInFile,
+    '--catalog', $smokeTmpCatalog, '--hub-root', $smokeCatTmp
+) -OutFile $hubMergeOut
+if ($hubMergeEc -ne 0) { $failures.Add('hub-catalog-merge-direct: CLI exit non-zero') }
+else {
+    $hubMergeJ = Get-Content -LiteralPath $hubMergeOut -Raw | ConvertFrom-Json
+    if (-not $hubMergeJ.Ok) { $failures.Add("hub-catalog-merge-direct: $($hubMergeJ.Reason)") }
+    else {
+        $cat2 = Get-Content -LiteralPath $smokeTmpCatalog -Raw | ConvertFrom-Json
+        $hit2 = $cat2.knownApplications.PSObject.Properties[$hubCoreCatName.ToLowerInvariant()]
+        if (-not $hit2) { $hit2 = $cat2.knownApplications.PSObject.Properties[$hubCoreCatName] }
+        if (-not $hit2) { $failures.Add('hub-catalog-merge-direct: entry missing in temp catalog') }
+        elseif ($null -eq $cat2.extremeNecessityDefender) { $failures.Add('hub-catalog-merge-direct: extremeNecessityDefender stripped') }
+        else { Write-Host '[SMOKE] hub-catalog-merge-direct OK' }
+    }
 }
 
 $dryRunOut = Join-Path $logs 'smoke-res-dryrun-missing.json'

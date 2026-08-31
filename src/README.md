@@ -4,9 +4,9 @@ Cross-platform domain core replacing PowerShell logic incrementally.
 
 ## Version
 
-- **Hub Core / CLI:** 0.3.0
+- **Hub Core / CLI:** 0.5.0
 - **Windows PS legacy:** 3.11.x (production until parity gate)
-- **Linux package:** 0.2.0
+- **Linux package:** 0.5.0
 
 ## Build
 
@@ -20,6 +20,11 @@ dotnet test src/SystemOptimizerHub.sln
 ```bash
 dotnet run --project src/SystemOptimizerHub.Cli -- version
 dotnet run --project src/SystemOptimizerHub.Cli -- catalog classify --name MsMpEng
+dotnet run --project src/SystemOptimizerHub.Cli -- analyze measure --first logs/parity-ppi-first.json --second logs/parity-ppi-second.json --duration 6
+dotnet run --project src/SystemOptimizerHub.Cli -- transparency build --input logs/parity-transparency-input.json
+dotnet run --project src/SystemOptimizerHub.Cli -- analyze pressure --duration 6 --top 8
+dotnet run --project src/SystemOptimizerHub.Cli -- catalog merge-direct --name X --input logs/smoke-hub-catalog-merge-input.json --catalog config/process-intelligence.json --hub-root .
+dotnet run --project src/SystemOptimizerHub.Cli -- auth verify --skip-auth
 ```
 
 ## Docs

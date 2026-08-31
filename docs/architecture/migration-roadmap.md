@@ -14,23 +14,26 @@
 
 **Validation:** `dotnet test` + existing PS smoke unchanged.
 
-## Phase 1 — Read-only parity (Q4 2026)
+## Phase 1 — Read-only parity (Q4 2026, **DONE v0.4.0**)
 
 Port read-only analyzers; PS calls Core via CLI or embedded DLL.
 
 | Domain | PS script | Core module | Parity test |
 |--------|-----------|-------------|-------------|
-| PPI analyze | `analyze-process-pressure.ps1` | `ProcessPressureAnalyzer` | JSON diff vs golden |
+| PPI analyze | `analyze-process-pressure.ps1` | `ProcessPressureAnalyzer` | **DONE v0.4.0** (`hub analyze measure`) |
 | Advisory | `resolve-unknown-process.ps1 -Action Advisory` | `ResolutionAdvisoryService` | **DONE v0.3.0** |
-| Transparency report | `build-transparency-report.ps1` | `TransparencyReportBuilder` | Schema + posture score |
+| Transparency report | `build-transparency-report.ps1` | `TransparencyReportBuilder` | **DONE v0.4.0** (`hub transparency build`) |
 
-Deliverable: `hub analyze pressure`, `hub transparency report` producing identical JSON.
+Deliverable: `hub analyze pressure`, `hub transparency report` — Core subset with PS parity on posture/RamConsumers/PPI rows.
 
-## Phase 2 — Mutating actions with HITL (Q1 2027)
+**HITL stop:** Phase 2 (`phase2-identify-catalog`) requires operator password auth — do not enable `HUB_USE_CORE=1` for mutating paths until HITL port is complete.
+
+## Phase 2 — Mutating actions with HITL (Q1 2027, **Core auth+merge DONE v0.5.0**)
 
 | Domain | Notes |
 |--------|-------|
-| Identify + catalog merge | Password gate port from `operator-auth.ps1` |
+| Identify + catalog merge | **DONE Core:** `WindowsOperatorAuth`, `CatalogMergeService`, `hub catalog merge` |
+| Identify orchestration | PS `identify-unknown-process.ps1` remains entry; optional `HUB_USE_CORE` next |
 | Resolve actions | Observe, throttle, terminate with rollback JSON |
 | Linux renice apply | Replace bash apply with Core.Linux |
 | Defender evaluate/apply | Windows-only adapter |

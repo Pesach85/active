@@ -2423,3 +2423,101 @@ Fix EXE startup ParseException su transparency-panel.ps1
 
 ### Esito
 GUI-PARSE ALL OK; EXE rebuilt
+
+## 2026-08-31 17:30:00
+### Obiettivo
+ADR-0007: architettura cross-platform C# core + Linux v0.2.0
+
+### Decisione
+- C# .NET 9 scelto vs Python (Windows native, single stack, AOT CLI, Avalonia/ASP.NET path)
+- Hexagonal: Core + Abstractions + Windows/Linux + Cli
+- PowerShell resta production fino a parity gate per dominio
+
+### Deliverable Phase 0
+- src/SystemOptimizerHub.sln (Core catalog/scoring parity)
+- hub CLI preview, 5 xUnit + test-core-parity.ps1 ALL PASSED
+- Linux package 0.2.0, ADR-0007 + migration roadmap
+
+### Prossimo
+- Phase 1: PPI analyze + transparency report JSON parity
+
+## 2026-08-31 19:29:10
+### Obiettivo
+Unblock WindowsOptimizer.exe startup: unset tab variable under StrictMode/ps2exe.
+
+### Task
+Fix Control tab transparency-panel: global state, no closures over function locals.
+
+### Modifiche
+- transparency-panel.ps1 global HubTransparencyPanel
+- system-optimizer-gui.ps1 pre-init
+- theme.ps1 HubVersion v3.11.6
+- test-hub-smoke transparency-panel-registry
+- dist gui scripts copied
+
+### Decisioni
+- Same pattern as Bug 28 global not closure
+- EXE rebuild not required panel is dot-sourced
+- Smoke uses powershell.exe STA
+
+### Esito
+Smoke ALL PASSED including transparency-panel-registry; copied to dist; reopen existing EXE.
+
+## 2026-08-31 19:35:00
+### Obiettivo
+Completare NBD Phase 1 automatable: PPI analyze + transparency report in C# Core v0.4.0
+
+### Task
+- ProcessPressureAnalyzer + PressureActionResolver (parity process-pressure-core.ps1)
+- TransparencyPolicy + TransparencyReportBuilder (posture, RamConsumers, trust)
+- CLI: hub analyze pressure|measure, hub transparency build|report
+- xUnit 14 tests + test-core-parity.ps1 extended (PPI + transparency fixtures)
+
+### Modifiche
+- src/SystemOptimizerHub.Core: Pressure/, Transparency/, Models/
+- src/SystemOptimizerHub.Windows: WindowsHostResourceProvider, WindowsProcessPressureSnapshot
+- HubVersion 0.4.0, Linux package 0.4.0
+- migration-nbd.json: phase1-ppi-analyze + phase1-transparency-report → done
+
+### Decisioni
+- Parity PPI via synthetic snapshot pairs (deterministic, no sleep in gate)
+- Transparency Core = posture + trust subset; network/agents live gather deferred to Phase 3 API
+- **STOP HITL:** prossimo NBD phase2-identify-catalog (score 59.5 < 70) richiede operator auth
+
+### Esito
+dotnet test 14/14; parity ALL PASSED; smoke ALL PASSED; NBD gates PASSED; Phase 2 blocked on HITL
+
+## 2026-08-31 20:05:00
+### Obiettivo
+Phase 2 NBD: port HITL operator auth + catalog merge to C# Core v0.5.0 con quality gate completo
+
+### Task
+- WindowsOperatorAuth (LogonUser + PrincipalContext parity operator-auth.ps1)
+- CatalogMergeService (build-entry, merge fields, rollback, post-identify pipeline gate)
+- CLI: hub auth verify, hub catalog build-entry|merge|merge-direct
+- Smoke/parity estesi per ogni funzione Core nuova; dotnet build CLI pre-smoke (--no-build)
+
+### Bug incontrati e risolti
+1. **CatalogLoader.SaveToFile** serializzava solo modello C# -> rimosso `extremeNecessityDefender` dal catalogo produzione
+   - Fix: merge JsonNode preservando extension properties; test CatalogLoaderSaveTests; restore catalog da git
+2. **dotnet run** warnings MSBuild in stdout -> JSON parse fail in smoke
+   - Fix: pre-build + `--no-build` in Invoke-HubCliSmoke/Invoke-HubCli
+3. **Smoke hub-catalog-merge-direct** scriveva su catalog produzione
+   - Fix: temp catalog copy + assert extremeNecessityDefender preserved
+4. **Parity** mancava dot-source process-knowledge.ps1 (Get-JsonPropertySafe)
+5. **Program.cs** duplicate catalogCmd -> merge subcommands nel catalog esistente
+
+### Quality gate (tutti PASS)
+- dotnet test 19/19
+- test-core-parity.ps1 (catalog build-entry, merge-direct, auth verify)
+- test-hub-smoke.ps1 (+ hub-auth-verify-skip, hub-catalog-merge-direct)
+- test-identify-chain-e2e.ps1 ALL PASSED
+
+### Deliverable
+- Hub Core 0.5.0, Linux package 0.5.0
+- package-suite.ps1 publish hub CLI -> dist/WindowsOptimizer/hub/
+- migration-nbd phase2-identify-catalog -> done
+- PS identify-unknown-process.ps1 resta orchestrator; Core pronto per HUB_USE_CORE catalog path
+
+### Esito
+ALL gates PASS; deploy via package-suite pending push

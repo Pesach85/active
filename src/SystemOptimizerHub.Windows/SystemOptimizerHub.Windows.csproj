@@ -1,6 +1,10 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <PackageReference Include="System.DirectoryServices.AccountManagement" Version="9.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\SystemOptimizerHub.Abstractions\SystemOptimizerHub.Abstractions.csproj" />
     <ProjectReference Include="..\SystemOptimizerHub.Core\SystemOptimizerHub.Core.csproj" />
   </ItemGroup>

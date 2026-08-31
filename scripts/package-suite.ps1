@@ -196,5 +196,21 @@ Quick Cleanup (safe targets):
 "@
 
 Set-Content -LiteralPath (Join-Path $OutputDir "README.txt") -Value $readme -Encoding UTF8
+
+$hubPublishDir = Join-Path $OutputDir "hub"
+$cliProject = Join-Path $hubRoot "src\SystemOptimizerHub.Cli\SystemOptimizerHub.Cli.csproj"
+if (Test-Path -LiteralPath $cliProject) {
+    Write-Host "Publishing hub CLI to $hubPublishDir ..."
+    dotnet publish $cliProject -c Release -o $hubPublishDir -v q --nologo
+    if ($LASTEXITCODE -ne 0) { throw "dotnet publish hub CLI failed" }
+    $hubBat = Join-Path $OutputDir "hub.cmd"
+    @"
+@echo off
+setlocal
+set HUB_DIR=%~dp0hub
+dotnet "%HUB_DIR%\SystemOptimizerHub.Cli.dll" %*
+"@ | Set-Content -LiteralPath $hubBat -Encoding ASCII
+}
+
 Write-Host "Package ready at: $OutputDir"
 
