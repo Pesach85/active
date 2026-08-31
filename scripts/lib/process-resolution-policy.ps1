@@ -97,6 +97,9 @@ function Get-ProcessLiveSnapshot {
     }
     if (-not $proc) { return $null }
 
+    $imagePath = ''
+    try { $imagePath = [string]$proc.Path } catch { }
+
     return [ordered]@{
         PID = $proc.Id
         ProcessName = $proc.ProcessName
@@ -104,8 +107,20 @@ function Get-ProcessLiveSnapshot {
         CpuSec = [math]::Round($proc.CPU, 1)
         Responding = $proc.Responding
         PriorityClass = [string]$proc.PriorityClass
-        Path = try { [string]$proc.Path } catch { '' }
+        Path = $imagePath
+        NotRunning = $false
     }
+}
+
+function Test-ProcessSnapshotNotRunning {
+    param($Snapshot)
+    if (-not $Snapshot) { return $true }
+    if ($Snapshot -is [System.Collections.IDictionary]) {
+        if ($Snapshot.Contains('NotRunning')) { return [bool]$Snapshot['NotRunning'] }
+        return $false
+    }
+    if ($Snapshot.PSObject.Properties['NotRunning']) { return [bool]$Snapshot.NotRunning }
+    return $false
 }
 
 function Get-ProcessResolutionAdvisory {

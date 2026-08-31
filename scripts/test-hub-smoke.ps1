@@ -278,6 +278,19 @@ Invoke-SmokeStep -Name 'process-resolution-known' `
         if ([string]$j.Advisory.RecommendedActionId -eq 'Terminate') { throw 'Should not recommend terminate for known mysqld' }
     }
 
+$liveObserveOut = Join-Path $logs 'smoke-res-live-observe.json'
+$liveProc = Get-Process -Id $PID
+Invoke-SmokeStep -Name 'process-resolution-live-observe' `
+    -ScriptPath (Join-Path $scriptDir 'resolve-unknown-process.ps1') `
+    -Arguments @('-ProcessId', ([string]$liveProc.Id), '-ProcessName', $liveProc.ProcessName, '-Action', 'Observe', '-SkipAuth', '-Offline', '-OutputJson', $liveObserveOut, '-Quiet') `
+    -OutputPath $liveObserveOut `
+    -Validate {
+        param($path)
+        $j = Get-Content -LiteralPath $path -Raw | ConvertFrom-Json
+        if ([string]$j.Outcome -ne 'Observed') { throw "Expected Observed on live process, got $($j.Outcome)" }
+        if ($j.Process.PSObject.Properties['NotRunning'] -and $j.Process.NotRunning) { throw 'Live snapshot must not be NotRunning' }
+    }
+
 $idOut = Join-Path $logs 'smoke-process-identify.json'
 Invoke-SmokeStep -Name 'process-identify-manual' `
     -ScriptPath (Join-Path $scriptDir 'identify-unknown-process.ps1') `

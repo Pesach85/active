@@ -2334,3 +2334,25 @@ Fix HubRoot param + quality gate catena identify + smoke E2E
 
 ### Esito
 E2E ALL PASSED + smoke ALL PASSED; deploy v3.11.2
+
+## 2026-08-31 13:03:00
+### Obiettivo
+Fix azioni Risolvi (Throttle/Observe) su processo live — errore NotRunning
+
+### Root cause
+- `Get-ProcessLiveSnapshot` non includeva `NotRunning`; con `Set-StrictMode Latest`, `$snap.NotRunning` su processo live (es. MsMpEng) lancia PropertyNotFoundException
+- Aggiungendo `NotRunning` dopo `Path = try { ... } catch` nel literal hashtable: parser error PS 5.1 (chiavi dopo try/catch inline)
+
+### Modifiche
+- `NotRunning = $false` in snapshot live; `Path` calcolato fuori dal literal
+- Helper `Test-ProcessSnapshotNotRunning` in `process-resolution-policy.ps1`
+- Smoke `process-resolution-live-observe` (22 step)
+- Quality gate: riga pattern NotRunning/StrictMode
+- v3.11.3
+
+### Pattern da evitare
+- Non accedere proprietà opzionali su snapshot con dot notation sotto StrictMode
+- Non mettere chiavi hashtable dopo `try/catch` inline (PS 5.1)
+
+### Esito
+MsMpEng Observe OK; smoke + E2E ALL PASSED

@@ -80,7 +80,7 @@ function Show-UnknownProcessResolutionWizard {
     $lines = [System.Collections.Generic.List[string]]::new()
     [void]$lines.Add("=== $(if ($it) { 'PROCESSO' } else { 'PROCESS' }) ===")
     [void]$lines.Add(("{0} PID={1} RAM={2}MB" -f $data.Process.ProcessName, $data.Process.PID, $data.Process.RamMb))
-    if ($data.Process.NotRunning) {
+    if ($data.Process.PSObject.Properties['NotRunning'] -and $data.Process.NotRunning) {
         [void]$lines.Add($(if ($it) { '⚠ Processo non in esecuzione — azioni mutanti non disponibili.' } else { '⚠ Process not running — mutating actions unavailable.' }))
     }
     [void]$lines.Add('')
