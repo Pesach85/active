@@ -32,6 +32,7 @@ if (-not $HubRoot) { $HubRoot = Split-Path -Parent $scriptDir }
 . (Join-Path $scriptDir 'lib\process-resolution-policy.ps1')
 . (Join-Path $scriptDir 'lib\operator-auth.ps1')
 . (Join-Path $scriptDir 'lib\transparency-events.ps1')
+. (Join-Path $scriptDir 'lib\process-catalog-merge.ps1')
 
 $hub = Get-HubPaths -HubRoot $HubRoot
 $knowCfg = Get-ProcessKnowledgeConfig -HubRoot $HubRoot
@@ -91,7 +92,7 @@ $entry = [ordered]@{
     SuggestedPriority = $SuggestedPriority
     ResourceProfile = 'Mixed'
     BusinessHint = $BusinessHint.Trim()
-    SuggestedActions = @('Operator manual identification - review catalog merge separately')
+    SuggestedActions = @('Operator manual identification - catalog auto-merge on auth')
     Confidence = 0.98
     Sources = @('operator-manual', "PID=$($snap.PID)")
     LearnedAt = (Get-Date).ToString('o')
@@ -115,6 +116,15 @@ if ($mergeBaseline) {
 
 Save-ProcessKnowledgeCacheEntry -CachePath $cachePath -ProcessName ([string]$snap.ProcessName) -Entry $entry
 
+$catalogPipeline = Invoke-PostIdentifyCatalogPipeline `
+    -HubRoot $HubRoot `
+    -ProcessName ([string]$snap.ProcessName) `
+    -CacheEntry $entry `
+    -ProcessSnapshot $snap `
+    -Confidence ([double]$entry.Confidence) `
+    -Offline:$Offline `
+    -SkipAuth:$SkipAuth
+
 $opDec = Get-OperatorProcessDecisions -HubRoot $HubRoot -RelPath ([string]$resCfg.OperatorDecisionsPath)
 Save-OperatorProcessDecision -Path $opDec.Path -ProcessName ([string]$snap.ProcessName) `
     -Decision 'Identified' -Note ("Manual: $WhatItIs | $OperatorNote")
@@ -124,6 +134,18 @@ Write-TransparencyEvent -EventsPath $eventsPath -Action 'IdentifyProcessManual' 
     -Detail ("Name={0} Category={1} Priority={2}" -f $snap.ProcessName, $SuggestedCategory, $SuggestedPriority) `
     -AgentId 'process-identify' -ControlLevel 'T0_Observed'
 
+$msg = 'Manual identification saved to KB cache.'
+if ($catalogPipeline.Skipped) {
+    $msg += " Catalog merge skipped ($($catalogPipeline.Reason))."
+} elseif ($catalogPipeline.CatalogMerge.Ok) {
+    $msg += ' Catalog updated (T1 trust) and transparency report refreshed.'
+    Write-TransparencyEvent -EventsPath $eventsPath -Action 'CatalogMergeFromIdentify' `
+        -Detail ("Name={0} Catalog={1}" -f $snap.ProcessName, $catalogPipeline.CatalogMerge.CatalogPath) `
+        -AgentId 'process-identify' -ControlLevel 'T1_Delegated'
+} else {
+    $msg += " Catalog merge failed ($($catalogPipeline.CatalogMerge.Reason))."
+}
+
 $result = [ordered]@{
     SchemaVersion = 'ProcessIdentifyResult.v1'
     GeneratedAt = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss')
@@ -131,8 +153,9 @@ $result = [ordered]@{
     CacheKey = $key
     CachePath = $cachePath
     Entry = $entry
+    CatalogMerge = $catalogPipeline
     Outcome = 'Identified'
-    Message = 'Manual identification saved to KB cache (not auto-merged to catalog).'
+    Message = $msg
 }
 
 if (-not $OutputJson) {

@@ -11,6 +11,11 @@
   "PersistLearnings": true,
   "WikipediaLookupEnabled": true,
   "MinConfidenceToPersist": 0.65,
+  "AutoMergeCatalogOnIdentify": true,
+  "AutoRebuildTransparencyReport": true,
+  "RequireAuthForCatalogMerge": true,
+  "CatalogMergeMinConfidence": 0.85,
+  "CatalogPath": "config/process-intelligence.json",
   "CompanyCategoryRules": [
     { "Pattern": "VMware", "Category": "Virtualization", "Priority": "Tune", "ResourceProfile": "MemoryHeavy" },
     { "Pattern": "Oracle|MySQL|MariaDB", "Category": "Database", "Priority": "Tune", "ResourceProfile": "MemoryHeavy" },

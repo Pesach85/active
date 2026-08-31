@@ -287,7 +287,53 @@ Invoke-SmokeStep -Name 'process-identify-manual' `
         param($path)
         $j = Get-Content -LiteralPath $path -Raw | ConvertFrom-Json
         if ([string]$j.Outcome -ne 'Identified') { throw 'Expected Identified outcome' }
+        if (-not $j.CatalogMerge.Skipped) { throw 'Expected catalog merge skipped with SkipAuth' }
     }
+
+Write-Host '[SMOKE] process-catalog-merge...'
+. (Join-Path $scriptDir 'lib\process-knowledge.ps1')
+. (Join-Path $scriptDir 'lib\process-catalog-merge.ps1')
+$smokeCatName = 'SmokeCatalogMergeXYZ'
+$smokeEntry = [ordered]@{
+    ProcessName = $smokeCatName
+    WhatItIs = 'Smoke catalog merge validation process'
+    WhatItDoes = 'Ensures identify pipeline can write process-intelligence catalog entries'
+    SuggestedCategory = 'Other'
+    SuggestedPriority = 'Review'
+    ResourceProfile = 'Mixed'
+    BusinessHint = 'Smoke test entry - safe to remove'
+}
+$smokeHint = [ordered]@{
+    WhatItIs = $smokeEntry.WhatItIs
+    WhatItDoes = $smokeEntry.WhatItDoes
+    SuggestedCategory = 'Other'
+    SuggestedPriority = 'Review'
+    ResourceProfile = 'Mixed'
+    BusinessHint = $smokeEntry.BusinessHint
+    Sources = @('smoke-test')
+    SuggestedCatalogEntry = [ordered]@{
+        category = 'Other'
+        priority = 'Review'
+        displayName = $smokeCatName
+        description = $smokeEntry.WhatItIs
+        resourceProfile = 'Mixed'
+        pressureMitigations = [ordered]@{
+            MemoryHeavy = @("Review smoke test process $smokeCatName")
+        }
+        references = @()
+    }
+}
+$catDraft = Build-CatalogEntryFromSources -ProcessName $smokeCatName -Hint $smokeHint -CacheEntry $smokeEntry
+$catPath = Join-Path $HubRoot 'config\process-intelligence.json'
+$mergeResult = Merge-ProcessIntoIntelligenceCatalog -HubRoot $HubRoot -ProcessName $smokeCatName -CatalogEntry $catDraft -CatalogPath $catPath -Confidence 0.98
+if (-not $mergeResult.Ok) { $failures.Add("process-catalog-merge: $($mergeResult.Reason)") }
+else {
+    $cat = Get-Content -LiteralPath $catPath -Raw | ConvertFrom-Json
+    $hit = $cat.knownApplications.PSObject.Properties[$smokeCatName.ToLowerInvariant()]
+    if (-not $hit) { $hit = $cat.knownApplications.PSObject.Properties[$smokeCatName] }
+    if (-not $hit) { $failures.Add('process-catalog-merge: entry not found in catalog') }
+    else { Write-Host '[SMOKE] process-catalog-merge OK' }
+}
 
 $dryRunOut = Join-Path $logs 'smoke-res-dryrun-missing.json'
 Invoke-SmokeStep -Name 'process-resolution-dryrun-missing' `

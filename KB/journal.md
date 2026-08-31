@@ -2299,3 +2299,16 @@ Fix "Impossibile caricare advisory" su web dashboard wizard
 
 ### Esito
 API `/api/process/advisory` → 200 + KnowledgeHint ricco vmware-vmx; smoke ALL PASSED
+
+## 2026-08-31 12:45:00
+### Obiettivo
+Auto-merge catalogo + refresh report dopo identificazione manuale (password = HITL)
+
+### Design
+- `process-catalog-merge.ps1`: arricchimento hint (KB/seed/web/metadata) → entry catalogo → rollback JSON → rebuild report
+- Gate: `RequireAuthForCatalogMerge` (SkipAuth smoke escluso)
+- Non sovrascrive entry catalogo più ricche; protegge vital/security
+- Config: `AutoMergeCatalogOnIdentify`, `AutoRebuildTransparencyReport` in process-knowledge.json
+
+### Esito
+Smoke ALL PASSED incl. process-catalog-merge; v3.11.0

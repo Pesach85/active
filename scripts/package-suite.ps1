@@ -50,6 +50,7 @@ $items = @(
     (Join-Path $scriptDir "lib\transparency-events.ps1"),
     (Join-Path $scriptDir "lib\network-transparency.ps1"),
     (Join-Path $scriptDir "lib\process-knowledge.ps1"),
+    (Join-Path $scriptDir "lib\process-catalog-merge.ps1"),
     (Join-Path $scriptDir "lib\process-resolution-policy.ps1"),
     (Join-Path $scriptDir "lib\operator-auth.ps1"),
     (Join-Path $scriptDir "identify-unknown-process.ps1"),
