@@ -116,6 +116,48 @@ function New-TransparencyTab {
     $serveScript = Join-Path $ScriptRoot 'serve-transparency-dashboard.ps1'
     $buildScript = Join-Path $ScriptRoot 'build-transparency-report.ps1'
     $panelState = @{ WebProcess = $null }
+    $webLogPath = Join-Path $HubRoot 'logs\transparency-web.log'
+
+    function Wait-HubTcpPort {
+        param(
+            [string]$Address = '127.0.0.1',
+            [int]$Port = 8765,
+            [int]$TimeoutSec = 25
+        )
+        $deadline = (Get-Date).AddSeconds($TimeoutSec)
+        while ((Get-Date) -lt $deadline) {
+            try {
+                $hit = Get-NetTCPConnection -LocalAddress $Address -LocalPort $Port -State Listen -ErrorAction Stop
+                if ($hit) { return $true }
+            } catch { }
+            Start-Sleep -Milliseconds 350
+        }
+        return $false
+    }
+
+    function Start-TransparencyWebServer {
+        $pwsh = (Get-Command pwsh -ErrorAction SilentlyContinue).Path
+        if (-not $pwsh) { $pwsh = (Get-Command powershell).Path }
+
+        if ($panelState.WebProcess -and -not $panelState.WebProcess.HasExited) {
+            if (Wait-HubTcpPort -Port 8765 -TimeoutSec 2) { return $true }
+        }
+
+        if (Test-Path -LiteralPath $webLogPath) { Remove-Item -LiteralPath $webLogPath -Force -ErrorAction SilentlyContinue }
+
+        $panelState.WebProcess = Start-Process -FilePath $pwsh -ArgumentList @(
+            '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $serveScript,
+            '-ConfigPath', $ConfigPath
+        ) -PassThru -WindowStyle Hidden -RedirectStandardOutput $webLogPath -RedirectStandardError $webLogPath
+
+        if (Wait-HubTcpPort -Port 8765 -TimeoutSec 25) { return $true }
+
+        $tail = ''
+        if (Test-Path -LiteralPath $webLogPath) {
+            $tail = (Get-Content -LiteralPath $webLogPath -Tail 6 -ErrorAction SilentlyContinue) -join [Environment]::NewLine
+        }
+        throw ("Dashboard did not start on port 8765 within 25s.{0}{1}" -f [Environment]::NewLine, $tail)
+    }
 
     function Get-TrustColor {
         param([string]$Level)
@@ -185,6 +227,18 @@ function New-TransparencyTab {
                 [void]$lines.Add(("{0} PID={1} {2}MB" -f $u.Name, $u.PID, $u.RamMb))
             }
         }
+        if ($Report.Network -and $Report.Network.Summary) {
+            [void]$lines.Add('')
+            [void]$lines.Add('=== Network transparency ===')
+            $ns = $Report.Network.Summary
+            [void]$lines.Add(("{0} established | {1} listen | T3: {2} | hidden small: {3}" -f $ns.Established, $ns.Listen, $ns.UnknownTrustCount, $ns.HiddenNetworkProcessCount))
+            foreach ($h in @($Report.Network.HiddenNetworkProcesses | Select-Object -First 8)) {
+                [void]$lines.Add(("{0} PID={1} {2}MB ext={3} — {4}" -f $h.Name, $h.PID, $h.RamMb, $h.ExternalConnections, $h.TrustReason))
+            }
+            foreach ($nc in @($Report.Network.Connections | Where-Object { $_.TrustLevel -eq 'T3_Unknown' } | Select-Object -First 8)) {
+                [void]$lines.Add(("[T3 NET] {0} {1} -> {2}" -f $nc.ProcessName, $nc.Local, $nc.Remote))
+            }
+        }
         $txtDetail.Text = ($lines -join [Environment]::NewLine)
     }
 
@@ -227,22 +281,13 @@ function New-TransparencyTab {
 
     $btnOpenWeb.Add_Click({
         try {
-            $pwsh = (Get-Command pwsh -ErrorAction SilentlyContinue).Path
-            if (-not $pwsh) { $pwsh = (Get-Command powershell).Path }
             Invoke-BuildReport -Quiet | Out-Null
-            if ($panelState.WebProcess -and -not $panelState.WebProcess.HasExited) {
-                Start-Process 'http://127.0.0.1:8765/' | Out-Null
-                return
-            }
-            $panelState.WebProcess = Start-Process -FilePath $pwsh -ArgumentList @(
-                '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $serveScript,
-                '-ConfigPath', $ConfigPath, '-BuildReportFirst'
-            ) -PassThru -WindowStyle Hidden
-            Start-Sleep -Seconds 1
+            [void](Start-TransparencyWebServer)
             Start-Process 'http://127.0.0.1:8765/' | Out-Null
-            if ($OnStatus) { & $OnStatus 'Web dashboard started on http://127.0.0.1:8765/' }
+            if ($OnStatus) { & $OnStatus 'Web dashboard ready at http://127.0.0.1:8765/' }
         } catch {
             [System.Windows.Forms.MessageBox]::Show($_.Exception.Message, 'Web Dashboard') | Out-Null
+            if ($OnStatus) { & $OnStatus 'Web dashboard failed — see logs/transparency-web.log' }
         }
     })
 

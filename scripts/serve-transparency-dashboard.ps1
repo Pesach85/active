@@ -4,7 +4,8 @@ param(
     [int]$Port = 0,
     [string]$BindAddress = '',
     [switch]$BuildReportFirst,
-    [switch]$OpenBrowser
+    [switch]$OpenBrowser,
+    [string]$LogPath = ''
 )
 
 Set-StrictMode -Version Latest
@@ -43,16 +44,31 @@ if ($Port -le 0) {
     }
 }
 
-$webRoot = Join-Path $hubRoot 'web\transparency'
+$webRoot = Join-Path $hub.HubRoot 'web\transparency'
+if (-not (Test-Path -LiteralPath $webRoot)) {
+    $webRoot = Join-Path $hubRoot 'web\transparency'
+}
+
 $reportRel = 'logs/transparency-report-latest.json'
 if ($transparency) {
     $rp = if ($transparency -is [hashtable]) { $transparency['ReportOutputPath'] } else { $transparency.ReportOutputPath }
     if ($rp) { $reportRel = [string]$rp }
 }
-$reportPath = Resolve-HubPath -HubRoot $hubRoot -Path $reportRel
+$reportPath = Resolve-HubPath -HubRoot $hub.HubRoot -Path $reportRel
 
-if ($BuildReportFirst) {
-    & (Join-Path $scriptDir 'build-transparency-report.ps1') -ConfigPath $ConfigPath -OutputJson $reportPath | Out-Null
+if (-not $LogPath) {
+    $LogPath = Join-Path $hub.Logs 'transparency-web.log'
+}
+
+function Write-WebLog {
+    param([string]$Message)
+    $line = ('{0} {1}' -f (Get-Date).ToString('yyyy-MM-dd HH:mm:ss'), $Message)
+    try {
+        $dir = Split-Path -Parent $LogPath
+        if ($dir -and -not (Test-Path -LiteralPath $dir)) { New-Item -Path $dir -ItemType Directory -Force | Out-Null }
+        $line | Out-File -LiteralPath $LogPath -Encoding utf8 -Append
+    } catch { }
+    Write-Host $line
 }
 
 if (-not (Test-Path -LiteralPath $webRoot)) {
@@ -60,6 +76,23 @@ if (-not (Test-Path -LiteralPath $webRoot)) {
 }
 
 $prefix = "http://${BindAddress}:${Port}/"
+
+function Test-PortInUse {
+    param([string]$Address, [int]$ListenPort)
+    try {
+        $existing = Get-NetTCPConnection -LocalAddress $Address -LocalPort $ListenPort -State Listen -ErrorAction Stop
+        return ($null -ne $existing)
+    } catch {
+        return $false
+    }
+}
+
+if (Test-PortInUse -Address $BindAddress -ListenPort $Port) {
+    Write-WebLog "Port $Port already listening — reusing existing dashboard."
+    if ($OpenBrowser) { Start-Process $prefix | Out-Null }
+    exit 0
+}
+
 $listener = [System.Net.HttpListener]::new()
 $listener.Prefixes.Add($prefix)
 
@@ -97,14 +130,28 @@ function Get-ContentType {
     }
 }
 
-Write-Host "Transparency dashboard listening on $prefix (localhost only)"
-Write-Host "Press Ctrl+C to stop."
-
-if ($OpenBrowser) {
-    Start-Process $prefix
+try {
+    $listener.Start()
+} catch {
+    Write-WebLog ("FAILED to bind {0}: {1}" -f $prefix, $_.Exception.Message)
+    throw
 }
 
-$listener.Start()
+Write-WebLog "Listening on $prefix (localhost only). Press Ctrl+C to stop."
+
+if ($OpenBrowser) {
+    Start-Process $prefix | Out-Null
+}
+
+if ($BuildReportFirst) {
+    $buildScript = Join-Path $scriptDir 'build-transparency-report.ps1'
+    Start-Job -Name 'TransparencyReportWarmup' -ScriptBlock {
+        param($Script, $Cfg, $Out)
+        & $Script -ConfigPath $Cfg -OutputJson $Out | Out-Null
+    } -ArgumentList $buildScript, $ConfigPath, $reportPath | Out-Null
+    Write-WebLog 'Background report warmup started.'
+}
+
 try {
     while ($listener.IsListening) {
         $context = $listener.GetContext()
@@ -133,6 +180,12 @@ try {
             continue
         }
 
+        if ($path -eq '/api/health') {
+            $ok = [System.Text.Encoding]::UTF8.GetBytes('{"status":"ok","listening":true}')
+            Send-Response -Context $context -ContentType 'application/json' -BodyBytes $ok
+            continue
+        }
+
         $safePath = $path.TrimStart('/').Replace('/', [IO.Path]::DirectorySeparatorChar)
         $filePath = Join-Path $webRoot $safePath
         $fullWeb = [IO.Path]::GetFullPath($webRoot)
@@ -149,7 +202,10 @@ try {
             Send-Response -Context $context -StatusCode 404 -BodyBytes ([System.Text.Encoding]::UTF8.GetBytes('Not found'))
         }
     }
+} catch {
+    Write-WebLog ("Server loop error: {0}" -f $_.Exception.Message)
+    throw
 } finally {
-    $listener.Stop()
+    if ($listener.IsListening) { $listener.Stop() }
     $listener.Close()
 }

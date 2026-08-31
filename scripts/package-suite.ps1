@@ -44,6 +44,7 @@ $items = @(
     (Join-Path $scriptDir "install-orchestrator-task.ps1"),
     (Join-Path $scriptDir "lib\transparency-policy.ps1"),
     (Join-Path $scriptDir "lib\transparency-events.ps1"),
+    (Join-Path $scriptDir "lib\network-transparency.ps1"),
     (Join-Path $configDir "process-intelligence.json"),
     (Join-Path $scriptDir "analyze-nvme-readonly-plan.ps1"),
     (Join-Path $scriptDir "analyze-recovery-partition-legacy.ps1"),

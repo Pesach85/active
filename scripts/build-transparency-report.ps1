@@ -14,6 +14,7 @@ $hubRoot = Split-Path -Parent $scriptDir
 . (Join-Path $scriptDir 'hub-common.ps1')
 . (Join-Path $scriptDir 'lib\resource-budget.ps1')
 . (Join-Path $scriptDir 'lib\transparency-policy.ps1')
+. (Join-Path $scriptDir 'lib\network-transparency.ps1')
 
 $hub = Get-HubPaths -HubRoot $hubRoot
 if (-not $ConfigPath) { $ConfigPath = $hub.ConfigFile }
@@ -233,7 +234,41 @@ if ($llmEnabled -and -not $profile.LlmAllowed) {
     [void]$postureNotes.Add('LLM enabled on Tier C host — misaligned with feather policy')
 }
 
-if ($posture -lt 0) { $posture = 0 }
+$networkSnapshot = $null
+$networkEnabled = $true
+$smallRamMb = 120
+if ($transparency) {
+    $netCfg = if ($transparency -is [hashtable]) { $transparency['NetworkMonitor'] } else { $transparency.NetworkMonitor }
+    if ($netCfg) {
+        $networkEnabled = if ($netCfg -is [hashtable]) {
+            -not $netCfg.ContainsKey('Enabled') -or [bool]$netCfg['Enabled']
+        } else {
+            [bool]$netCfg.Enabled
+        }
+        $sr = if ($netCfg -is [hashtable]) { $netCfg['SmallProcessRamMb'] } else { $netCfg.SmallProcessRamMb }
+        if ($null -ne $sr) { $smallRamMb = [int]$sr }
+    }
+}
+
+if ($networkEnabled) {
+    $networkSnapshot = Get-NetworkTransparencySnapshot -Config $config -CatalogNames $catalogNames -SmallProcessRamMb $smallRamMb
+    if ($networkSnapshot.Available) {
+        $unkNet = [int]$networkSnapshot.Summary.UnknownTrustCount
+        $hiddenNet = [int]$networkSnapshot.Summary.HiddenNetworkProcessCount
+        if ($unkNet -gt 0) {
+            $posture -= [math]::Min(20, $unkNet * 3)
+            [void]$postureNotes.Add("{0} network connection(s) with T3 trust" -f $unkNet)
+        }
+        if ($hiddenNet -gt 0) {
+            $posture -= [math]::Min(15, $hiddenNet * 5)
+            [void]$postureNotes.Add("{0} small/hidden process(es) with outbound traffic" -f $hiddenNet)
+        }
+    } else {
+        [void]$postureNotes.Add('Network snapshot unavailable — run as admin or check Get-NetTCPConnection')
+    }
+}
+
+if ($posture -lt  0) { $posture = 0 }
 
 $recentActions = [System.Collections.Generic.List[object]]::new()
 foreach ($ev in $events) {
@@ -298,6 +333,7 @@ $result = [ordered]@{
     }
     RamConsumers = @($processRows)
     UnknownHighRam = @($unknownHighRam)
+    Network = if ($networkSnapshot) { $networkSnapshot } else { $null }
     RegisteredAgents = @($agents)
     RunningHubProcesses = @($hubProcs)
     RecentAutomatedActions = @($recentActions | Select-Object -Last 40)

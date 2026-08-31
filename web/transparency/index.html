@@ -68,6 +68,22 @@
       <ul id="actionsList" class="actions"></ul>
     </section>
 
+    <section class="card" id="cardNetwork">
+      <h2>Rete (connessioni attive)</h2>
+      <p class="hint">T3 = traffico non riconducibile a task hub/catalogo · hidden = processo piccolo con egress</p>
+      <div id="networkSummary" class="stats-inline muted"></div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Processo</th><th>Local</th><th>Remote</th><th>Trust</th></tr>
+          </thead>
+          <tbody id="networkBody"></tbody>
+        </table>
+      </div>
+      <h3>Processi piccoli / nascosti con egress</h3>
+      <ul id="hiddenNetList" class="actions"></ul>
+    </section>
+
     <section class="card wide policy" id="cardPolicy">
       <h2>Contratto delega (operatore ↔ AI)</h2>
       <div class="policy-cols">

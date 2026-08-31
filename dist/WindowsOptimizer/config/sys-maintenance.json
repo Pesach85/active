@@ -167,6 +167,12 @@
       "Enabled": true,
       "BindAddress": "127.0.0.1",
       "Port": 8765
+    },
+    "NetworkMonitor": {
+      "Enabled": true,
+      "MaxConnections": 120,
+      "SmallProcessRamMb": 120,
+      "FlagPublicOutbound": true
     }
   }
 }
