@@ -18,6 +18,16 @@
     </div>
   </header>
 
+  <div id="offlineBanner" class="offline-banner hidden" role="alert">
+    <strong>Dashboard non raggiungibile (ERR_CONNECTION_REFUSED)</strong>
+    <p>Il server web locale non è in ascolto sulla porta 8765. Avvialo prima di usare questa pagina:</p>
+    <ul>
+      <li><strong>GUI EXE</strong> → tab Control → pulsante <em>Web Dashboard</em></li>
+      <li><strong>Script</strong> → <code>scripts\run-transparency-web.bat</code> oppure <code>pwsh -File scripts\ensure-transparency-web.ps1</code></li>
+    </ul>
+    <p class="muted">Solo localhost (127.0.0.1) · nessun servizio permanente per risparmiare RAM (Tier C feather)</p>
+  </div>
+
   <main class="grid">
     <section class="card posture" id="cardPosture">
       <h2>Postura sicurezza</h2>

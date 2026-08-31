@@ -1,43 +1,23 @@
 {
-  "SchemaVersion": "ProcessKnowledgeCache.v1",
+  "UpdatedAt": "2026-08-31T11:23:37.7011575+02:00",
   "Entries": {
-    "smoketestprocxyz": {
-      "ImagePath": "",
-      "BusinessHint": "",
-      "SuggestedCategory": "Other",
-      "WhatItDoes": "ValidatesManualIdentify",
-      "SuggestedPriority": "Review",
-      "ResourceProfile": "Mixed",
+    "mysqld": {
+      "ProcessName": "mysqld",
+      "WhatItIs": "MySQL/MariaDB database server daemon",
+      "WhatItDoes": "Serves SQL databases; RAM scales with buffer pool and connections",
+      "SuggestedCategory": "Database",
+      "SuggestedPriority": "Tune",
+      "ResourceProfile": "MemoryHeavy",
+      "BusinessHint": "Keep if local apps (WordPress, dev stack) need DB; stop service when not developing",
       "SuggestedActions": [
-        "Operator manual identification — review catalog merge separately"
+        "Confirm which app uses the DB",
+        "Lower innodb_buffer_pool_size if over-provisioned",
+        "Stop MySQL Windows service when unused"
       ],
-      "LearnedAt": "2026-08-31T10:54:43.9055832+02:00",
-      "OperatorNote": "",
-      "Confidence": 0.98,
-      "Sources": [
-        "operator-manual",
-        "PID=0"
-      ],
-      "ProcessName": "SmokeTestProcXYZ",
-      "WhatItIs": "SmokeTestProcess"
-    },
-    "charon-svc": {
-      "ProcessName": "charon-svc",
-      "WhatItIs": "StrongSwan IKE/IPsec VPN daemon (charon service wrapper on Windows)",
-      "WhatItDoes": "Maintains VPN tunnels; loopback traffic to companion process is normal",
-      "SuggestedCategory": "VPN",
-      "SuggestedPriority": "Review",
-      "ResourceProfile": "NetworkIO",
-      "BusinessHint": "Keep if corporate VPN requires StrongSwan; classify as business-critical after operator confirm",
-      "SuggestedActions": [
-        "Verify VPN profile owner",
-        "Add to catalog as Keep if mandatory for work",
-        "Disconnect VPN when not needed"
-      ],
-      "Confidence": 0.88,
+      "Confidence": 0.93,
       "Sources": [
         "kb-seed",
-        "https://wiki.strongswan.org/projects/strongswan/wiki/Charon"
+        "https://dev.mysql.com/doc/refman/8.0/en/mysqld.html"
       ],
       "LearnedAt": "2026-08-31T10:00:00"
     },
@@ -61,6 +41,46 @@
       ],
       "LearnedAt": "2026-08-31T10:00:00"
     },
+    "charon-svc": {
+      "ProcessName": "charon-svc",
+      "WhatItIs": "StrongSwan IKE/IPsec VPN daemon (charon service wrapper on Windows)",
+      "WhatItDoes": "Maintains VPN tunnels; loopback traffic to companion process is normal",
+      "SuggestedCategory": "VPN",
+      "SuggestedPriority": "Review",
+      "ResourceProfile": "NetworkIO",
+      "BusinessHint": "Keep if corporate VPN requires StrongSwan; classify as business-critical after operator confirm",
+      "SuggestedActions": [
+        "Verify VPN profile owner",
+        "Add to catalog as Keep if mandatory for work",
+        "Disconnect VPN when not needed"
+      ],
+      "Confidence": 0.88,
+      "Sources": [
+        "kb-seed",
+        "https://wiki.strongswan.org/projects/strongswan/wiki/Charon"
+      ],
+      "LearnedAt": "2026-08-31T10:00:00"
+    },
+    "smoketestprocxyz": {
+      "SuggestedPriority": "Review",
+      "BusinessHint": "",
+      "Sources": [
+        "operator-manual",
+        "PID=0"
+      ],
+      "SuggestedActions": [
+        "Operator manual identification — review catalog merge separately"
+      ],
+      "ProcessName": "SmokeTestProcXYZ",
+      "Confidence": 0.98,
+      "WhatItDoes": "ValidatesManualIdentify",
+      "ImagePath": "",
+      "WhatItIs": "SmokeTestProcess",
+      "LearnedAt": "2026-08-31T11:23:37.6519754+02:00",
+      "ResourceProfile": "Mixed",
+      "OperatorNote": "",
+      "SuggestedCategory": "Other"
+    },
     "mkssandbox": {
       "ProcessName": "mksSandbox",
       "WhatItIs": "VMware VMX sandbox helper (isolated GUI/input for guest)",
@@ -78,27 +98,7 @@
         "kb-seed"
       ],
       "LearnedAt": "2026-08-31T10:00:00"
-    },
-    "mysqld": {
-      "ProcessName": "mysqld",
-      "WhatItIs": "MySQL/MariaDB database server daemon",
-      "WhatItDoes": "Serves SQL databases; RAM scales with buffer pool and connections",
-      "SuggestedCategory": "Database",
-      "SuggestedPriority": "Tune",
-      "ResourceProfile": "MemoryHeavy",
-      "BusinessHint": "Keep if local apps (WordPress, dev stack) need DB; stop service when not developing",
-      "SuggestedActions": [
-        "Confirm which app uses the DB",
-        "Lower innodb_buffer_pool_size if over-provisioned",
-        "Stop MySQL Windows service when unused"
-      ],
-      "Confidence": 0.93,
-      "Sources": [
-        "kb-seed",
-        "https://dev.mysql.com/doc/refman/8.0/en/mysqld.html"
-      ],
-      "LearnedAt": "2026-08-31T10:00:00"
     }
   },
-  "UpdatedAt": "2026-08-31T10:54:43.9734583+02:00"
+  "SchemaVersion": "ProcessKnowledgeCache.v1"
 }

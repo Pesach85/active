@@ -1,3 +1,5 @@
+. (Join-Path $PSScriptRoot 'process-forensics.ps1')
+
 # Network + hidden-process transparency sensors (read-only, Tier C feather-safe).
 # Dot-source from build-transparency-report.ps1
 
@@ -175,6 +177,14 @@ function Get-NetworkTransparencySnapshot {
             RamMb = if ($pinfo) { $pinfo.RamMb } else { 0 }
             TrustLevel = $trust.Level
             TrustReason = $trust.Reason
+            ImagePath = if ($pinfo) { [string]$pinfo.Path } else { '' }
+            CommandLine = if ($pinfo) { [string]$pinfo.CommandLine } else { '' }
+        }
+
+        if ($trust.Level -eq 'T3_Unknown' -and $procId -gt 0 -and (Get-Command Get-ProcessForensicProfile -ErrorAction SilentlyContinue)) {
+            $row['Forensics'] = Get-ProcessForensicProfile -ProcessId $procId `
+                -ProcessName ([string]$row.ProcessName) -ImagePath ([string]$row.ImagePath) `
+                -CommandLine ([string]$row.CommandLine) -Deep -IncludeMemory:(-not $row.ImagePath)
         }
 
         if ([string]$c.State -eq 'Listen') {
@@ -199,6 +209,10 @@ function Get-NetworkTransparencySnapshot {
         $isUnknownTrust = $trust.Level -eq 'T3_Unknown'
 
         if (($isSmall -or $pathMissing) -and $isUnknownTrust) {
+                        $forensic = $null
+            if (Get-Command Get-ProcessForensicProfile -ErrorAction SilentlyContinue) {
+                $forensic = Get-ProcessForensicProfile -ProcessId $procId -ProcessName $name -ImagePath $path -Deep -IncludeMemory:(-not $path)
+            }
             [void]$hiddenOut.Add([ordered]@{
                 PID = $procId
                 Name = $name
@@ -208,6 +222,7 @@ function Get-NetworkTransparencySnapshot {
                 TrustLevel = 'T3_Unknown'
                 TrustReason = 'Small/hidden process with unattributed outbound traffic'
                 ControlLevel = 'T3_Unknown'
+                Forensics = $forensic
             })
         }
     }
@@ -222,3 +237,4 @@ function Get-NetworkTransparencySnapshot {
         HiddenNetworkProcesses = @($hiddenOut)
     }
 }
+

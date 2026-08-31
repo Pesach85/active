@@ -123,6 +123,8 @@ function New-TransparencyTab {
     $buildScript = Join-Path $ScriptRoot 'build-transparency-report.ps1'
     $panelState = @{ WebProcess = $null; RamPidByRow = @{} }
     $webLogPath = Join-Path $HubRoot 'logs\transparency-web.log'
+    $webErrLogPath = Join-Path $HubRoot 'logs\transparency-web.err.log'
+    $ensureWebScript = Join-Path $ScriptRoot 'ensure-transparency-web.ps1'
 
     function Wait-HubTcpPort {
         param(
@@ -145,6 +147,12 @@ function New-TransparencyTab {
         $pwsh = (Get-Command pwsh -ErrorAction SilentlyContinue).Path
         if (-not $pwsh) { $pwsh = (Get-Command powershell).Path }
 
+        if (Test-Path -LiteralPath $ensureWebScript) {
+            $args = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $ensureWebScript, '-ConfigPath', $ConfigPath, '-Quiet')
+            $proc = Start-Process -FilePath $pwsh -ArgumentList $args -Wait -PassThru -WindowStyle Hidden
+            if ($proc.ExitCode -eq 0 -and (Wait-HubTcpPort -Port 8765 -TimeoutSec 3)) { return $true }
+        }
+
         if ($panelState.WebProcess -and -not $panelState.WebProcess.HasExited) {
             if (Wait-HubTcpPort -Port 8765 -TimeoutSec 2) { return $true }
         }
@@ -154,12 +162,15 @@ function New-TransparencyTab {
         $panelState.WebProcess = Start-Process -FilePath $pwsh -ArgumentList @(
             '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $serveScript,
             '-ConfigPath', $ConfigPath
-        ) -PassThru -WindowStyle Hidden -RedirectStandardOutput $webLogPath -RedirectStandardError $webLogPath
+        ) -PassThru -WindowStyle Hidden -RedirectStandardOutput $webLogPath -RedirectStandardError $webErrLogPath
 
         if (Wait-HubTcpPort -Port 8765 -TimeoutSec 25) { return $true }
 
         $tail = ''
-        if (Test-Path -LiteralPath $webLogPath) {
+        if (Test-Path -LiteralPath $webErrLogPath) {
+            $tail = (Get-Content -LiteralPath $webErrLogPath -Tail 6 -ErrorAction SilentlyContinue) -join [Environment]::NewLine
+        }
+        if (-not $tail -and (Test-Path -LiteralPath $webLogPath)) {
             $tail = (Get-Content -LiteralPath $webLogPath -Tail 6 -ErrorAction SilentlyContinue) -join [Environment]::NewLine
         }
         throw ("Dashboard did not start on port 8765 within 25s.{0}{1}" -f [Environment]::NewLine, $tail)
@@ -380,3 +391,4 @@ function Set-TransparencyTabLanguage {
 
     $Controls.Tab.Text = Get-I18n 'tabs.control'
 }
+

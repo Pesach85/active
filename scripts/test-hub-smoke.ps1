@@ -300,6 +300,28 @@ Invoke-SmokeStep -Name 'process-resolution-dryrun-missing' `
         if ([string]$j.Outcome -ne 'ProcessNotRunning') { throw "Expected ProcessNotRunning got $($j.Outcome)" }
     }
 
+
+$forensicsOut = Join-Path $logs 'smoke-forensics.json'
+Write-Host '[SMOKE] process-forensics...'
+. (Join-Path $scriptDir 'lib\process-forensics.ps1')
+$selfProc = Get-Process -Id $PID
+$fp = Get-ProcessForensicProfile -ProcessId $PID -ProcessName $selfProc.ProcessName -ImagePath $selfProc.Path -HubRoot $HubRoot -Deep
+($fp | ConvertTo-Json -Depth 8) | Out-File -LiteralPath $forensicsOut -Encoding utf8
+if (-not $fp.PeHeader) { $failures.Add('process-forensics: missing PE header') } else { Write-Host '[SMOKE] process-forensics OK' }
+
+Write-Host '[SMOKE] transparency-web-ensure...'
+$pWeb = Start-Process -FilePath $pwsh -ArgumentList @(
+    '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Join-Path $scriptDir 'ensure-transparency-web.ps1'), '-Quiet'
+) -Wait -PassThru -WindowStyle Hidden
+if ($pWeb.ExitCode -ne 0) { $failures.Add('transparency-web-ensure failed to start') }
+else {
+    try {
+        $h = Invoke-WebRequest -Uri 'http://127.0.0.1:8765/api/health' -TimeoutSec 5 -UseBasicParsing
+        if ($h.StatusCode -ne 200) { $failures.Add('transparency-web health not 200') }
+        else { Write-Host '[SMOKE] transparency-web-ensure OK' }
+    } catch { $failures.Add("transparency-web health: $($_.Exception.Message)") }
+}
+
 $defenderEval = Join-Path $logs 'smoke-defender-eval.json'
 Invoke-SmokeStep -Name 'defender-extreme-eval' `
     -ScriptPath (Join-Path $scriptDir 'evaluate-defender-extreme-necessity.ps1') `

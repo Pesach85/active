@@ -88,10 +88,20 @@ function Test-PortInUse {
 }
 
 if (Test-PortInUse -Address $BindAddress -ListenPort $Port) {
-    Write-WebLog "Port $Port already listening — reusing existing dashboard."
-    if ($OpenBrowser) { Start-Process $prefix | Out-Null }
-    exit 0
+    $existingHealthy = $false
+    try {
+        $healthCheck = Invoke-WebRequest -Uri "${prefix}api/health" -TimeoutSec 2 -UseBasicParsing -ErrorAction Stop
+        $existingHealthy = ($healthCheck.StatusCode -eq 200)
+    } catch { }
+    if ($existingHealthy) {
+        Write-WebLog "Port $Port already serving hub dashboard — reusing."
+        if ($OpenBrowser) { Start-Process $prefix | Out-Null }
+        exit 0
+    }
+    Write-WebLog "Port $Port occupied but not hub health — attempting bind anyway."
 }
+
+$pidFile = Join-Path $hub.Logs 'transparency-web.pid'
 
 $listener = [System.Net.HttpListener]::new()
 $listener.Prefixes.Add($prefix)
@@ -179,6 +189,7 @@ try {
 }
 
 Write-WebLog "Listening on $prefix (localhost only). Press Ctrl+C to stop."
+try { $PID | Out-File -LiteralPath $pidFile -Encoding ascii -Force } catch { }
 
 if ($OpenBrowser) {
     Start-Process $prefix | Out-Null
@@ -298,6 +309,19 @@ try {
             continue
         }
 
+        if ($context.Request.HttpMethod -eq 'POST' -and $path -eq '/api/process/forensics') {
+            $body = Read-RequestBodyJson -Context $context
+            . (Join-Path $scriptDir 'lib\process-forensics.ps1')
+            $fp = Get-ProcessForensicProfile `
+                -ProcessId ([int]$body.processId) `
+                -ProcessName ([string]$body.processName) `
+                -HubRoot $hubRoot `
+                -Deep `
+                -IncludeMemory:([bool]$body.includeMemory)
+            Send-JsonResponse -Context $context -Payload $fp
+            continue
+        }
+
         if ($context.Request.HttpMethod -eq 'GET' -and $path -eq '/api/operator-identity') {
             . (Join-Path $scriptDir 'lib\operator-auth.ps1')
             Send-JsonResponse -Context $context -Payload (Get-OperatorWindowsIdentity)
@@ -326,4 +350,6 @@ try {
 } finally {
     if ($listener.IsListening) { $listener.Stop() }
     $listener.Close()
+    Remove-Item -LiteralPath $pidFile -Force -ErrorAction SilentlyContinue
 }
+

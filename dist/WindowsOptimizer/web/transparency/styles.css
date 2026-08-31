@@ -176,6 +176,17 @@ th { color: var(--muted); font-weight: 600; }
 .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
 .wizard-status { margin-top: 0.5rem; min-height: 1.2rem; font-size: 0.82rem; }
 
+.offline-banner {
+  margin: 1rem 1.5rem 0;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--red);
+  border-radius: 8px;
+  background: rgba(239, 68, 68, 0.08);
+}
+.offline-banner.hidden { display: none; }
+.offline-banner ul { margin: 0.5rem 0; padding-left: 1.25rem; }
+.offline-banner code { background: var(--surface); padding: 0.1rem 0.35rem; border-radius: 4px; }
+
 @media (max-width: 800px) {
   .grid { grid-template-columns: 1fr; }
   .policy-cols { grid-template-columns: 1fr; }

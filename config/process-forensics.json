@@ -1,0 +1,11 @@
+{
+  "MaxFileStringBytes": 262144,
+  "MaxMemoryReadBytes": 262144,
+  "MaxMemoryRegions": 12,
+  "MaxModules": 24,
+  "MaxParentDepth": 8,
+  "MinStringLength": 8,
+  "MaxStringsReturned": 40,
+  "DeepScanWhenConfidenceBelow": 0.85,
+  "IncludeMemoryWhenPathMissing": true
+}
