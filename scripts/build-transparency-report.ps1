@@ -15,6 +15,8 @@ $hubRoot = Split-Path -Parent $scriptDir
 . (Join-Path $scriptDir 'lib\resource-budget.ps1')
 . (Join-Path $scriptDir 'lib\transparency-policy.ps1')
 . (Join-Path $scriptDir 'lib\network-transparency.ps1')
+. (Join-Path $scriptDir 'lib\process-knowledge.ps1')
+. (Join-Path $scriptDir 'lib\process-pressure-core.ps1')
 
 $hub = Get-HubPaths -HubRoot $hubRoot
 if (-not $ConfigPath) { $ConfigPath = $hub.ConfigFile }
@@ -343,6 +345,41 @@ $result = [ordered]@{
         T1_Delegated = Get-ControlLevelLabel 'T1_Delegated'
         T2_Review = Get-ControlLevelLabel 'T2_Review'
         T3_Unknown = Get-ControlLevelLabel 'T3_Unknown'
+    }
+}
+
+$pkConfig = Get-ProcessKnowledgeConfig -HubRoot $hubRoot
+if ($pkConfig.Enabled) {
+    $hintTargets = [System.Collections.Generic.List[object]]::new()
+    foreach ($u in @($unknownHighRam)) {
+        [void]$hintTargets.Add([ordered]@{
+            ProcessName = [string]$u.Name; PID = [int]$u.PID; RamMb = [double]$u.RamMb
+        })
+    }
+    if ($networkSnapshot -and $networkSnapshot.HiddenNetworkProcesses) {
+        foreach ($h in @($networkSnapshot.HiddenNetworkProcesses)) {
+            [void]$hintTargets.Add([ordered]@{
+                ProcessName = [string]$h.Name; PID = [int]$h.PID; RamMb = [double]$h.RamMb
+            })
+        }
+    }
+    if (@($hintTargets).Count -gt 0) {
+        $catalog = Get-ProcessIntelligenceCatalog -CatalogPath (Join-Path $hubRoot 'config\process-intelligence.json')
+        $deduped = [System.Collections.Generic.List[object]]::new()
+        $seenHint = @{}
+        foreach ($t in $hintTargets) {
+            $k = ([string]$t.ProcessName).ToLowerInvariant()
+            if (-not $k -or $seenHint.ContainsKey($k)) { continue }
+            $seenHint[$k] = $true
+            [void]$deduped.Add($t)
+        }
+        $result['ClassificationHints'] = @(Get-ProcessKnowledgeHintsForTargets `
+            -Targets @($deduped) `
+            -HubRoot $hubRoot `
+            -Catalog $catalog `
+            -KnowledgeConfig $pkConfig `
+            -MaintenanceConfig $config `
+            -Offline)
     }
 }
 

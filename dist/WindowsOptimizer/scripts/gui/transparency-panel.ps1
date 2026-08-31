@@ -239,6 +239,15 @@ function New-TransparencyTab {
                 [void]$lines.Add(("[T3 NET] {0} {1} -> {2}" -f $nc.ProcessName, $nc.Local, $nc.Remote))
             }
         }
+        if ($Report.ClassificationHints) {
+            [void]$lines.Add('')
+            [void]$lines.Add('=== Classification hints (deterministic + KB + AI-assisted) ===')
+            foreach ($h in @($Report.ClassificationHints | Select-Object -First 6)) {
+                [void]$lines.Add(("{0} [{1}] conf={2} — {3}" -f $h.ProcessName, $h.SuggestedCategory, $h.Confidence, $h.WhatItIs))
+                [void]$lines.Add(("  Does: {0}" -f $h.WhatItDoes))
+                if ($h.BusinessHint) { [void]$lines.Add(("  Hint: {0}" -f $h.BusinessHint)) }
+            }
+        }
         $txtDetail.Text = ($lines -join [Environment]::NewLine)
     }
 

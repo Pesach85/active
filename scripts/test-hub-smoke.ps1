@@ -214,6 +214,36 @@ Invoke-SmokeStep -Name 'transparency-report' `
         if ($null -eq $j.Network) { throw 'Network section missing' }
     }
 
+$pkOut = Join-Path $logs 'smoke-process-knowledge.json'
+Invoke-SmokeStep -Name 'process-knowledge' `
+    -ScriptPath (Join-Path $scriptDir 'enrich-process-classification.ps1') `
+    -Arguments @('-ProcessNames', 'mysqld,vmware-vmx,chrome', '-Offline', '-OutputJson', $pkOut, '-Quiet') `
+    -OutputPath $pkOut `
+    -Validate {
+        param($path)
+        $j = Get-Content -LiteralPath $path -Raw | ConvertFrom-Json
+        if ([string]$j.SchemaVersion -ne 'ProcessClassificationEnrichment.v1') { throw 'Unexpected schema' }
+        if (@($j.ClassificationHints).Count -lt 3) { throw 'Expected 3 hints' }
+        $mysql = @($j.ClassificationHints | Where-Object { $_.ProcessName -match 'mysqld' } | Select-Object -First 1)
+        if (-not $mysql) { throw 'mysqld hint missing' }
+        if ([double]$mysql.Confidence -lt 0.9) { throw 'mysqld cache confidence too low' }
+        if ([string]$mysql.SuggestedCategory -notmatch 'Database') { throw 'mysqld category wrong' }
+        $chrome = @($j.ClassificationHints | Where-Object { $_.ProcessName -match 'chrome' } | Select-Object -First 1)
+        if ([double]$chrome.Confidence -lt 0.95) { throw 'chrome catalog hint expected' }
+    }
+
+$ppiHintsOut = Join-Path $logs 'smoke-ppi-hints.json'
+Invoke-SmokeStep -Name 'process-pressure-hints' `
+    -ScriptPath (Join-Path $scriptDir 'analyze-process-pressure.ps1') `
+    -Arguments @('-DurationSec', '2', '-Top', '5', '-IncludeClassificationHints', '-OfflineHints', '-OutputJson', $ppiHintsOut) `
+    -OutputPath $ppiHintsOut `
+    -Validate {
+        param($path)
+        $j = Get-Content -LiteralPath $path -Raw | ConvertFrom-Json
+        if ([string]$j.SchemaVersion -notmatch 'ProcessPressureReport') { throw 'Unexpected PPI schema' }
+        if ($null -eq $j.ClassificationHints) { throw 'ClassificationHints missing on PPI report' }
+    }
+
 $defenderEval = Join-Path $logs 'smoke-defender-eval.json'
 Invoke-SmokeStep -Name 'defender-extreme-eval' `
     -ScriptPath (Join-Path $scriptDir 'evaluate-defender-extreme-necessity.ps1') `

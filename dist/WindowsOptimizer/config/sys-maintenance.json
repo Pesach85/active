@@ -118,7 +118,8 @@
       "EvaluationOutputPath": "logs/defender-extreme-necessity-eval.json",
       "GuiKeepExtremeWizard": true
     },
-    "OfferSafeThrottleAfterCompute": true
+    "OfferSafeThrottleAfterCompute": true,
+    "IncludeClassificationHints": true
   },
   "Privacy": {
     "MaxFileSizeKb": 512,

@@ -1,0 +1,27 @@
+{
+  "SchemaVersion": "ProcessKnowledgeConfig.v1",
+  "Enabled": true,
+  "CachePath": "KB/process-knowledge-cache.json",
+  "CacheTtlDays": 30,
+  "MaxEnrichPerRun": 6,
+  "WebLookupEnabled": true,
+  "WebTimeoutSeconds": 5,
+  "MaxWebRequestsPerRun": 2,
+  "UseLlmWhenAllowed": true,
+  "PersistLearnings": true,
+  "WikipediaLookupEnabled": true,
+  "MinConfidenceToPersist": 0.65,
+  "CompanyCategoryRules": [
+    { "Pattern": "VMware", "Category": "Virtualization", "Priority": "Tune", "ResourceProfile": "MemoryHeavy" },
+    { "Pattern": "Oracle|MySQL|MariaDB", "Category": "Database", "Priority": "Tune", "ResourceProfile": "MemoryHeavy" },
+    { "Pattern": "Microsoft", "Category": "Platform", "Priority": "Tune", "ResourceProfile": "Mixed" },
+    { "Pattern": "Google", "Category": "Browser", "Priority": "Tune", "ResourceProfile": "Mixed" },
+    { "Pattern": "StrongSwan|charon", "Category": "VPN", "Priority": "Review", "ResourceProfile": "NetworkIO" }
+  ],
+  "DescriptionKeywordRules": [
+    { "Pattern": "virtual machine|VMware", "Category": "Virtualization", "Priority": "Tune" },
+    { "Pattern": "SQL|database|mysqld", "Category": "Database", "Priority": "Tune" },
+    { "Pattern": "VPN|IPsec|IKE", "Category": "VPN", "Priority": "Review" },
+    { "Pattern": "Defender|antimalware|antivirus", "Category": "Security", "Priority": "Keep" }
+  ]
+}

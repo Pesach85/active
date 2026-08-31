@@ -45,6 +45,9 @@ $items = @(
     (Join-Path $scriptDir "lib\transparency-policy.ps1"),
     (Join-Path $scriptDir "lib\transparency-events.ps1"),
     (Join-Path $scriptDir "lib\network-transparency.ps1"),
+    (Join-Path $scriptDir "lib\process-knowledge.ps1"),
+    (Join-Path $scriptDir "enrich-process-classification.ps1"),
+    (Join-Path $configDir "process-knowledge.json"),
     (Join-Path $configDir "process-intelligence.json"),
     (Join-Path $scriptDir "analyze-nvme-readonly-plan.ps1"),
     (Join-Path $scriptDir "analyze-recovery-partition-legacy.ps1"),
@@ -105,6 +108,15 @@ if (Test-Path -LiteralPath $localeSource) {
 $catalogSource = Join-Path $configDir "command-catalog.json"
 if (Test-Path -LiteralPath $catalogSource) {
     Copy-Item -LiteralPath $catalogSource -Destination $targetConfig -Force
+}
+
+$kbSource = Join-Path $hubRoot "KB"
+$kbTarget = Join-Path $OutputDir "KB"
+if (Test-Path -LiteralPath $kbSource) {
+    if (-not (Test-Path -LiteralPath $kbTarget)) {
+        New-Item -Path $kbTarget -ItemType Directory -Force | Out-Null
+    }
+    Copy-Item -LiteralPath (Join-Path $kbSource "process-knowledge-cache.json") -Destination $kbTarget -Force -ErrorAction SilentlyContinue
 }
 
 $webSource = Join-Path $hubRoot "web\transparency"

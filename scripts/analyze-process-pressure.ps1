@@ -4,7 +4,9 @@ param(
     [int]$Top = 8,
     [string]$OutputJson = "",
     [string]$CatalogPath = "",
-    [switch]$IncludeResearch
+    [switch]$IncludeResearch,
+    [switch]$IncludeClassificationHints,
+    [switch]$OfflineHints
 )
 
 Set-StrictMode -Version Latest
@@ -147,6 +149,38 @@ $result = [ordered]@{
     }
     TopProcesses = @($compatTop)
     ResearchNotes = @($research)
+}
+
+if ($IncludeClassificationHints) {
+    $pkPath = Join-Path $scriptDir 'lib\process-knowledge.ps1'
+    if (Test-Path -LiteralPath $pkPath) {
+        . $pkPath
+        $knowledgeConfig = Get-ProcessKnowledgeConfig -HubRoot $hubRoot
+        $maintConfig = $null
+        $cfgFile = Join-Path $hubRoot 'config\sys-maintenance.json'
+        if (Test-Path -LiteralPath $cfgFile) {
+            . (Join-Path $scriptDir 'hub-common.ps1')
+            $maintConfig = Get-MaintenanceConfig -ConfigPath $cfgFile
+        }
+        $targets = foreach ($row in $topRows) {
+            if ([string]$row.Priority -eq 'Review' -or [string]$row.Category -eq 'Unknown') {
+                [ordered]@{
+                    ProcessName = [string]$row.ProcessName
+                    PID = [int]$row.PID
+                    ImagePath = [string]$row.ImagePath
+                    RamMb = [double]$row.WorkingSetMB
+                    DominantPressure = [string]$row.DominantPressure
+                }
+            }
+        }
+        $result['ClassificationHints'] = @(Get-ProcessKnowledgeHintsForTargets `
+            -Targets @($targets) `
+            -HubRoot $hubRoot `
+            -Catalog $catalog `
+            -KnowledgeConfig $knowledgeConfig `
+            -MaintenanceConfig $maintConfig `
+            -Offline:$OfflineHints)
+    }
 }
 
 if ($OutputJson) {
