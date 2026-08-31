@@ -2223,3 +2223,21 @@ Fix identify_failed web/GUI anche con password corretta
 
 ### Esito
 Smoke ALL PASSED; deploy v3.10.2
+
+## 2026-08-31 12:05:00
+### Obiettivo
+Fix identify_failed reale: parser error PS 5.1 su caratteri Unicode nei lib dot-sourced
+
+### Root cause
+- `process-knowledge.ps1` / `process-resolution-policy.ps1` contenevano em-dash `—` e frecce `→`
+- Windows PowerShell 5.1 (usato da Start-Process/web) interpreta UTF-8 senza BOM come ANSI → **ParseException** prima di qualsiasi auth
+- UI mostrava solo `identify_failed` generico perché lo script non partiva
+
+### Modifiche
+- Sanitize ASCII + UTF-8 BOM su `scripts/lib/*.ps1`
+- `sanitize-ps-ascii.ps1` per manutenzione
+- Test identify vmware-vmx PID 8480 OK (SkipAuth)
+- Riavvio dashboard richiesto dopo deploy
+
+### Esito
+Smoke ALL PASSED; deploy v3.10.3

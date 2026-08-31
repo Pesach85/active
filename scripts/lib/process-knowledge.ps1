@@ -1,4 +1,4 @@
-# Process knowledge enrichment — deterministic first, cache, KB, web, optional LLM.
+﻿# Process knowledge enrichment - deterministic first, cache, KB, web, optional LLM.
 # Transparency contract: hints are T2_Review until human merges catalog.
 
 $script:ProcessKnowledgeSchema = 'ProcessKnowledgeHint.v1'
@@ -136,7 +136,7 @@ function Search-KnowledgeBaseForProcess {
                 $line = Select-String -LiteralPath $_.FullName -Pattern [regex]::Escape($ProcessName) -SimpleMatch -ErrorAction SilentlyContinue | Select-Object -First 1
                 if ($line) {
                     $snippet = $line.Line.Trim()
-                    if ($snippet.Length -gt 120) { $snippet = $snippet.Substring(0, 120) + '…' }
+                    if ($snippet.Length -gt 120) { $snippet = $snippet.Substring(0, 120) + '...' }
                     [void]$hits.Add(('{0}: {1}' -f $_.Name, $snippet))
                 }
             } catch { }
@@ -353,7 +353,7 @@ function Build-ProcessKnowledgeHint {
                 $priority = [string]$nec.Priority
                 $whatItIs = "Catalog: $($nec.Level)"
                 $whatItDoes = [string]$nec.Notes
-                $businessHint = 'Already classified in process-intelligence.json — no merge needed.'
+                $businessHint = 'Already classified in process-intelligence.json - no merge needed.'
             }
         }
     }
@@ -436,11 +436,11 @@ function Build-ProcessKnowledgeHint {
         }
     }
 
-    if (-not $whatItIs) { $whatItIs = "Windows process '$name' — insufficient local facts" }
+    if (-not $whatItIs) { $whatItIs = "Windows process '$name' - insufficient local facts" }
     if (-not $whatItDoes) { $whatItDoes = 'Run operator review; check Task Manager path, startup entries, and business ownership.' }
     if ($confidence -lt 0.55) { $confidence = 0.55 }
     if (@($suggestedActions).Count -eq 0) {
-        [void]$suggestedActions.Add('Identify owner application in Task Manager → Properties → path')
+        [void]$suggestedActions.Add('Identify owner application in Task Manager -> Properties -> path')
         [void]$suggestedActions.Add('Add entry to process-intelligence.json after human approval')
         [void]$suggestedActions.Add('Do not auto-terminate (T3 until classified)')
     }

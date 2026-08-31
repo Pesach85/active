@@ -1,4 +1,4 @@
-# Shared transparency & control contract (human operator + AI delegation).
+﻿# Shared transparency & control contract (human operator + AI delegation).
 # Dot-source from build-transparency-report.ps1, GUI panel, orchestrator.
 
 $script:TransparencyPolicyVersion = 'TransparencyPolicy.v1'
@@ -85,7 +85,7 @@ function Get-ControlLevelLabel {
         'T0_Observed' { return 'Human observed' }
         'T1_Delegated' { return 'AI delegated (whitelisted)' }
         'T2_Review' { return 'Review required' }
-        default { return 'Unknown — investigate' }
+        default { return 'Unknown - investigate' }
     }
 }
 

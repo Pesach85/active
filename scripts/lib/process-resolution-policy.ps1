@@ -1,4 +1,4 @@
-# Unknown process resolution — mathematically efficient action ranking (reversible first).
+﻿# Unknown process resolution - mathematically efficient action ranking (reversible first).
 # Human operator is sole authority; AI aids advisory only.
 
 function Get-ProcessResolutionConfig {
@@ -155,13 +155,13 @@ function Get-ProcessResolutionAdvisory {
     }
 
     if ($operatorChoice -eq 'WorkNecessary') {
-        [void]$warnings.Add('Operator marked this process as necessary for work — terminate not recommended.')
+        [void]$warnings.Add('Operator marked this process as necessary for work - terminate not recommended.')
         Add-Option -Id 'Observe' -Label 'Keep running (operator approved)' -Cost 0 -Rationale 'You marked it work-necessary.' -Reversible $true -RequiresHitl $false
         Add-Option -Id 'ThrottleBelowNormal' -Label 'Throttle if RAM/CPU spikes' -Cost 1 -Rationale 'Reversible relief without stopping work tool.' -Reversible $true -RequiresHitl $false
         $recommended = 'Observe'
     }
     elseif ($operatorChoice -eq 'Unneeded') {
-        [void]$warnings.Add('Operator marked unneeded — terminate available with confirmation.')
+        [void]$warnings.Add('Operator marked unneeded - terminate available with confirmation.')
         Add-Option -Id 'ThrottleBelowNormal' -Label 'Throttle first (reversible)' -Cost 1 -Rationale 'Try cheap relief before kill.' -Reversible $true -RequiresHitl $false
         Add-Option -Id 'Terminate' -Label 'Stop process' -Cost 10 -Rationale 'You marked it unneeded.' -Reversible $false -RequiresHitl $true
         $recommended = 'ThrottleBelowNormal'
@@ -169,7 +169,7 @@ function Get-ProcessResolutionAdvisory {
     elseif (-not $identifiable -and $ram -ge $highRam) {
         [void]$warnings.Add('Cannot reliably identify this process and it uses significant RAM.')
         [void]$warnings.Add('Most efficient safe path: reversible throttle BEFORE terminate.')
-        Add-Option -Id 'ThrottleBelowNormal' -Label 'Throttle (BelowNormal) — recommended' -Cost 1 `
+        Add-Option -Id 'ThrottleBelowNormal' -Label 'Throttle (BelowNormal) - recommended' -Cost 1 `
             -Rationale 'Mathematically cheapest reversible action for unknown high-RAM.' -Reversible $true -RequiresHitl $false
         Add-Option -Id 'Observe' -Label 'Observe 24h' -Cost 0 -Rationale 'Zero cost if you need time to investigate.' -Reversible $true -RequiresHitl $false
         Add-Option -Id 'MarkWorkNecessary' -Label 'Mark necessary for my work' -Cost 0 `
@@ -179,18 +179,18 @@ function Get-ProcessResolutionAdvisory {
         $recommended = 'ThrottleBelowNormal'
     }
     elseif (-not $identifiable -and $ram -lt $lowRam) {
-        [void]$warnings.Add('Low RAM unknown process — observe unless network egress is suspicious.')
-        Add-Option -Id 'Observe' -Label 'Observe — recommended' -Cost 0 -Rationale 'Low resource cost; investigate before action.' -Reversible $true -RequiresHitl $false
+        [void]$warnings.Add('Low RAM unknown process - observe unless network egress is suspicious.')
+        Add-Option -Id 'Observe' -Label 'Observe - recommended' -Cost 0 -Rationale 'Low resource cost; investigate before action.' -Reversible $true -RequiresHitl $false
         Add-Option -Id 'MarkWorkNecessary' -Label 'Mark work-necessary' -Cost 0 -Rationale 'If you know this belongs to your workflow.' -Reversible $true -RequiresHitl $true
         Add-Option -Id 'Terminate' -Label 'Stop process' -Cost 10 -Rationale 'Only if you are sure it is unwanted.' -Reversible $false -RequiresHitl $true
         $recommended = 'Observe'
     }
     elseif ($identifiable) {
-        [void]$warnings.Add("Identified with confidence $confidence — prefer classify in catalog over terminate.")
+        [void]$warnings.Add("Identified with confidence $confidence - prefer classify in catalog over terminate.")
         Add-Option -Id 'Observe' -Label 'Keep + classify in catalog' -Cost 0 -Rationale 'Add to process-intelligence after review.' -Reversible $true -RequiresHitl $false
         Add-Option -Id 'MarkWorkNecessary' -Label 'Mark necessary for work' -Cost 0 -Rationale 'Document operator decision now.' -Reversible $true -RequiresHitl $true
         Add-Option -Id 'ThrottleBelowNormal' -Label 'Throttle if pressure continues' -Cost 1 -Rationale 'Tune without kill.' -Reversible $true -RequiresHitl $false
-        Add-Option -Id 'Terminate' -Label 'Stop anyway (override)' -Cost 10 -Rationale 'Operator override — HITL only.' -Reversible $false -RequiresHitl $true
+        Add-Option -Id 'Terminate' -Label 'Stop anyway (override)' -Cost 10 -Rationale 'Operator override - HITL only.' -Reversible $false -RequiresHitl $true
         $recommended = 'Observe'
     }
     else {

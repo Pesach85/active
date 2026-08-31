@@ -1,4 +1,4 @@
-# Windows password confirmation for HITL operator actions (local user).
+﻿# Windows password confirmation for HITL operator actions (local user).
 
 function Get-OperatorWindowsIdentity {
     $id = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -132,7 +132,7 @@ function Assert-OperatorWindowsPassword {
         return @{ Ok = $true; Skipped = $true; Identity = (Get-OperatorWindowsIdentity) }
     }
     if (-not (Test-OperatorWindowsPassword -Password $Password)) {
-        throw 'Windows password verification failed — action blocked.'
+        throw 'Windows password verification failed - action blocked.'
     }
     return @{ Ok = $true; Skipped = $false; Identity = (Get-OperatorWindowsIdentity) }
 }
