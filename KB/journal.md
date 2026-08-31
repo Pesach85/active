@@ -2165,6 +2165,26 @@ Zero terminale: wizard GUI+web per risolvere/identificare processi sconosciuti c
 ### Esito
 Smoke ALL PASSED; v3.9.1
 
+## 2026-08-31 11:40:00
+### Obiettivo
+Fix ERR_CONNECTION_REFUSED, launcher pwsh/PATH, errori GUI scope ($reportPath, Invoke-BuildReport)
+
+### Modifiche
+- `Get-HubPwshExecutable` in `hub-common.ps1` — risolve pwsh anche se non in PATH
+- `run-transparency-web.ps1` + `run-transparency-web.bat` riscritto (no `pwsh -File *.bat`)
+- `transparency-panel.ps1` — stato su `$tab.Tag` + scriptblock (fix scope WinForms)
+- `ensure-transparency-web.ps1` — PID file, health gate; web app messaggio chiaro
+- `docs/knowledge/project-environment-awareness.md` — decisioni stabili ambiente
+
+### Decisioni
+- Dashboard :8765 resta on-demand (localhost); avvio via ensure/GUI/bat/ps1
+- Mai assumere `pwsh` in PATH; fallback `Program Files\PowerShell\7\pwsh.exe` → `powershell.exe`
+- Handler GUI: scriptblock su Tag, mai funzioni nested in Add_Click
+- Documentare: `.bat` ≠ script `-File` PowerShell
+
+### Esito
+Smoke ALL PASSED; commit push deploy v3.10.1
+
 ## 2026-08-31 11:30:00
 ### Obiettivo
 Hardening forensics processi/rete + fix ERR_CONNECTION_REFUSED dashboard (on-demand localhost)
