@@ -21,7 +21,7 @@ Port read-only analyzers; PS calls Core via CLI or embedded DLL.
 | Domain | PS script | Core module | Parity test |
 |--------|-----------|-------------|-------------|
 | PPI analyze | `analyze-process-pressure.ps1` | `ProcessPressureAnalyzer` | JSON diff vs golden |
-| Advisory | `resolve-unknown-process.ps1 -Action Advisory` | `ResolutionAdvisoryService` | Field-by-field |
+| Advisory | `resolve-unknown-process.ps1 -Action Advisory` | `ResolutionAdvisoryService` | **DONE v0.3.0** |
 | Transparency report | `build-transparency-report.ps1` | `TransparencyReportBuilder` | Schema + posture score |
 
 Deliverable: `hub analyze pressure`, `hub transparency report` producing identical JSON.

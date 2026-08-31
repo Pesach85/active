@@ -1,9 +1,12 @@
 ﻿using System.CommandLine;
+using System.CommandLine.Invocation;
 using System.Text.Json;
 using SystemOptimizerHub.Abstractions;
 using SystemOptimizerHub.Core;
 using SystemOptimizerHub.Core.Catalog;
 using SystemOptimizerHub.Core.Models;
+using SystemOptimizerHub.Core.Config;
+using SystemOptimizerHub.Core.Resolution;
 using SystemOptimizerHub.Core.Scoring;
 using SystemOptimizerHub.Linux;
 using SystemOptimizerHub.Windows;
@@ -87,6 +90,61 @@ internal static class Program
         }, cpuOpt, ramOpt, ioOpt);
         root.AddCommand(scoreCmd);
 
+        var resolveCmd = new Command("resolve", "Process resolution (migration preview)");
+        var advisoryCmd = new Command("advisory", "Build ProcessResolutionAdvisory.v1 (parity with PS)");
+        var pidOpt = new Option<int>("--pid", () => 0, "Process ID");
+        var ramMbOpt = new Option<double>("--ram-mb", () => 0, "RAM MB");
+        var confOpt = new Option<double>("--confidence", () => 0.55, "Knowledge hint confidence");
+        var categoryOpt = new Option<string>("--category", () => "Unknown", "Suggested category");
+        var trustOpt = new Option<string>("--trust-level", () => "T3_Unknown", "Trust level");
+        var whatOpt = new Option<string>("--what-it-is", () => "Unknown process", "WhatItIs hint");
+        var opDecOpt = new Option<string?>("--operator-decision", () => null, "WorkNecessary|Unneeded");
+        var configOpt = new Option<FileInfo?>("--config", () => null, "process-resolution.json path");
+
+        advisoryCmd.AddOption(nameOpt);
+        advisoryCmd.AddOption(pidOpt);
+        advisoryCmd.AddOption(ramMbOpt);
+        advisoryCmd.AddOption(confOpt);
+        advisoryCmd.AddOption(categoryOpt);
+        advisoryCmd.AddOption(trustOpt);
+        advisoryCmd.AddOption(whatOpt);
+        advisoryCmd.AddOption(opDecOpt);
+        advisoryCmd.AddOption(catalogOpt);
+        advisoryCmd.AddOption(configOpt);
+
+        advisoryCmd.SetHandler((InvocationContext ctx) =>
+        {
+            var name = ctx.ParseResult.GetValueForOption(nameOpt)!;
+            var pid = ctx.ParseResult.GetValueForOption(pidOpt);
+            var ramMb = ctx.ParseResult.GetValueForOption(ramMbOpt);
+            var confidence = ctx.ParseResult.GetValueForOption(confOpt);
+            var category = ctx.ParseResult.GetValueForOption(categoryOpt)!;
+            var trustLevel = ctx.ParseResult.GetValueForOption(trustOpt)!;
+            var whatItIs = ctx.ParseResult.GetValueForOption(whatOpt)!;
+            var operatorDecision = ctx.ParseResult.GetValueForOption(opDecOpt);
+            var catalogFile = ctx.ParseResult.GetValueForOption(catalogOpt);
+            var configFile = ctx.ParseResult.GetValueForOption(configOpt);
+
+            var catalogPath = ResolveCatalogPath(catalogFile);
+            var catalog = CatalogLoader.LoadFromFile(catalogPath);
+            var nec = ProcessNecessityResolver.Resolve(name, catalog);
+
+            var configPath = configFile?.Exists == true
+                ? configFile.FullName
+                : TryResolveConfigPath("process-resolution.json");
+            var resCfg = configPath is not null
+                ? ResolutionConfigLoader.LoadFromFile(configPath)
+                : ResolutionConfigLoader.CreateDefault();
+
+            var snap = new ProcessSnapshotInput(pid, name, ramMb);
+            var hint = new KnowledgeHintInput(confidence, trustLevel, whatItIs, category);
+            var adv = ResolutionAdvisoryService.BuildAdvisory(snap, hint, resCfg, nec, operatorDecision);
+            Console.WriteLine(JsonSerializer.Serialize(adv, JsonOut));
+        });
+
+        resolveCmd.AddCommand(advisoryCmd);
+        root.AddCommand(resolveCmd);
+
         return await root.InvokeAsync(args);
     }
 
@@ -119,5 +177,24 @@ internal static class Program
         }
 
         throw new FileNotFoundException("process-intelligence.json not found; pass --catalog");
+    }
+
+    private static string? TryResolveConfigPath(string fileName)
+    {
+        var candidates = new[]
+        {
+            Path.Combine(Directory.GetCurrentDirectory(), "config", fileName),
+            Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "config", fileName),
+            Path.Combine(AppContext.BaseDirectory, "config", fileName)
+        };
+
+        foreach (var c in candidates)
+        {
+            var full = Path.GetFullPath(c);
+            if (File.Exists(full))
+                return full;
+        }
+
+        return null;
     }
 }
