@@ -262,8 +262,12 @@ async function openWizard(target, identifyTab = false) {
   if (hint.SuggestedPriority) document.getElementById('idPriority').value = hint.SuggestedPriority;
 
   const notRunning = wizardPayload.Process?.NotRunning;
-  document.getElementById('btnThrottle').disabled = !!notRunning;
-  document.getElementById('btnStop').disabled = !!notRunning;
+  const blocked = new Set(wizardPayload.Advisory?.BlockedActionIds || []);
+  document.getElementById('btnThrottle').disabled = !!notRunning || blocked.has('ThrottleBelowNormal');
+  document.getElementById('btnStop').disabled = !!notRunning || blocked.has('Terminate');
+  if (wizardPayload.CatalogNecessity?.Priority === 'Keep') {
+    setWizardStatus('Priority=Keep: Throttle/Stop bloccati. Usa Osserva o tuning schedule/scope.', false);
+  }
 
   switchTab(identifyTab ? 'identify' : 'advisory');
 }
@@ -303,6 +307,10 @@ async function postAction(action, extra = {}) {
   if (!res.ok) {
     setWizardStatus(data.message || data.result?.Message || data.error || 'Azione fallita', true);
     return null;
+  }
+  if (data.Outcome === 'ActionBlocked') {
+    setWizardStatus(data.Message || 'Azione bloccata dal catalogo.', true);
+    return data;
   }
   setWizardStatus(data.Message || 'OK');
   await load(true);

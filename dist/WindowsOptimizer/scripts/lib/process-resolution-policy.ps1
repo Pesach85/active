@@ -123,12 +123,31 @@ function Test-ProcessSnapshotNotRunning {
     return $false
 }
 
+function Test-ProcessCatalogActionBlocked {
+    param(
+        [string]$Action,
+        $CatalogNecessity
+    )
+    if (-not $CatalogNecessity) { return @{ Blocked = $false; Reason = '' } }
+    if ([string]$CatalogNecessity.Priority -eq 'Keep' -and $Action -in @('Terminate', 'ThrottleBelowNormal')) {
+        $cat = [string]$CatalogNecessity.Category
+        $notes = [string]$CatalogNecessity.Notes
+        $detail = if ($notes) { $notes } else { "Priority=Keep ($cat)" }
+        return @{
+            Blocked = $true
+            Reason = "Process is Priority=Keep ($cat) - $Action blocked. $detail"
+        }
+    }
+    return @{ Blocked = $false; Reason = '' }
+}
+
 function Get-ProcessResolutionAdvisory {
     param(
         $ProcessSnapshot,
         $KnowledgeHint,
         $ResolutionConfig,
-        $OperatorDecision = $null
+        $OperatorDecision = $null,
+        $CatalogNecessity = $null
     )
 
     if (-not $ProcessSnapshot) { throw 'ProcessSnapshot required' }
@@ -215,6 +234,18 @@ function Get-ProcessResolutionAdvisory {
         $recommended = 'Observe'
     }
 
+    $blockedActionIds = [System.Collections.Generic.List[string]]::new()
+    if ($CatalogNecessity -and [string]$CatalogNecessity.Priority -eq 'Keep') {
+        [void]$warnings.Add("Catalog Priority=Keep ($([string]$CatalogNecessity.Category)) - throttle and terminate blocked.")
+        foreach ($bid in @('ThrottleBelowNormal', 'Terminate')) { [void]$blockedActionIds.Add([string]$bid) }
+        $filtered = [System.Collections.Generic.List[object]]::new()
+        foreach ($o in @($options)) {
+            if ($blockedActionIds -notcontains [string]$o.ActionId) { [void]$filtered.Add($o) }
+        }
+        $options = $filtered
+        if ($recommended -in @('ThrottleBelowNormal', 'Terminate')) { $recommended = 'Observe' }
+    }
+
     $sorted = @($options | Sort-Object { [int]$_.EfficiencyCost })
     $recObj = @($sorted | Where-Object { $_.ActionId -eq $recommended } | Select-Object -First 1)
 
@@ -232,7 +263,10 @@ function Get-ProcessResolutionAdvisory {
         RecommendedActionId = $recommended
         Recommended = if ($recObj) { $recObj[0] } else { $null }
         Options = $sorted
-        AiAidedSummary = if ($identifiable) {
+        BlockedActionIds = @($blockedActionIds)
+        AiAidedSummary = if ($CatalogNecessity -and [string]$CatalogNecessity.Priority -eq 'Keep') {
+            "AI/KB: $([string]$CatalogNecessity.Notes) Observe only; throttle/terminate blocked by catalog."
+        } elseif ($identifiable) {
             "AI/KB suggests: $whatItIs ($category). Prefer catalog merge over kill."
         } else {
             "AI/KB cannot fully identify '$name'. Reversible throttle is the efficient first step if RAM is high."
