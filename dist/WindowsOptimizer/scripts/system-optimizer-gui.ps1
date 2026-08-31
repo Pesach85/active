@@ -86,7 +86,7 @@ function Resolve-PowerShellHost {
         if ($fi -and $fi.Length -gt 0) {
             return $candidate
         }
-        # 0-byte AppExecution alias detected — find real pwsh.exe
+        # 0-byte AppExecution alias detected â€” find real pwsh.exe
         $searchPaths = @(
             "$env:ProgramFiles\PowerShell\*\pwsh.exe",
             "$env:ProgramFiles\WindowsApps\Microsoft.PowerShell_*\pwsh.exe"
@@ -211,7 +211,7 @@ $script:coreInstallTimeoutSec = 300
 $script:coreInstallStdOut = Join-Path $script:hubRoot "logs\core-install-live.out.log"
 $script:coreInstallStdErr = Join-Path $script:hubRoot "logs\core-install-live.err.log"
 
-# ─── Deep Scan state ──────────────────────────────────────────────────────────
+# â”€â”€â”€ Deep Scan state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 $script:deepScanProcess          = $null
 $script:deepScanJson             = Join-Path $script:hubRoot "logs\deepscan-live.json"
 $script:deepScanApplyJson        = Join-Path $script:hubRoot "logs\deepscan-apply-live.json"
@@ -228,7 +228,7 @@ $script:deepScanApplyLevel       = "Safe"
 $script:deepScanFilter           = "All"
 $script:deepScanLastSummary      = $null
 
-# ─── Privacy Scan state ───────────────────────────────────────────────────────
+# â”€â”€â”€ Privacy Scan state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 $script:privacyScanScript   = Join-Path $script:scriptRoot "privacy-scan-secrets.ps1"
 $script:privacyProcess      = $null
 $script:privacyJson         = Join-Path $script:hubRoot "logs\privacy-scan-live.json"
@@ -245,9 +245,9 @@ if (-not $script:appVersion) { $script:appVersion = "3.2.0" }
 if (-not $clrBg) { throw "GUI theme not loaded. Expected scripts/gui/theme.ps1." }
 if (-not (Get-Command Wait-ForOutputFile -ErrorAction SilentlyContinue)) { throw "GUI worker-helpers not loaded. Expected scripts/gui/worker-helpers.ps1." }
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 #  Main Form
-# ═══════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 $form = New-Object System.Windows.Forms.Form
 $form.Text          = "System Optimizer Hub"
 $form.Size          = New-Object System.Drawing.Size(1440, 900)
@@ -256,7 +256,7 @@ $form.StartPosition = "CenterScreen"
 $form.BackColor     = $clrBg
 $form.Font          = $fntUI
 
-# ── Header bar ────────────────────────────────────────────────────────────────
+# â”€â”€ Header bar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 $pnlHeader = New-Object System.Windows.Forms.Panel
 $pnlHeader.Dock = "Top"
 $pnlHeader.Height = 76
@@ -303,7 +303,7 @@ $pnlDriveC.BackColor = $clrRaised
 $pnlDriveC.Anchor    = [System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Right
 
 $lblDriveC = New-Object System.Windows.Forms.Label
-$lblDriveC.Text      = "C:  —"
+$lblDriveC.Text      = "C:  â€”"
 $lblDriveC.Font      = $fntH2
 $lblDriveC.ForeColor = $clrText
 $lblDriveC.BackColor = [System.Drawing.Color]::Transparent
@@ -327,7 +327,7 @@ $pnlDriveD.BackColor = $clrRaised
 $pnlDriveD.Anchor    = [System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Right
 
 $lblDriveD = New-Object System.Windows.Forms.Label
-$lblDriveD.Text      = "D:  —"
+$lblDriveD.Text      = "D:  â€”"
 $lblDriveD.Font      = $fntH2
 $lblDriveD.ForeColor = $clrText
 $lblDriveD.BackColor = [System.Drawing.Color]::Transparent
@@ -351,7 +351,7 @@ $pnlHeaderLine.BackColor = $clrAccent
 
 $pnlHeader.Controls.AddRange(@($pnlHeaderAccent, $lblAppTitle, $lblAppSubtitle, $lblHubPath, $pnlDriveC, $pnlDriveD, $pnlHeaderLine))
 
-# ── Status bar (bottom) ───────────────────────────────────────────────────────
+# â”€â”€ Status bar (bottom) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 $pnlStatusBar = New-Object System.Windows.Forms.Panel
 $pnlStatusBar.Dock      = "Bottom"
 $pnlStatusBar.Height    = 32
@@ -371,7 +371,7 @@ $lblStatusLeft.Location  = New-Object System.Drawing.Point(10, 7)
 $lblStatusLeft.BackColor = [System.Drawing.Color]::Transparent
 
 $lblStatusRight = New-Object System.Windows.Forms.Label
-$lblStatusRight.Text      = "PSHost: —"
+$lblStatusRight.Text      = "PSHost: â€”"
 $lblStatusRight.Font      = $fntSmall
 $lblStatusRight.ForeColor = $clrMuted
 $lblStatusRight.Width     = 520
@@ -383,7 +383,7 @@ $lblStatusRight.Anchor    = [System.Windows.Forms.AnchorStyles]::Top -bor [Syste
 
 $pnlStatusBar.Controls.AddRange(@($pnlStatusBarLine, $lblStatusLeft, $lblStatusRight))
 
-# ── TabControl ────────────────────────────────────────────────────────────────
+# â”€â”€ TabControl â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 $tabs = New-Object System.Windows.Forms.TabControl
 $tabs.Dock      = "Fill"
 $tabs.DrawMode  = "OwnerDrawFixed"
@@ -445,11 +445,11 @@ $tabPrivacy.Text                 = "Privacy"
 $tabPrivacy.BackColor            = $clrBg
 $tabPrivacy.UseVisualStyleBackColor = $false
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 #  Dashboard Tab
-# ═══════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
-# Action panel — v3: primary actions row only
+# Action panel â€” v3: primary actions row only
 $pnlActions = New-Object System.Windows.Forms.Panel
 $pnlActions.Dock      = "Top"
 $pnlActions.Height    = 80
@@ -524,7 +524,7 @@ $pnlAdvancedTools.Controls.AddRange(@(
 $btnCancelAnalyze.Enabled  = $false
 $btnCancelAnalyze.ForeColor = $clrMuted
 
-# Scan options row — separate panel to avoid overlap with primary buttons
+# Scan options row â€” separate panel to avoid overlap with primary buttons
 $pnlScanOptions = New-Object System.Windows.Forms.Panel
 $pnlScanOptions.Dock      = "Top"
 $pnlScanOptions.Height    = 58
@@ -764,9 +764,9 @@ $tabDashboard.Controls.Add($pnlScanOptions)
 $tabDashboard.Controls.Add($pnlAdvancedTools)
 $tabDashboard.Controls.Add($pnlActions)
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 #  Tasks Tab
-# ═══════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 $listTasks = New-Object System.Windows.Forms.ListView
 $listTasks.View          = "Details"
 $listTasks.FullRowSelect = $true
@@ -797,9 +797,9 @@ $pnlTasksHeader.Controls.AddRange(@($btnReloadTasks, $btnInstallTasks, $pnlTasks
 $tabTasks.Controls.Add($listTasks)
 $tabTasks.Controls.Add($pnlTasksHeader)
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 #  Logs Tab
-# ═══════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 $txtLogs = New-Object System.Windows.Forms.TextBox
 $txtLogs.Multiline   = $true
 $txtLogs.ScrollBars  = "Vertical"
@@ -846,9 +846,9 @@ $pnlLogsHeader.Controls.AddRange(@($cmbLogSource, $btnLoadLogs, $pnlLogsBorderB)
 $tabLogs.Controls.Add($txtLogs)
 $tabLogs.Controls.Add($pnlLogsHeader)
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 #  Config Tab
-# ═══════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 $pnlConfigBody = New-Object System.Windows.Forms.Panel
 $pnlConfigBody.Dock      = "Fill"
 $pnlConfigBody.BackColor = $clrBg
@@ -971,11 +971,11 @@ $pnlConfigBody.Controls.AddRange(@(
 ))
 $tabConfig.Controls.Add($pnlConfigBody)
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 #  Deep Scan Tab
-# ═══════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
-# ── Header ────────────────────────────────────────────────────────────────────
+# â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 $pnlDeepScanHeader = New-Object System.Windows.Forms.Panel
 $pnlDeepScanHeader.Dock      = "Top"
 $pnlDeepScanHeader.Height    = 72
@@ -1033,7 +1033,7 @@ $btnDeepExport.Enabled  = $false
 $btnDeepExport.ForeColor = $clrMuted
 
 $lblDeepScanDesc = New-Object System.Windows.Forms.Label
-$lblDeepScanDesc.Text      = "Full system performance audit — hardware, OS settings, drivers, services.  Select a finding, choose a solution, then click Apply."
+$lblDeepScanDesc.Text      = "Full system performance audit â€” hardware, OS settings, drivers, services.  Select a finding, choose a solution, then click Apply."
 $lblDeepScanDesc.Font      = $fntSmall
 $lblDeepScanDesc.ForeColor = $clrMuted
 $lblDeepScanDesc.AutoSize  = $true
@@ -1052,7 +1052,7 @@ $pnlDeepScanHeader.Controls.AddRange(@(
     $lblDeepScanDesc, $pnlDeepScanHeaderBorder
 ))
 
-# ── Progress band ─────────────────────────────────────────────────────────────
+# â”€â”€ Progress band â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 $pnlDeepScanProgress = New-Object System.Windows.Forms.Panel
 $pnlDeepScanProgress.Dock      = "Top"
 $pnlDeepScanProgress.Height    = 44
@@ -1078,7 +1078,7 @@ $lblDeepScanState.BackColor = [System.Drawing.Color]::Transparent
 
 $pnlDeepScanProgress.Controls.AddRange(@($progressDeepScan, $lblDeepScanState))
 
-# ── Findings ListView ─────────────────────────────────────────────────────────
+# â”€â”€ Findings ListView â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 $listDeepFindings = New-Object System.Windows.Forms.ListView
 $listDeepFindings.View          = "Details"
 $listDeepFindings.FullRowSelect = $true
@@ -1096,7 +1096,7 @@ $listDeepFindings.Columns.Add("Title",    330) | Out-Null
 $listDeepFindings.Columns.Add("Current",  160) | Out-Null
 $listDeepFindings.Columns.Add("Target",   160) | Out-Null
 
-# ── Right detail pane ─────────────────────────────────────────────────────────
+# â”€â”€ Right detail pane â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 $txtDeepFindingDetail = New-Object System.Windows.Forms.TextBox
 $txtDeepFindingDetail.Multiline   = $true
 $txtDeepFindingDetail.ScrollBars  = "Vertical"
@@ -1150,8 +1150,8 @@ $pnlDeepSolWrapper = New-Object System.Windows.Forms.Panel
 $pnlDeepSolWrapper.Dock      = "Fill"
 $pnlDeepSolWrapper.BackColor = $clrBg
 $pnlDeepSolWrapper.SuspendLayout()
-$pnlDeepSolWrapper.Controls.Add($listDeepSolutions)  # index 0 → Fill  → last
-$pnlDeepSolWrapper.Controls.Add($pnlDeepApply)        # index 1 → Bottom → first
+$pnlDeepSolWrapper.Controls.Add($listDeepSolutions)  # index 0 â†’ Fill  â†’ last
+$pnlDeepSolWrapper.Controls.Add($pnlDeepApply)        # index 1 â†’ Bottom â†’ first
 $pnlDeepSolWrapper.ResumeLayout($false)
 
 # Inner split: finding detail (top) / solutions+apply (bottom)
@@ -1180,14 +1180,14 @@ $splitDeepMain.Panel2.Controls.Add($splitDeepDetail)
 
 # Dock z-order: Fill first (index 0), then Top panels (higher indices)
 $tabDeepScan.SuspendLayout()
-$tabDeepScan.Controls.Add($splitDeepMain)           # index 0 → Fill   → docked last
-$tabDeepScan.Controls.Add($pnlDeepScanProgress)     # index 1 → Top    → docked second
-$tabDeepScan.Controls.Add($pnlDeepScanHeader)       # index 2 → Top    → docked first
+$tabDeepScan.Controls.Add($splitDeepMain)           # index 0 â†’ Fill   â†’ docked last
+$tabDeepScan.Controls.Add($pnlDeepScanProgress)     # index 1 â†’ Top    â†’ docked second
+$tabDeepScan.Controls.Add($pnlDeepScanHeader)       # index 2 â†’ Top    â†’ docked first
 $tabDeepScan.ResumeLayout($false)
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 #  Privacy Tab
-# ═══════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 $pnlPrivacyHeader = New-Object System.Windows.Forms.Panel
 $pnlPrivacyHeader.Dock      = "Top"
@@ -1283,9 +1283,9 @@ $tabPrivacy.Controls.Add($pnlPrivacyProgress)
 $tabPrivacy.Controls.Add($pnlPrivacyHeader)
 $tabPrivacy.ResumeLayout($false)
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 #  Control & Transparency Tab
-# ═══════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 $script:transparencyUi = $null
 if (Get-Command New-TransparencyTab -ErrorAction SilentlyContinue) {
     $hubPathsForTransparency = Get-HubPaths -HubRoot $script:hubRoot
@@ -1302,15 +1302,15 @@ if (Get-Command New-TransparencyTab -ErrorAction SilentlyContinue) {
     $tabTransparency.BackColor = $clrBg
 }
 
-# ── Assemble ──────────────────────────────────────────────────────────────────
+# â”€â”€ Assemble â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 $tabs.TabPages.AddRange(@($tabDashboard, $tabDeepScan, $tabPrivacy, $tabTransparency, $tabTasks, $tabLogs, $tabConfig))
 
 # Dock layout processes children from highest index first. Edge-docked controls
 # (Top/Bottom) must have HIGHER indices so they claim space BEFORE Fill.
 $form.SuspendLayout()
-$form.Controls.Add($tabs)          # index 0 → Dock=Fill  → docked last  → remaining space
-$form.Controls.Add($pnlStatusBar)  # index 1 → Dock=Bottom → docked second
-$form.Controls.Add($pnlHeader)     # index 2 → Dock=Top    → docked first → 64px from top
+$form.Controls.Add($tabs)          # index 0 â†’ Dock=Fill  â†’ docked last  â†’ remaining space
+$form.Controls.Add($pnlStatusBar)  # index 1 â†’ Dock=Bottom â†’ docked second
+$form.Controls.Add($pnlHeader)     # index 2 â†’ Dock=Top    â†’ docked first â†’ 64px from top
 $form.ResumeLayout($false)
 
 $tabs.Add_SelectedIndexChanged({
@@ -2354,7 +2354,7 @@ function Poll-ComputeAnalysis {
 
             $defRow = $topRows | Where-Object { [string]$_.ProcessName -eq 'MsMpEng' } | Select-Object -First 1
             if ($defRow -and $script:showDefenderReviewAfterCompute -and [double]$defRow.Score -ge $script:defenderMinScoreForPrompt) {
-                Append-Status ("Defender MsMpEng elevated: Score={0} CPU={1}% IO={2}MB/s — use Defender button for deterministic tier review." -f `
+                Append-Status ("Defender MsMpEng elevated: Score={0} CPU={1}% IO={2}MB/s â€” use Defender button for deterministic tier review." -f `
                     [decimal]$defRow.Score, [decimal]$defRow.CpuPercent, [decimal]$defRow.IoMBps)
             }
         } catch {
@@ -2526,7 +2526,7 @@ function Poll-HealthAudit {
 
             foreach ($f in $auditResult.Findings) {
                 $solLevels = ($f.Solutions | ForEach-Object { $_.Level }) -join '/'
-                Append-Status ("  [{0}] {1} — {2}  (Fixes: {3})" -f [string]$f.Severity, [string]$f.Id, [string]$f.Title, $solLevels)
+                Append-Status ("  [{0}] {1} â€” {2}  (Fixes: {3})" -f [string]$f.Severity, [string]$f.Id, [string]$f.Title, $solLevels)
             }
             if ($optimizedCount -gt 0) {
                 Append-Status ("  Already optimized: {0}" -f (Format-AlreadyOptimizedLog -Items $auditResult.AlreadyOptimized))
@@ -2735,9 +2735,9 @@ function Poll-HealthApply {
             Show-Toast -Title "Fixes Applied" -Body ("Applied={0} Failed={1} ({2}s)" -f $applied, $failed, $durationSec) -Level $(if ($failed -gt 0) { "Warning" } else { "Success" })
             foreach ($r in $applyResult.Results) {
                 if ($r.Status -eq 'Applied') {
-                    Append-Status ("  APPLIED [{0}] {1} — {2}" -f $r.Level, $r.FindingId, $r.Label)
+                    Append-Status ("  APPLIED [{0}] {1} â€” {2}" -f $r.Level, $r.FindingId, $r.Label)
                 } elseif ($r.Status -eq 'Failed') {
-                    Append-Status ("  FAILED [{0}] {1} — {2}: {3}" -f $r.Level, $r.FindingId, $r.Label, $r.Error)
+                    Append-Status ("  FAILED [{0}] {1} â€” {2}: {3}" -f $r.Level, $r.FindingId, $r.Label, $r.Error)
                 }
             }
         } catch {
@@ -3166,9 +3166,9 @@ function Run-PartitionLegacy {
     }
 }
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 #  Deep Scan functions
-# ═══════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 function Get-DeepScanFilteredFindings {
     $result = New-Object System.Collections.Generic.List[object]
@@ -3284,7 +3284,7 @@ function Show-DeepFindingDetail {
 
     $f = $script:deepScanFindings[$Index]
     $lines = @(
-        "[{0}]  {1}  —  {2}" -f $f.Severity, $f.Id, $f.Title,
+        "[{0}]  {1}  â€”  {2}" -f $f.Severity, $f.Id, $f.Title,
         "Category : {0}" -f $f.Category,
         "Impact   : {0}" -f $f.Impact,
         "",
@@ -3303,7 +3303,7 @@ function Show-DeepFindingDetail {
         [void]$si.SubItems.Add($kind)
         [void]$si.SubItems.Add([string]$sol.Label)
         [void]$si.SubItems.Add([string]$sol.RiskNote)
-        [void]$si.SubItems.Add($(if ($sol.Rollback) { [string]$sol.Rollback } else { "—" }))
+        [void]$si.SubItems.Add($(if ($sol.Rollback) { [string]$sol.Rollback } else { "â€”" }))
         $si.Tag = $solIndex
         switch ([string]$sol.Level) {
             "Safe"       { $si.ForeColor = $clrGreen }
@@ -3388,7 +3388,7 @@ function Poll-DeepScan {
             $critCount = [int]$auditResult.Summary.Critical
             $impCount  = [int]$auditResult.Summary.Important
             Populate-DeepScanFindings -Findings (Get-DeepScanFilteredFindings)
-            $stateMsg = ("Scan complete — {0} findings  ({1} critical  {2} important  {3} already OK)" -f $script:deepScanFindings.Count, $critCount, $impCount, $alreadyOK)
+            $stateMsg = ("Scan complete â€” {0} findings  ({1} critical  {2} important  {3} already OK)" -f $script:deepScanFindings.Count, $critCount, $impCount, $alreadyOK)
             $lblDeepScanState.Text = $stateMsg
             Append-Status ("Deep Scan completed in {0}s. Findings={1} (Critical={2} Important={3}) AlreadyOK={4}" -f $durationSec, $script:deepScanFindings.Count, $critCount, $impCount, $alreadyOK)
             Show-Toast -Title "Deep Scan Done" -Body ("{0} findings in {1}s" -f $script:deepScanFindings.Count, $durationSec) -Level $(if ($critCount -gt 0) { "Warning" } else { "Success" })
@@ -3399,7 +3399,7 @@ function Poll-DeepScan {
             }
         } catch {
             Append-Status ("Deep Scan completed in {0}s but parse failed: {1}" -f $durationSec, $_.Exception.Message)
-            $lblDeepScanState.Text = "Deep Scan parse error — see Logs tab."
+            $lblDeepScanState.Text = "Deep Scan parse error â€” see Logs tab."
         }
     } else {
         Append-Status ("Deep Scan completed in {0}s but output JSON not found." -f $durationSec)
@@ -3614,7 +3614,7 @@ function Poll-PrivacyScan {
             $script:privacyFindings = @($result.Findings)
             Populate-PrivacyFindings -Findings $script:privacyFindings
             $crit = [int]$result.Summary.Critical
-            $lblPrivacyState.Text = ("Done — {0} findings ({1} critical) in {2}s" -f $script:privacyFindings.Count, $crit, $durationSec)
+            $lblPrivacyState.Text = ("Done â€” {0} findings ({1} critical) in {2}s" -f $script:privacyFindings.Count, $crit, $durationSec)
             Append-Status ("Privacy scan completed in {0}s. Findings={1} Critical={2}" -f $durationSec, $script:privacyFindings.Count, $crit)
             Show-Toast -Title "Privacy Scan" -Body ("{0} findings in {1}s" -f $script:privacyFindings.Count, $durationSec) -Level $(if ($crit -gt 0) { "Warning" } else { "Success" })
             if ($script:privacyFindings.Count -gt 0) {
@@ -3623,7 +3623,7 @@ function Poll-PrivacyScan {
             }
         } catch {
             Append-Status ("Privacy scan parse failed: {0}" -f $_.Exception.Message)
-            $lblPrivacyState.Text = "Parse error — see Diagnostics tab."
+            $lblPrivacyState.Text = "Parse error â€” see Diagnostics tab."
         }
     } else {
         Append-Status ("Privacy scan completed in {0}s but JSON output missing." -f $durationSec)
@@ -3738,7 +3738,7 @@ function Apply-DeepFix {
         Append-Status ("Apply fix error: {0}" -f $_.Exception.Message)
         $script:deepScanApplyProcess = $null
         $script:deepScanApplyStartedAt = $null
-        $lblDeepApplyState.Text = "Apply failed — see status log."
+        $lblDeepApplyState.Text = "Apply failed â€” see status log."
         Set-AnalysisUiState -IsBusy:$false -StateText "Deep Scan idle"
     }
 }
@@ -3761,7 +3761,7 @@ function Poll-DeepScanApply {
     if ($exitCode -ne 0) {
         $errTail = Get-WorkerErrorTail -ErrorPath $script:deepScanStdErr
         Append-Status ("Apply fix ended with exit code {0}. {1}" -f $exitCode, $errTail)
-        $lblDeepApplyState.Text = "Apply failed — see Logs tab."
+        $lblDeepApplyState.Text = "Apply failed â€” see Logs tab."
         $script:deepScanApplyProcess = $null
         $script:deepScanApplyStartedAt = $null
         Set-AnalysisUiState -IsBusy:$false -StateText "Deep Scan idle"
@@ -3945,7 +3945,7 @@ function Run-ApplySafeThrottle {
         return
     }
     if (-not (Test-Path -LiteralPath $script:computeJson)) {
-        Append-Status "Run Compute analysis first — no pressure report found."
+        Append-Status "Run Compute analysis first â€” no pressure report found."
         return
     }
     if (Test-AnyOperationRunning) {
@@ -4026,7 +4026,7 @@ function Run-DefenderExtremeReview {
             -PsHost $script:psHost -Language $script:guiLanguage -OnStatus { param($m) Append-Status $m } `
             -ComputeJsonPath $script:computeJson -EvaluateScript $script:evaluateDefenderScript -ProcessName 'MsMpEng'
         if ($result.Ok) {
-            Show-Toast -Title "KEEP Apply" -Body ("Tier $($result.Tier) — $($result.Reason)") -Level "Warning"
+            Show-Toast -Title "KEEP Apply" -Body ("Tier $($result.Tier) â€” $($result.Reason)") -Level "Warning"
         }
     } catch {
         Append-Status ("KEEP wizard error: {0}" -f $_.Exception.Message)
@@ -4379,7 +4379,7 @@ $btnReloadConfig.Add_Click({
     Append-Status "Configuration reloaded from disk."
 })
 
-# ── Deep Scan event handlers ───────────────────────────────────────────────────
+# â”€â”€ Deep Scan event handlers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 $btnDeepScanRun.Add_Click({ Run-DeepScan })
 
 $btnDeepScanCancel.Add_Click({
@@ -4416,7 +4416,7 @@ $listDeepSolutions.Add_SelectedIndexChanged({
     $btnDeepApply.Enabled   = $canApply
     $btnDeepApply.ForeColor = if ($canApply) { $clrText } else { $clrMuted }
     $solItem = $listDeepSolutions.SelectedItems[0]
-    $lblDeepApplyState.Text = ("Ready to apply [{0}] fix — click button to confirm" -f $solItem.Text)
+    $lblDeepApplyState.Text = ("Ready to apply [{0}] fix â€” click button to confirm" -f $solItem.Text)
 })
 
 $btnDeepApply.Add_Click({

@@ -108,7 +108,7 @@ function Get-RunningHubProcesses {
             [void]$hubProcList.Add([ordered]@{
                 PID = [int]$_.ProcessId
                 Name = [string]$_.Name
-                CommandLine = if ($_.CommandLine.Length -gt 200) { $_.CommandLine.Substring(0, 200) + '…' } else { [string]$_.CommandLine }
+                CommandLine = if ($_.CommandLine.Length -gt 200) { $_.CommandLine.Substring(0, 200) + 'â€¦' } else { [string]$_.CommandLine }
             })
         }
     return @($hubProcList)
@@ -222,7 +222,7 @@ if ($config -is [hashtable]) { $autoTerminate = [bool]$config['AutoTerminate'] }
 elseif ($config.AutoTerminate) { $autoTerminate = [bool]$config.AutoTerminate }
 if ($autoTerminate) {
     $posture -= 10
-    [void]$postureNotes.Add('Monitor AutoTerminate is enabled — review policy')
+    [void]$postureNotes.Add('Monitor AutoTerminate is enabled â€” review policy')
 }
 
 $llmEnabled = $false
@@ -234,7 +234,7 @@ if ($llm) {
 }
 if ($llmEnabled -and -not $profile.LlmAllowed) {
     $posture -= 15
-    [void]$postureNotes.Add('LLM enabled on Tier C host — misaligned with feather policy')
+    [void]$postureNotes.Add('LLM enabled on Tier C host â€” misaligned with feather policy')
 }
 
 $networkSnapshot = $null
@@ -267,7 +267,7 @@ if ($networkEnabled) {
             [void]$postureNotes.Add("{0} small/hidden process(es) with outbound traffic" -f $hiddenNet)
         }
     } else {
-        [void]$postureNotes.Add('Network snapshot unavailable — run as admin or check Get-NetTCPConnection')
+        [void]$postureNotes.Add('Network snapshot unavailable â€” run as admin or check Get-NetTCPConnection')
     }
 }
 

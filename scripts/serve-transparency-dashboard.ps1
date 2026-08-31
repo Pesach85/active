@@ -162,8 +162,7 @@ function Send-JsonResponse {
 
 $resolveScript = Join-Path $scriptDir 'resolve-unknown-process.ps1'
 $identifyScript = Join-Path $scriptDir 'identify-unknown-process.ps1'
-$pwshExe = (Get-Command pwsh -ErrorAction SilentlyContinue).Path
-if (-not $pwshExe) { $pwshExe = (Get-Command powershell).Path }
+$pwshExe = Get-HubPwshExecutable
 
 function Invoke-HubProcessScript {
     param(

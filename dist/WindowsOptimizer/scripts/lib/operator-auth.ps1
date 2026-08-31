@@ -63,7 +63,7 @@ function Assert-OperatorWindowsPassword {
         return @{ Ok = $true; Skipped = $true; Identity = (Get-OperatorWindowsIdentity) }
     }
     if (-not (Test-OperatorWindowsPassword -Password $Password)) {
-        throw 'Windows password verification failed — action blocked.'
+        throw 'Windows password verification failed â€” action blocked.'
     }
     return @{ Ok = $true; Skipped = $false; Identity = (Get-OperatorWindowsIdentity) }
 }

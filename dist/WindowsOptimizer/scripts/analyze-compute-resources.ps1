@@ -9,7 +9,7 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
-# Backward-compatible wrapper — delegates to Process Pressure Intelligence engine.
+# Backward-compatible wrapper â€” delegates to Process Pressure Intelligence engine.
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $engine = Join-Path $scriptDir "analyze-process-pressure.ps1"
 if (-not (Test-Path -LiteralPath $engine)) {

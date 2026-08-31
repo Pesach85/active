@@ -42,6 +42,7 @@ $items = @(
     (Join-Path $scriptDir "build-transparency-report.ps1"),
     (Join-Path $scriptDir "serve-transparency-dashboard.ps1"),
     (Join-Path $scriptDir "run-transparency-web.bat"),
+    (Join-Path $scriptDir "run-transparency-web.ps1"),
     (Join-Path $scriptDir "lib\process-forensics.ps1"),
     (Join-Path $scriptDir "ensure-transparency-web.ps1"),
     (Join-Path $scriptDir "install-orchestrator-task.ps1"),

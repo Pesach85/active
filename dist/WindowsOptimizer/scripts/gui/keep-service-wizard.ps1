@@ -116,7 +116,7 @@ function Show-KeepServiceExtremeWizard {
     $tier = [string]$Evaluation.RecommendedTier
     if ($tier -eq 'Observe') {
         [void][System.Windows.Forms.MessageBox]::Show(
-            $(if ($it) { 'Tier Observe — nessuna disabilitazione consigliata. Esegui prima Compute con MsMpEng sotto pressione.' } else { 'Observe tier — disable not recommended. Run Compute while MsMpEng is under pressure first.' }),
+            $(if ($it) { 'Tier Observe â€” nessuna disabilitazione consigliata. Esegui prima Compute con MsMpEng sotto pressione.' } else { 'Observe tier â€” disable not recommended. Run Compute while MsMpEng is under pressure first.' }),
             'KEEP Apply', 'OK', 'Information')
         return @{ Ok = $false; Reason = 'ObserveTier' }
     }
@@ -136,7 +136,7 @@ function Show-KeepServiceExtremeWizard {
     }
 
     $dlg = New-Object System.Windows.Forms.Form
-    $dlg.Text = if ($it) { 'KEEP — Apply estremo (HITL)' } else { 'KEEP — Extreme apply (HITL)' }
+    $dlg.Text = if ($it) { 'KEEP â€” Apply estremo (HITL)' } else { 'KEEP â€” Extreme apply (HITL)' }
     $dlg.Size = New-Object System.Drawing.Size(520, 580)
     $dlg.StartPosition = 'CenterParent'
     $dlg.FormBorderStyle = 'FixedDialog'
@@ -242,7 +242,7 @@ function Show-KeepServiceExtremeWizard {
     if ($tier -eq 'TuneExclusions') { $y += 30 }
 
     $chk1 = New-Object System.Windows.Forms.CheckBox
-    $chk1.Text = if ($it) { 'Comprendo che la protezione AV/sicurezza sarà ridotta' } else { 'I understand AV/security protection will be reduced' }
+    $chk1.Text = if ($it) { 'Comprendo che la protezione AV/sicurezza sarÃ  ridotta' } else { 'I understand AV/security protection will be reduced' }
     $chk1.AutoSize = $true
     $chk1.ForeColor = $clrText
     $chk1.Location = New-Object System.Drawing.Point(16, $y)
@@ -258,7 +258,7 @@ function Show-KeepServiceExtremeWizard {
     $y += 26
 
     $chk3 = New-Object System.Windows.Forms.CheckBox
-    $chk3.Text = if ($it) { 'Accetto la responsabilità per il periodo di finestra ridotta' } else { 'I accept responsibility for the reduced-protection window' }
+    $chk3.Text = if ($it) { 'Accetto la responsabilitÃ  per il periodo di finestra ridotta' } else { 'I accept responsibility for the reduced-protection window' }
     $chk3.AutoSize = $true
     $chk3.ForeColor = $clrText
     $chk3.Location = New-Object System.Drawing.Point(16, $y)
@@ -322,14 +322,14 @@ function Show-KeepServiceExtremeWizard {
         } else {
             "You are about to modify a KEEP service ($($cfg.displayName)).`nTier: $tier`n`nContinue?"
         }
-        if ([System.Windows.Forms.MessageBox]::Show($msg1, 'KEEP Apply — Confirm 1/3', 'YesNo', 'Warning') -ne 'Yes') { return }
+        if ([System.Windows.Forms.MessageBox]::Show($msg1, 'KEEP Apply â€” Confirm 1/3', 'YesNo', 'Warning') -ne 'Yes') { return }
 
         $msg2 = if ($it) {
-            'Seconda conferma: il sistema sarà meno protetto durante la finestra configurata. Procedere?'
+            'Seconda conferma: il sistema sarÃ  meno protetto durante la finestra configurata. Procedere?'
         } else {
             'Second confirmation: the system will be less protected during the configured window. Proceed?'
         }
-        if ([System.Windows.Forms.MessageBox]::Show($msg2, 'KEEP Apply — Confirm 2/3', 'YesNo', 'Warning') -ne 'Yes') { return }
+        if ([System.Windows.Forms.MessageBox]::Show($msg2, 'KEEP Apply â€” Confirm 2/3', 'YesNo', 'Warning') -ne 'Yes') { return }
 
         if ($tier -eq 'ExtremeServiceDisable') {
             $msg3 = if ($it) {
@@ -337,11 +337,11 @@ function Show-KeepServiceExtremeWizard {
             } else {
                 'LAST RESORT: WinDefend service will be stopped. Confirm knowingly?'
             }
-            if ([System.Windows.Forms.MessageBox]::Show($msg3, 'KEEP Apply — Confirm 3/3', 'YesNo', 'Stop') -ne 'Yes') { return }
+            if ([System.Windows.Forms.MessageBox]::Show($msg3, 'KEEP Apply â€” Confirm 3/3', 'YesNo', 'Stop') -ne 'Yes') { return }
         } else {
             if ([System.Windows.Forms.MessageBox]::Show(
                 $(if ($it) { 'Conferma finale: eseguire ora?' } else { 'Final confirmation: execute now?' }),
-                'KEEP Apply — Confirm 3/3', 'YesNo', 'Warning') -ne 'Yes') { return }
+                'KEEP Apply â€” Confirm 3/3', 'YesNo', 'Warning') -ne 'Yes') { return }
         }
 
         $reason = [string]$cmbReason.SelectedItem

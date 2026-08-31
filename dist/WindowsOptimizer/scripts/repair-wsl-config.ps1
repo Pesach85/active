@@ -21,7 +21,7 @@
 
 .PARAMETER Apply
     Apply the safe repair sequence after assessment, including optional
-    hypervisorlaunchtype Off→Auto when WSL2 boot would otherwise hang.
+    hypervisorlaunchtype Offâ†’Auto when WSL2 boot would otherwise hang.
 
 .PARAMETER RestoreLatest
     Restore HKLM Lxss state from the latest JSON backup.

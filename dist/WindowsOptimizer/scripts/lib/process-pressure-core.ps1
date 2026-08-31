@@ -54,14 +54,14 @@ function Resolve-ProcessNecessity {
     if (Test-ProcessNameMatch -ProcessName $name -Exact @($Catalog.vitalExact) -Patterns @($Catalog.vitalPatterns)) {
         return @{
             Level = 'CriticalSystem'; Priority = 'Keep'; Category = 'OSCore'
-            Notes = 'Windows core / session process — never terminate or throttle aggressively.'
+            Notes = 'Windows core / session process â€” never terminate or throttle aggressively.'
         }
     }
 
     if (Test-ProcessNameMatch -ProcessName $name -Exact @($Catalog.securityExact) -Patterns @()) {
         return @{
             Level = 'Security'; Priority = 'Keep'; Category = 'Security'
-            Notes = 'Security component — tune schedule/scope only; never disable without HITL security review.'
+            Notes = 'Security component â€” tune schedule/scope only; never disable without HITL security review.'
         }
     }
 
@@ -69,7 +69,7 @@ function Resolve-ProcessNecessity {
         if ($name -match $pat) {
             return @{
                 Level = 'PlatformService'; Priority = 'Tune'; Category = 'Platform'
-                Notes = 'Platform service — scope or schedule tuning preferred over kill.'
+                Notes = 'Platform service â€” scope or schedule tuning preferred over kill.'
             }
         }
     }
@@ -88,7 +88,7 @@ function Resolve-ProcessNecessity {
     if ($known) {
         return @{
             Level = 'KnownApplication'; Priority = [string]$known.priority; Category = [string]$known.category
-            Notes = "Catalog match — review mitigations for dominant pressure."
+            Notes = "Catalog match â€” review mitigations for dominant pressure."
         }
     }
 
@@ -96,14 +96,14 @@ function Resolve-ProcessNecessity {
         if ($name -like "*$pat*") {
             return @{
                 Level = 'OptionalBackground'; Priority = 'Review'; Category = 'Background'
-                Notes = 'Optional background/updater/remote — candidate for manual-start after review.'
+                Notes = 'Optional background/updater/remote â€” candidate for manual-start after review.'
             }
         }
     }
 
     return @{
         Level = 'Unknown'; Priority = 'Review'; Category = 'Unknown'
-        Notes = 'Not in catalog — classify owner and business need before any action.'
+        Notes = 'Not in catalog â€” classify owner and business need before any action.'
     }
 }
 
@@ -189,7 +189,7 @@ function Resolve-PressureActions {
         if ($ProcessName -eq 'MsMpEng' -and $Score -ge 55) {
             [void]$actions.Add([ordered]@{
                 Action = 'DefenderExtremeNecessityReview'; Level = 'Aggressive'; RequiresHitl = $true
-                Rationale = 'Run evaluate-defender-extreme-necessity.ps1 — escalation ladder before any disable.'
+                Rationale = 'Run evaluate-defender-extreme-necessity.ps1 â€” escalation ladder before any disable.'
             })
         }
         return $actions.ToArray()
@@ -224,7 +224,7 @@ function Resolve-PressureActions {
     if ($Score -ge 55) {
         [void]$actions.Add([ordered]@{
             Action = 'DisableStartupEntry'; Level = 'Moderate'; RequiresHitl = $true
-            Rationale = 'High score optional background — review then disable autostart.'
+            Rationale = 'High score optional background â€” review then disable autostart.'
         })
     }
     if ($Score -ge 75 -and $Priority -eq 'Review') {
@@ -425,11 +425,11 @@ function Get-DefenderExtremeNecessityEvaluation {
         [void]$blockers.Add('Administrator elevation required for any Defender mutation.')
     }
     if (-not $defStatus.ModuleAvailable) {
-        [void]$blockers.Add('Defender PowerShell module unavailable — cannot verify or change state safely.')
+        [void]$blockers.Add('Defender PowerShell module unavailable â€” cannot verify or change state safely.')
     }
     if ($tier -in @('TemporaryRealtimeOff', 'ExtremeServiceDisable')) {
         if ($defStatus.TamperProtectionEnabled -eq $true) {
-            [void]$blockers.Add('Tamper Protection is ON — disable manually in Windows Security > Virus & threat protection > Manage settings before Tier 2+.')
+            [void]$blockers.Add('Tamper Protection is ON â€” disable manually in Windows Security > Virus & threat protection > Manage settings before Tier 2+.')
         }
         [void]$prereqs.Add('Document reason code and planned re-enable window.')
         [void]$prereqs.Add('Ensure secondary offline AV or isolated network if disabling real-time protection.')
@@ -439,7 +439,7 @@ function Get-DefenderExtremeNecessityEvaluation {
         [void]$prereqs.Add('Register rollback JSON and scheduled re-enable before apply.')
     }
     if (-not $MsMpEngRow) {
-        [void]$blockers.Add('MsMpEng not in current pressure top — run process-pressure analyze first.')
+        [void]$blockers.Add('MsMpEng not in current pressure top â€” run process-pressure analyze first.')
         $tier = 'Observe'
     }
 
@@ -448,10 +448,10 @@ function Get-DefenderExtremeNecessityEvaluation {
     if ($cfg -and $null -ne $cfg.neverAutoApply) { $neverAuto = [bool]$cfg.neverAutoApply }
 
     $rationale = switch ($tier) {
-        'Observe' { 'Defender pressure does not justify disable path — continue monitoring or tune other workloads.' }
-        'TuneExclusions' { 'Deterministic gate: composite >= 55 — prefer exclusions and scan schedule (keeps AV active).' }
-        'TemporaryRealtimeOff' { 'Deterministic gate: composite >= 70 — time-boxed real-time off allowed ONLY with HITL + Tamper Protection off.' }
-        'ExtremeServiceDisable' { 'Deterministic gate: composite >= 85 — last-resort service stop; maximum risk, mandatory rollback timer.' }
+        'Observe' { 'Defender pressure does not justify disable path â€” continue monitoring or tune other workloads.' }
+        'TuneExclusions' { 'Deterministic gate: composite >= 55 â€” prefer exclusions and scan schedule (keeps AV active).' }
+        'TemporaryRealtimeOff' { 'Deterministic gate: composite >= 70 â€” time-boxed real-time off allowed ONLY with HITL + Tamper Protection off.' }
+        'ExtremeServiceDisable' { 'Deterministic gate: composite >= 85 â€” last-resort service stop; maximum risk, mandatory rollback timer.' }
         default { 'Unknown tier.' }
     }
 

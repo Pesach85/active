@@ -126,7 +126,7 @@ try {
 }
 
 if ($Execute) {
-    Write-Host '[FS-INTEGRITY] WARNING: -Execute is scan-only — no automated repair is implemented. Use vendor/chkdsk tools for remediation.' -ForegroundColor Yellow
+    Write-Host '[FS-INTEGRITY] WARNING: -Execute is scan-only â€” no automated repair is implemented. Use vendor/chkdsk tools for remediation.' -ForegroundColor Yellow
 }
 
 $report = [ordered]@{

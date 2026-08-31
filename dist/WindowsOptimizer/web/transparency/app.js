@@ -161,7 +161,11 @@ async function load(refresh = false) {
     document.getElementById('postureScore').textContent = '!';
     document.getElementById('postureGrade').textContent = 'Server non avviato';
     document.getElementById('postureNotes').innerHTML =
-      '<li>Avvia da GUI → Control → Web Dashboard, oppure esegui <code>scripts\\run-transparency-web.bat</code></li>';
+      '<li><strong>ERR_CONNECTION_REFUSED</strong> — nessun listener su :8765.</li>' +
+      '<li>GUI → Control → <strong>Web Dashboard</strong></li>' +
+      '<li>CMD: <code>scripts\\run-transparency-web.bat</code></li>' +
+      '<li>PS: <code>powershell -File scripts\\run-transparency-web.ps1 -OpenBrowser</code></li>' +
+      '<li>Non usare <code>pwsh -File *.bat</code>.</li>';
     if (banner) banner.classList.remove('hidden');
   }
 }
