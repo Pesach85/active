@@ -127,7 +127,7 @@ Dopo parity script, verificare file in `logs/`:
 | # | Azione | PASS se |
 |---|--------|---------|
 | 9.1 | Entry `KB/journal.md` | Obiettivo, gate, esito |
-| 9.2 | `config/migration-nbd.json` | Phase 3 `done`; Phase 4 `done`; Phase 5 network deep `next` |
+| 9.2 | `config/migration-nbd.json` | Phase 5 `done`; Phase 6 transparency network `next` |
 | 9.3 | Decision log in `KB/hub-hitl-paths-decision.md` | Riga operatore se apply live approvato |
 
 ---

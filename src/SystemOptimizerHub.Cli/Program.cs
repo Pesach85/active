@@ -8,6 +8,7 @@ using SystemOptimizerHub.Core.Models;
 using SystemOptimizerHub.Core.Config;
 using SystemOptimizerHub.Core.Defender;
 using SystemOptimizerHub.Core.Identify;
+using SystemOptimizerHub.Core.Network;
 using SystemOptimizerHub.Core.Pressure;
 using SystemOptimizerHub.Core.Transparency;
 using SystemOptimizerHub.Core.Resolution;
@@ -726,6 +727,115 @@ internal static class Program
         defenderCmd.AddCommand(applyDefCmd);
         root.AddCommand(defenderCmd);
 
+        var networkCmd = new Command("network", "Network transparency + deep scan + HITL actions");
+        var netCatalogOpt = new Option<FileInfo?>("--catalog", () => null, "process-intelligence.json");
+        var netOutOpt = new Option<FileInfo?>("--output", () => null, "Write JSON output");
+        var netMemoryOpt = new Option<bool>("--include-memory", () => false, "Include bounded memory string scan");
+
+        var netSnapshotCmd = new Command("snapshot", "Live network transparency snapshot");
+        netSnapshotCmd.AddOption(netCatalogOpt);
+        netSnapshotCmd.AddOption(netOutOpt);
+        netSnapshotCmd.SetHandler(async (catalogFile, output) =>
+        {
+            if (!OperatingSystem.IsWindows())
+            {
+                Console.Error.WriteLine("network snapshot requires Windows.");
+                Environment.ExitCode = 2;
+                return;
+            }
+            var names = LoadCatalogProcessNames(ResolveCatalogPath(catalogFile));
+            var capture = await WindowsNetworkProbeProvider.CaptureAsync(false);
+            var snap = NetworkTransparencyService.BuildSnapshot(capture, names);
+            WriteJsonOut(snap, output);
+        }, netCatalogOpt, netOutOpt);
+        networkCmd.AddCommand(netSnapshotCmd);
+
+        var netDeepCmd = new Command("deep-scan", "Multi-layer network deep scan");
+        netDeepCmd.AddOption(netCatalogOpt);
+        netDeepCmd.AddOption(netOutOpt);
+        netDeepCmd.AddOption(netMemoryOpt);
+        netDeepCmd.SetHandler(async (catalogFile, output, includeMemory) =>
+        {
+            if (!OperatingSystem.IsWindows())
+            {
+                Console.Error.WriteLine("network deep-scan requires Windows.");
+                Environment.ExitCode = 2;
+                return;
+            }
+            var names = LoadCatalogProcessNames(ResolveCatalogPath(catalogFile));
+            var capture = await WindowsNetworkProbeProvider.CaptureAsync(includeMemory);
+            var result = NetworkDeepScanService.Scan(capture, names, includeMemory);
+            WriteJsonOut(result, output);
+        }, netCatalogOpt, netOutOpt, netMemoryOpt);
+        networkCmd.AddCommand(netDeepCmd);
+
+        var netActionCmd = new Command("action", "Apply HITL network action (kill connection, block IP, terminate)");
+        var netActionOpt = new Option<string>("--action", "KillConnection|BlockRemoteIp|TerminateProcess") { IsRequired = true };
+        var netPidOpt = new Option<int>("--pid", () => 0, "Owning process ID");
+        var netProcOpt = new Option<string>("--process-name", () => "", "Process name");
+        var netLocalOpt = new Option<string>("--local-address", () => "", "Local address");
+        var netLocalPortOpt = new Option<int>("--local-port", () => 0, "Local port");
+        var netRemoteOpt = new Option<string>("--remote-address", () => "", "Remote address");
+        var netRemotePortOpt = new Option<int>("--remote-port", () => 0, "Remote port");
+        var netDryOpt = new Option<bool>("--dry-run", () => false, "Plan only");
+        var netRiskOpt = new Option<bool>("--understand-risk", () => false, "HITL risk acknowledgement");
+        var netConfirmOpt = new Option<string?>("--confirm-phrase", () => null, "Required for BlockRemoteIp/TerminateProcess");
+        netActionCmd.AddOption(netActionOpt);
+        netActionCmd.AddOption(netPidOpt);
+        netActionCmd.AddOption(netProcOpt);
+        netActionCmd.AddOption(netLocalOpt);
+        netActionCmd.AddOption(netLocalPortOpt);
+        netActionCmd.AddOption(netRemoteOpt);
+        netActionCmd.AddOption(netRemotePortOpt);
+        netActionCmd.AddOption(netDryOpt);
+        netActionCmd.AddOption(netRiskOpt);
+        netActionCmd.AddOption(netConfirmOpt);
+        netActionCmd.AddOption(netOutOpt);
+        netActionCmd.AddOption(sessionTokenOpt);
+        netActionCmd.AddOption(skipAuthOpt);
+        netActionCmd.SetHandler(async (InvocationContext ctx) =>
+        {
+            if (!OperatingSystem.IsWindows())
+            {
+                Console.Error.WriteLine("network action requires Windows.");
+                Environment.ExitCode = 2;
+                return;
+            }
+            var req = new NetworkActionRequest
+            {
+                Action = ctx.ParseResult.GetValueForOption(netActionOpt)!,
+                PID = ctx.ParseResult.GetValueForOption(netPidOpt),
+                ProcessName = ctx.ParseResult.GetValueForOption(netProcOpt) ?? "",
+                LocalAddress = ctx.ParseResult.GetValueForOption(netLocalOpt) ?? "",
+                LocalPort = ctx.ParseResult.GetValueForOption(netLocalPortOpt),
+                RemoteAddress = ctx.ParseResult.GetValueForOption(netRemoteOpt) ?? "",
+                RemotePort = ctx.ParseResult.GetValueForOption(netRemotePortOpt),
+                DryRun = ctx.ParseResult.GetValueForOption(netDryOpt),
+                IUnderstandRisk = ctx.ParseResult.GetValueForOption(netRiskOpt),
+                ConfirmPhrase = ctx.ParseResult.GetValueForOption(netConfirmOpt)
+            };
+            var sessionToken = ctx.ParseResult.GetValueForOption(sessionTokenOpt);
+            var skipAuth = ctx.ParseResult.GetValueForOption(skipAuthOpt);
+            var output = ctx.ParseResult.GetValueForOption(netOutOpt);
+            var authOk = skipAuth || OperatorHitlSessionStore.TryValidate(sessionToken, out _);
+            var platform = ResolvePlatform();
+            var hubRoot = ResolveHubRoot(null);
+            var logs = Path.Combine(hubRoot, "logs");
+
+            NetworkActionResult result;
+            if (req.DryRun)
+                result = NetworkActionService.Plan(req, authOk, skipAuth);
+            else
+                result = await NetworkActionService.ApplyAsync(
+                    req, platform.NetworkMutator, platform.ProcessMutator, authOk, skipAuth, logs);
+
+            WriteJsonOut(result, output);
+            if (result.Outcome is "AuthRequired" or "RiskAckRequired" or "ConfirmPhraseRequired" or "BlockDenied")
+                Environment.ExitCode = 1;
+        });
+        networkCmd.AddCommand(netActionCmd);
+        root.AddCommand(networkCmd);
+
         return await root.InvokeAsync(args);
     }
 
@@ -827,5 +937,28 @@ internal static class Program
         if (pwdFile is null || !pwdFile.Exists)
             return;
         try { File.Delete(pwdFile.FullName); } catch { }
+    }
+
+    private static List<string> LoadCatalogProcessNames(string catalogPath)
+    {
+        var catalog = CatalogLoader.LoadFromFile(catalogPath);
+        var names = new List<string>();
+        names.AddRange(catalog.VitalExact);
+        names.AddRange(catalog.SecurityExact);
+        names.AddRange(catalog.KnownApplications.Keys);
+        return names.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+    }
+
+    private static void WriteJsonOut(object payload, FileInfo? output)
+    {
+        var json = JsonSerializer.Serialize(payload, JsonOut);
+        if (output is not null)
+        {
+            var dir = output.Directory;
+            if (dir is not null && !dir.Exists)
+                dir.Create();
+            File.WriteAllText(output.FullName, json);
+        }
+        Console.WriteLine(json);
     }
 }

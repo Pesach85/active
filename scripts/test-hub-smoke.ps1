@@ -685,6 +685,32 @@ else {
     else { Write-Host '[SMOKE] network-deep-scan OK' }
 }
 
+Write-Host '[SMOKE] hub-network-deep-scan-cli...'
+$hubNetDeepOut = Join-Path $logs 'smoke-hub-network-deep-scan.json'
+$hubNetDeepEc = Invoke-HubCliSmoke -CliArgs @('network', 'deep-scan', '--catalog', $catPath) -OutFile $hubNetDeepOut
+if ($hubNetDeepEc -ne 0) { $failures.Add('hub-network-deep-scan-cli: exit non-zero') }
+else {
+    $hubNetDeepJ = Get-Content -LiteralPath $hubNetDeepOut -Raw | ConvertFrom-Json
+    if ([string]$hubNetDeepJ.SchemaVersion -notmatch 'NetworkDeepScan') { $failures.Add('hub-network-deep-scan-cli: schema') }
+    elseif (-not $hubNetDeepJ.Layers) { $failures.Add('hub-network-deep-scan-cli: Layers missing') }
+    else { Write-Host '[SMOKE] hub-network-deep-scan-cli OK' }
+}
+
+Write-Host '[SMOKE] network-action-dryrun...'
+$netActOut = Join-Path $logs 'smoke-network-action-dryrun.json'
+$netActEc = Invoke-HubCliSmoke -CliArgs @(
+    'network', 'action', '--action', 'KillConnection',
+    '--local-address', '127.0.0.1', '--local-port', '8765',
+    '--remote-address', '127.0.0.1', '--remote-port', '8765',
+    '--dry-run', '--understand-risk', '--skip-auth'
+) -OutFile $netActOut
+if ($netActEc -ne 0) { $failures.Add('network-action-dryrun: exit non-zero') }
+else {
+    $netActJ = Get-Content -LiteralPath $netActOut -Raw | ConvertFrom-Json
+    if ([string]$netActJ.Outcome -ne 'DryRunKillConnection') { $failures.Add('network-action-dryrun: outcome') }
+    else { Write-Host '[SMOKE] network-action-dryrun OK' }
+}
+
 Write-Host '[SMOKE] hub-use-core-defender-evaluate...'
 $prevUseCore = $env:HUB_USE_CORE
 try {

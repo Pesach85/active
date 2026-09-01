@@ -20,6 +20,46 @@ function trustClass(level) {
   return 'trust-' + (level || 'T3_Unknown');
 }
 
+function parseEndpoint(value) {
+  if (!value) return { host: '', port: 0 };
+  const idx = value.lastIndexOf(':');
+  if (idx <= 0) return { host: value, port: 0 };
+  return { host: value.slice(0, idx), port: parseInt(value.slice(idx + 1), 10) || 0 };
+}
+
+async function loadDeepScanLatest() {
+  try {
+    const res = await fetch('/api/network/deep-scan/latest');
+    if (res.ok) {
+      lastDeepScan = await res.json();
+      renderDeepScanFindings();
+    }
+  } catch (_) { /* optional */ }
+}
+
+async function postNetworkAction(action, fields = {}) {
+  const sessionToken = await ensureHitlSession();
+  if (!sessionToken) return null;
+  const status = document.getElementById('networkDeepStatus');
+  if (status) status.textContent = 'Azione rete in corso…';
+  const body = { action, sessionToken, understandRisk: true, ...fields };
+  const res = await fetch('/api/network/action', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const msg = data.message || data.result?.Message || data.error || 'Azione fallita';
+    if (status) status.textContent = msg;
+    if (data.error === 'auth_failed' || /session expired/i.test(msg)) clearHitlSession();
+    return null;
+  }
+  if (status) status.textContent = data.Message || data.message || 'OK';
+  await load(true);
+  return data;
+}
+
 function renderReport(data) {
   reportData = data;
   document.getElementById('postureScore').textContent = data.Posture?.Score ?? '—';
@@ -101,10 +141,18 @@ function renderReport(data) {
       rows.push(...(net.Connections || []).slice(0, 12));
     }
     rows.forEach(c => {
+      const ep = parseEndpoint(c.Local || '');
+      const er = parseEndpoint(c.Remote || '');
       const tr = document.createElement('tr');
       tr.innerHTML = `<td>${c.ProcessName} (${c.PID})</td><td>${c.Local}</td><td>${c.Remote}</td>
         <td class="${trustClass(c.TrustLevel)}">${c.TrustLevel}</td>
-        <td class="btn-row"><button type="button" class="btn-mini" data-action="resolve" data-pid="${c.PID}" data-name="${c.ProcessName}">Risolvi</button></td>`;
+        <td class="btn-row net-actions">
+          <button type="button" class="btn-mini" data-action="resolve" data-pid="${c.PID}" data-name="${c.ProcessName}">Risolvi</button>
+          <button type="button" class="btn-mini" data-net-action="kill" data-pid="${c.PID}" data-name="${c.ProcessName}"
+            data-local="${ep.host}" data-local-port="${ep.port}" data-remote="${er.host}" data-remote-port="${er.port}">Kill conn</button>
+          <button type="button" class="btn-mini" data-net-action="block" data-remote="${er.host}">Block IP</button>
+          <button type="button" class="btn-mini" data-net-action="terminate" data-pid="${c.PID}" data-name="${c.ProcessName}">Termina</button>
+        </td>`;
       networkBody.appendChild(tr);
     });
     (net.Listeners || []).slice(0, 30).forEach(c => {
@@ -510,6 +558,15 @@ function renderDeepScanFindings() {
   (lastDeepScan.Findings || []).forEach(f => {
     const li = document.createElement('li');
     li.innerHTML = `<strong>[${f.Severity}] ${f.Layer}</strong> — ${f.Detail}`;
+    if (f.Layer === 'GhostPid' || f.Severity === 'Critical' || f.Severity === 'High') {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'btn-mini';
+      btn.textContent = 'Investiga';
+      btn.addEventListener('click', () => switchNetworkTab('connections'));
+      li.appendChild(document.createTextNode(' '));
+      li.appendChild(btn);
+    }
     list.appendChild(li);
   });
 }
@@ -533,12 +590,47 @@ document.getElementById('btnNetworkDeepScan')?.addEventListener('click', runNetw
 document.querySelectorAll('.net-tab').forEach(tab => {
   tab.addEventListener('click', () => switchNetworkTab(tab.dataset.nettab));
 });
-document.getElementById('cardNetwork')?.addEventListener('click', e => {
-  const btn = e.target.closest('button[data-action]');
+document.getElementById('cardNetwork')?.addEventListener('click', async e => {
+  const btn = e.target.closest('button');
   if (!btn) return;
-  openWizard({ pid: parseInt(btn.dataset.pid, 10), name: btn.dataset.name }, btn.dataset.action === 'identify');
+  if (btn.dataset.action === 'resolve') {
+    openWizard({ pid: parseInt(btn.dataset.pid, 10), name: btn.dataset.name }, false);
+    return;
+  }
+  const netAction = btn.dataset.netAction;
+  if (!netAction) return;
+  if (netAction === 'kill') {
+    if (!confirm('Reset connessione TCP? Richiede admin.')) return;
+    await postNetworkAction('KillConnection', {
+      processId: parseInt(btn.dataset.pid, 10),
+      processName: btn.dataset.name,
+      localAddress: btn.dataset.local,
+      localPort: parseInt(btn.dataset.localPort, 10),
+      remoteAddress: btn.dataset.remote,
+      remotePort: parseInt(btn.dataset.remotePort, 10)
+    });
+  } else if (netAction === 'block') {
+    const ip = btn.dataset.remote;
+    if (!ip || ip.startsWith('127.') || ip.startsWith('10.') || ip.startsWith('192.168.')) {
+      alert('Block IP rifiutato su indirizzi privati/loopback.');
+      return;
+    }
+    const phrase = prompt('Digita esattamente: BLOCK-REMOTE-IP');
+    if (phrase !== 'BLOCK-REMOTE-IP') return;
+    await postNetworkAction('BlockRemoteIp', { remoteAddress: ip, confirmPhrase: phrase });
+  } else if (netAction === 'terminate') {
+    if (!confirm('Terminare il processo? Perdita dati possibile.')) return;
+    const phrase = prompt('Digita esattamente: TERMINATE-NETWORK-PROCESS');
+    if (phrase !== 'TERMINATE-NETWORK-PROCESS') return;
+    await postNetworkAction('TerminateProcess', {
+      processId: parseInt(btn.dataset.pid, 10),
+      processName: btn.dataset.name,
+      confirmPhrase: phrase
+    });
+  }
 });
 
+loadDeepScanLatest();
 load(false);
 updateHitlSessionUi();
 refreshTimer = setInterval(() => load(false), 30000);

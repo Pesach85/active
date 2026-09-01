@@ -15,6 +15,7 @@ public sealed class LinuxPlatformServices : IPlatformServices
     public IProcessSnapshotProvider ProcessSnapshots { get; } = new LinuxProcessSnapshotProvider();
     public IProcessMutator ProcessMutator { get; } = new LinuxProcessMutator();
     public IDefenderPolicyMutator DefenderPolicy { get; } = new LinuxDefenderPolicyMutatorStub();
+    public INetworkMutator NetworkMutator { get; } = new LinuxNetworkMutatorStub();
 
     private static string ReadOsReleasePrettyName()
     {
@@ -99,6 +100,14 @@ internal sealed class LinuxDefenderPolicyMutatorStub : IDefenderPolicyMutator
     public Task StopWinDefendServiceAsync(CancellationToken ct = default) => throw Ex();
     public Task SetWinDefendStartupManualAsync(CancellationToken ct = default) => throw Ex();
     public Task RegisterRollbackReenableTaskAsync(string rollbackJsonPath, string restoreScriptPath, int delayMinutes, string taskName, CancellationToken ct = default) => throw Ex();
+}
+
+internal sealed class LinuxNetworkMutatorStub : INetworkMutator
+{
+    private static Exception Ex() => new PlatformNotSupportedException("Network actions require Windows.");
+
+    public Task ResetTcpConnectionAsync(string localAddress, int localPort, string remoteAddress, int remotePort, CancellationToken ct = default) => throw Ex();
+    public Task BlockRemoteIpAsync(string remoteAddress, string ruleName, CancellationToken ct = default) => throw Ex();
 }
 
 public static class LinuxPlatform

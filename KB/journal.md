@@ -2606,6 +2606,21 @@ Phase 4 NBD (`HUB_USE_CORE`) + Phase 5 network deep scan panel (multi-layer cybe
 ### Esito
 Gate completo verde: dotnet 27/27, parity, smoke (+ network-deep-scan, HUB_USE_CORE), e2e, NBD → phase5-network-deep-panel next, package dist. Hub Core v0.7.2.
 
+## 2026-09-01 12:30:00
+### Obiettivo
+Phase 5 complete: Core NetworkDeepScanService + ETW/WFP admin + panel HITL actions
+
+### Task
+- Core: NetworkTransparencyService, NetworkDeepScanService, NetworkActionService
+- Windows: WindowsNetworkProbeProvider (ETW TCPIP + netsh WFP), WindowsNetworkMutator
+- CLI: `hub network snapshot|deep-scan|action`
+- Web: Kill conn, Block IP, Terminate + GET deep-scan latest
+- Smoke: hub-network-deep-scan-cli, network-action-dryrun
+- Hub v0.7.3; NBD phase5 done, phase6 transparency network parity next
+
+### Esito
+Gate completo verde: dotnet 37/37, parity, smoke (+ network CLI/action), e2e, NBD → phase6-transparency-network-parity next, package dist. Hub Core v0.7.3.
+
 ## 2026-09-01 08:41:27
 ### Obiettivo
 Stop boot PowerShell error from leftover NVMe postboot task on C:\SystemOptimizerHub after hub move to D:.

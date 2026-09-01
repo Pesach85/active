@@ -35,6 +35,7 @@ $items = @(
     (Join-Path $scriptDir "apply-process-pressure-safe.ps1"),
     (Join-Path $scriptDir "evaluate-defender-extreme-necessity.ps1"),
     (Join-Path $scriptDir "scan-network-deep.ps1"),
+    (Join-Path $scriptDir "apply-network-action.ps1"),
     (Join-Path $scriptDir "apply-defender-extreme-necessity.ps1"),
     (Join-Path $scriptDir "restore-defender-from-rollback.ps1"),
     (Join-Path $scriptDir "lib\process-pressure-core.ps1"),

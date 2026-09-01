@@ -283,6 +283,50 @@ try {
             continue
         }
 
+        if ($context.Request.HttpMethod -eq 'GET' -and $path -eq '/api/network/deep-scan/latest') {
+            $scanOut = Join-Path $hub.Logs 'network-deep-scan-latest.json'
+            if (-not (Test-Path -LiteralPath $scanOut)) {
+                Send-JsonResponse -Context $context -StatusCode 404 -Payload @{ error = 'no_scan_yet' }
+            } else {
+                $payload = Get-Content -LiteralPath $scanOut -Raw | ConvertFrom-Json
+                Send-JsonResponse -Context $context -Payload $payload
+            }
+            continue
+        }
+
+        if ($context.Request.HttpMethod -eq 'POST' -and $path -eq '/api/network/action') {
+            $body = Read-RequestBodyJson -Context $context
+            $action = [string]$body.action
+            if (-not $action) {
+                Send-JsonResponse -Context $context -StatusCode 400 -Payload @{ error = 'action_required' }
+                continue
+            }
+            $sessionToken = Get-BodyProperty $body 'sessionToken'
+            $password = Get-BodyProperty $body 'password'
+            if (-not $sessionToken -and -not $password) {
+                Send-JsonResponse -Context $context -StatusCode 401 -Payload @{ error = 'session_required' }
+                continue
+            }
+            . (Join-Path $scriptDir 'lib\operator-auth.ps1')
+            $netActionScript = Join-Path $scriptDir 'apply-network-action.ps1'
+            $run = Invoke-HubProcessScriptViaRequest -ScriptPath $netActionScript -RequestBody $body `
+                -LogsDir $hub.Logs -PwshExe $pwshExe -HubRoot $hubRoot
+            if ($run.ExitCode -ne 0) {
+                $msg = $null
+                if ($run.Payload -and $run.Payload.Message) { $msg = [string]$run.Payload.Message }
+                elseif ($run.Stderr) { $msg = [string]$run.Stderr }
+                Send-JsonResponse -Context $context -StatusCode 403 -Payload @{
+                    error = if ($msg -match 'session expired|password verification failed') { 'auth_failed' } else { 'action_failed' }
+                    exitCode = $run.ExitCode
+                    message = $msg
+                    result = $run.Payload
+                }
+            } else {
+                Send-JsonResponse -Context $context -Payload $run.Payload
+            }
+            continue
+        }
+
         if ($path -eq '/api/health') {
             $ok = [System.Text.Encoding]::UTF8.GetBytes('{"status":"ok","listening":true}')
             Send-Response -Context $context -ContentType 'application/json' -BodyBytes $ok
