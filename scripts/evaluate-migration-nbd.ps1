@@ -20,6 +20,7 @@ if (-not (Test-Path -LiteralPath $configPath)) {
 }
 
 $config = Get-Content -LiteralPath $configPath -Raw | ConvertFrom-Json
+. (Join-Path $scriptDir 'lib\hub-decision-log.ps1')
 $weights = $config.Weights
 $passThreshold = [double]$config.PassThreshold
 $doneIds = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
@@ -186,6 +187,16 @@ try {
     }
 } catch {}
 
+$effectiveness = Export-HubDecisionEffectivenessReport -HubRoot $HubRoot
+
+if ($nbd -and $effectiveness.NbdRecommendations) {
+    $rec = @($effectiveness.NbdRecommendations | Where-Object { [string]$_.CandidateId -eq [string]$nbd.Id } | Select-Object -First 1)
+    if ($rec) {
+        $nbd | Add-Member -NotePropertyName 'EffectivenessReady' -NotePropertyValue ([bool]$rec.ReadyForRollout) -Force
+        $nbd | Add-Member -NotePropertyName 'EffectivenessReason' -NotePropertyValue ([string]$rec.Reason) -Force
+    }
+}
+
 $result = [ordered]@{
     SchemaVersion = 'MigrationNbdReport.v1'
     GeneratedAt = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss')
@@ -195,9 +206,15 @@ $result = [ordered]@{
     GatesApplied = [bool]$Apply
     GatesPassed = [bool]$gatesPassed
     Gates = @($gateResults)
+    DecisionEffectiveness = $effectiveness
     NextBestDecision = $nbd
     RankedCandidates = @($ranked | Sort-Object { [double]$_.TotalScore } -Descending)
 }
+
+Write-HubDecisionLog -HubRoot $HubRoot -Domain 'nbd' -Path 'script' `
+    -Action 'Evaluate' -Outcome $decision -Success ([bool]$gatesPassed) `
+    -HubCoreVersion $hubCoreVersion `
+    -Context @{ NextBestId = [string]$nbd.Id; NextBestScore = [double]$nbd.TotalScore }
 
 if (-not $OutputJson) {
     $logs = Join-Path $HubRoot 'logs'

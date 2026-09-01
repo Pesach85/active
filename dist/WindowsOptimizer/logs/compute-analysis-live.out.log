@@ -1,14 +1,14 @@
 
-[32;1mGeneratedAt            : [0m2026-04-30 15:03:47
-[32;1mDurationSec            : [0m8
-[32;1mLogicalProcessors      : [0m8
-[32;1mTotalProcessesObserved : [0m217
-[32;1mTopProcesses           : [0m{@{Score=38,76; ProcessName=vmware-vmx; PID=18132; CpuPercent=28; WorkingSetMB=7652,49; 
-                         PrivateMB=161,82; IoMBps=0; DominantPressure=MemoryHeavy; Recommendation=Normal}, 
-                         @{Score=2,38; ProcessName=dwm; PID=1684; CpuPercent=2,93; WorkingSetMB=250,91; 
-                         PrivateMB=306,97; IoMBps=0; DominantPressure=MemoryHeavy; Recommendation=Normal}, 
-                         @{Score=1,93; ProcessName=mksSandbox; PID=21108; CpuPercent=1,83; WorkingSetMB=302,97; 
-                         PrivateMB=338,71; IoMBps=0; DominantPressure=MemoryHeavy; Recommendation=Normal}, 
-                         @{Score=1,23; ProcessName=Taskmgr; PID=17152; CpuPercent=1,17; WorkingSetMB=192,16; 
-                         PrivateMB=97,98; IoMBps=0; DominantPressure=MemoryHeavy; Recommendation=Normal}.}
+[32;1mName                          [0m[32;1m Value[0m
+[32;1m----                          [0m [32;1m-----[0m
+SchemaVersion                  ProcessPressureReport.v1
+GeneratedAt                    2026-09-01 11:03:42
+Platform                       Windows
+DurationSec                    8
+LogicalProcessors              8
+TotalProcessesObserved         254
+CatalogPath                    D:\SystemOptimizerHub\active\dist\WindowsOptimizer\config\process-intelligence.json
+Summary                        {[HighPressureCount, 0], [VitalPreserved, 4], [AutoEligibleCount, 4], [HitlRequiredCoun.
+TopProcesses                   {System.Collections.Specialized.OrderedDictionary, System.Collections.Specialized.Order.
+ResearchNotes                  {System.Collections.Specialized.OrderedDictionary}
 

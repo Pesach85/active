@@ -67,6 +67,9 @@ if (Test-Path -LiteralPath (Join-Path $script:guiDir "transparency-panel.ps1")) 
 if (Test-Path -LiteralPath (Join-Path $script:guiDir "operator-auth-dialog.ps1")) {
     . (Join-Path $script:guiDir "operator-auth-dialog.ps1")
 }
+if (Test-Path -LiteralPath (Join-Path $script:guiDir "hitl-paths-panel.ps1")) {
+    . (Join-Path $script:guiDir "hitl-paths-panel.ps1")
+}
 $operatorAuthLib = Join-Path $script:scriptRoot "lib\operator-auth.ps1"
 if (Test-Path -LiteralPath $operatorAuthLib) {
     . $operatorAuthLib
@@ -164,7 +167,7 @@ $script:computeAnalyzeDurationSec = 8
 $script:computeAnalyzeTop = 8
 $script:offerSafeThrottleAfterCompute = $true
 $script:showDefenderReviewAfterCompute = $true
-$script:defenderMinScoreForPrompt = 55
+$script:defenderMinScoreForPrompt = 85
 $script:quickCleanupRetentionDays = 2
 $script:quickCleanupMaxFilesPerTarget = 2000
 $script:diagnosticRetentionDays = 7
@@ -1295,7 +1298,8 @@ if (Get-Command New-TransparencyTab -ErrorAction SilentlyContinue) {
         -ScriptRoot $script:scriptRoot `
         -ConfigPath $hubPathsForTransparency.ConfigFile `
         -OnStatus { param($m) Append-Status $m } `
-        -TestBusy { Test-AnyOperationRunning }
+        -TestBusy { Test-AnyOperationRunning } `
+        -OnDefenderReview { Run-DefenderExtremeReview }
     $tabTransparency = $script:transparencyUi.Tab
 } else {
     $tabTransparency = New-Object System.Windows.Forms.TabPage

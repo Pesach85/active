@@ -1,7 +1,7 @@
 ﻿# Startup / scheduled-task / Run-key integrity for hub relocation leftovers.
 # Dot-source from audit-startup-integrity.ps1 and system-health-audit.ps1.
 # Fast: named task lookup + XML fingerprint scan. Does not enumerate every COM task via CIM.
-# Do not Set-StrictMode here — this file is dot-sourced into health-audit (Continue, non-strict).
+# Do not Set-StrictMode here â€” this file is dot-sourced into health-audit (Continue, non-strict).
 
 function Get-StartupIntegrityLegacyRoots {
     return @(
@@ -394,7 +394,7 @@ function Invoke-StartupIntegrityApply {
         $act = [string]$item.SuggestedAction
         if ($cls -in @('HubHealthy', 'Ok')) { continue }
         if ($act -eq 'ReportOnly' -or $cls -eq 'BrokenMissing') {
-            [void]$skipped.Add([ordered]@{ Name = $item.Name; Reason = 'Vendor/non-hub missing target — not auto-removed' })
+            [void]$skipped.Add([ordered]@{ Name = $item.Name; Reason = 'Vendor/non-hub missing target â€” not auto-removed' })
             continue
         }
 

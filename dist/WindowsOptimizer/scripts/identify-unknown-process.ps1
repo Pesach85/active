@@ -13,6 +13,7 @@ param(
     [string]$OperatorNote = '',
     [string]$WindowsPassword = '',
     [string]$WindowsPasswordFile = '',
+    [string]$SessionToken = '',
     [string]$RequestJsonPath = '',
     [string]$OutputJson = '',
     [string]$HubRoot = '',
@@ -31,6 +32,7 @@ if (-not $HubRoot) { $HubRoot = Split-Path -Parent $scriptDir }
 . (Join-Path $scriptDir 'lib\process-knowledge.ps1')
 . (Join-Path $scriptDir 'lib\process-resolution-policy.ps1')
 . (Join-Path $scriptDir 'lib\operator-auth.ps1')
+. (Join-Path $scriptDir 'lib\hub-decision-log.ps1')
 . (Join-Path $scriptDir 'lib\transparency-events.ps1')
 . (Join-Path $scriptDir 'lib\process-catalog-merge.ps1')
 
@@ -50,6 +52,7 @@ if ($RequestJsonPath -and (Test-Path -LiteralPath $RequestJsonPath)) {
     if ($reqNames -contains 'businessHint' -and $req.businessHint) { $BusinessHint = [string]$req.businessHint }
     if ($reqNames -contains 'note' -and $req.note) { $OperatorNote = [string]$req.note }
     if ($reqNames -contains 'password' -and $req.password) { $WindowsPassword = [string]$req.password }
+    if ($reqNames -contains 'sessionToken' -and $req.sessionToken) { $SessionToken = [string]$req.sessionToken }
 }
 
 if ([string]::IsNullOrWhiteSpace($WhatItIs) -or [string]::IsNullOrWhiteSpace($WhatItDoes)) {
@@ -59,7 +62,7 @@ if ([string]::IsNullOrWhiteSpace($WhatItIs) -or [string]::IsNullOrWhiteSpace($Wh
 $WindowsPassword = Get-OperatorPasswordFromParam -Password $WindowsPassword -PasswordFile $WindowsPasswordFile
 
 try {
-[void](Assert-OperatorWindowsPassword -Password $WindowsPassword -SkipAuth:$SkipAuth)
+[void](Assert-OperatorAuth -Password $WindowsPassword -SessionToken $SessionToken -SkipAuth:$SkipAuth)
 
 $snap = Get-ProcessLiveSnapshot -ProcessId $ProcessId -ProcessName $ProcessName
 if (-not $snap) {
@@ -135,15 +138,27 @@ Write-TransparencyEvent -EventsPath $eventsPath -Action 'IdentifyProcessManual' 
     -AgentId 'process-identify' -ControlLevel 'T0_Observed'
 
 $msg = 'Manual identification saved to KB cache.'
-if ($catalogPipeline.Skipped) {
-    $msg += " Catalog merge skipped ($($catalogPipeline.Reason))."
-} elseif ($catalogPipeline.CatalogMerge.Ok) {
+$pipelineSkipped = [bool](Get-JsonPropertySafe $catalogPipeline 'Skipped')
+$pipelineMerge = Get-JsonPropertySafe $catalogPipeline 'CatalogMerge'
+if ($catalogPipeline -is [System.Collections.IDictionary]) {
+    if ($catalogPipeline.Contains('Skipped')) { $pipelineSkipped = [bool]$catalogPipeline['Skipped'] }
+    if ($catalogPipeline.Contains('CatalogMerge')) { $pipelineMerge = $catalogPipeline['CatalogMerge'] }
+}
+
+if ($pipelineSkipped) {
+    $skipReason = [string](Get-JsonPropertySafe $catalogPipeline 'Reason')
+    $msg += " Catalog merge skipped ($skipReason)."
+} elseif ($pipelineMerge -and [bool]$pipelineMerge.Ok) {
     $msg += ' Catalog updated (T1 trust) and transparency report refreshed.'
+    $catPath = [string](Get-JsonPropertySafe $pipelineMerge 'CatalogPath')
     Write-TransparencyEvent -EventsPath $eventsPath -Action 'CatalogMergeFromIdentify' `
-        -Detail ("Name={0} Catalog={1}" -f $snap.ProcessName, $catalogPipeline.CatalogMerge.CatalogPath) `
+        -Detail ("Name={0} Catalog={1}" -f $snap.ProcessName, $catPath) `
         -AgentId 'process-identify' -ControlLevel 'T1_Delegated'
+} elseif ($pipelineMerge) {
+    $mergeReason = [string](Get-JsonPropertySafe $pipelineMerge 'Reason')
+    $msg += " Catalog merge failed ($mergeReason)."
 } else {
-    $msg += " Catalog merge failed ($($catalogPipeline.CatalogMerge.Reason))."
+    $msg += ' Catalog merge state unknown.'
 }
 
 $result = [ordered]@{
@@ -165,6 +180,21 @@ $dir = Split-Path -Parent $OutputJson
 if ($dir -and -not (Test-Path -LiteralPath $dir)) { New-Item -Path $dir -ItemType Directory -Force | Out-Null }
 ($result | ConvertTo-Json -Depth 10) | Out-File -LiteralPath $OutputJson -Encoding utf8 -Force
 
+$catalogMerged = ($null -ne $pipelineMerge -and [bool]$pipelineMerge.Ok)
+$idSuccess = [string]$result.Outcome -eq 'Identified' -and ($pipelineSkipped -or $catalogMerged)
+$idContext = @{
+    ProcessName   = [string]$snap.ProcessName
+    Category      = $SuggestedCategory
+    CatalogMerged = $catalogMerged
+}
+Write-HubDecisionLog -HubRoot $HubRoot `
+    -Domain 'identify' `
+    -Path $(if ($env:HUB_DECISION_PATH) { [string]$env:HUB_DECISION_PATH } else { 'ps' }) `
+    -Action 'ManualIdentify' `
+    -Outcome ([string]$result.Outcome) `
+    -Success:$idSuccess `
+    -Context $idContext
+
 if (-not $Quiet) {
     Write-Host ("Identified {0} -> cache key {1}" -f $snap.ProcessName, $key)
 }
@@ -183,6 +213,10 @@ $result
     $dir = Split-Path -Parent $OutputJson
     if ($dir -and -not (Test-Path -LiteralPath $dir)) { New-Item -Path $dir -ItemType Directory -Force | Out-Null }
     ($fail | ConvertTo-Json -Depth 6) | Out-File -LiteralPath $OutputJson -Encoding utf8 -Force
+    Write-HubDecisionLog -HubRoot $HubRoot -Domain 'identify' `
+        -Path $(if ($env:HUB_DECISION_PATH) { $env:HUB_DECISION_PATH } else { 'ps' }) `
+        -Action 'ManualIdentify' -Outcome 'Failed' -Success $false `
+        -Context @{ Message = $_.Exception.Message }
     if (-not $Quiet) { Write-Error $_.Exception.Message }
     exit 1
 } finally {

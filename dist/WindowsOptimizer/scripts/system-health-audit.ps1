@@ -27,7 +27,7 @@ param(
 
 $ErrorActionPreference = 'Continue'
 
-# ── helpers ────────────────────────────────────────────────────────────────────
+# â”€â”€ helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function Write-Progress2 { param([string]$Msg) Write-Host "[AUDIT] $Msg" }
 
 function New-Finding {
@@ -262,13 +262,13 @@ function Test-WingetPackageInstalled {
     }
 }
 
-# ── collector arrays ───────────────────────────────────────────────────────────
+# â”€â”€ collector arrays â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 $findings = [System.Collections.ArrayList]::new()
 $hardwareProfile = [ordered]@{}
 
-# ══════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 #  PHASE 1 - Hardware Inventory
-# ══════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 Write-Progress2 "Collecting hardware inventory..."
 
 # --- CPU ---
@@ -376,12 +376,12 @@ $hardwareProfile.GPU = @($gpus | ForEach-Object {
     }
 })
 
-# ══════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 #  PHASE 2 - Finding Detection
-# ══════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 Write-Progress2 "Analyzing disk health..."
 
-# ── DISK HEALTH ───────────────────────────────────────────────────────────────
+# â”€â”€ DISK HEALTH â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 foreach ($pd in $physDisks) {
     if ($pd.HealthStatus -ne 'Healthy') {
         [void]$findings.Add((New-Finding `
@@ -411,7 +411,7 @@ foreach ($pd in $physDisks) {
     }
 }
 
-# ── DISK SPACE ────────────────────────────────────────────────────────────────
+# â”€â”€ DISK SPACE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 Write-Progress2 "Analyzing disk space..."
 foreach ($vol in $volumes) {
     $sizeGB = [math]::Round($vol.Size / 1GB, 1)
@@ -515,7 +515,7 @@ Write-Host `"Removed `$cleaned temp files.`"" `
         -Solutions @($solutions.ToArray())))
 }
 
-# ── RAM SINGLE-CHANNEL ────────────────────────────────────────────────────────
+# â”€â”€ RAM SINGLE-CHANNEL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 Write-Progress2 "Analyzing memory configuration..."
 if (-not $isDualChannel -and $slotsTotal -ge 2) {
     $currentModule = $dimms[0]
@@ -538,7 +538,7 @@ if (-not $isDualChannel -and $slotsTotal -ge 2) {
         )))
 }
 
-# ── INTEL RST DRIVER ──────────────────────────────────────────────────────────
+# â”€â”€ INTEL RST DRIVER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 Write-Progress2 "Checking storage controller driver..."
 if ($rstDrv) {
     $rstVersionStr = $rstDrv.DriverVersion
@@ -588,7 +588,7 @@ Write-Host 'Registry prepared. REBOOT INTO SAFE MODE, then change BIOS from RAID
     }
 }
 
-# ── SERVICES ──────────────────────────────────────────────────────────────────
+# â”€â”€ SERVICES â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 Write-Progress2 "Analyzing running services..."
 $heavyServices = @(
     @{ Name='MySQL80';                    Desc='MySQL Server';             Note='Database server' },
@@ -641,7 +641,7 @@ if ($runningHeavy.Count -gt 0) {
         )))
 }
 
-# ── STARTUP PROGRAMS ──────────────────────────────────────────────────────────
+# â”€â”€ STARTUP PROGRAMS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 Write-Progress2 "Checking startup programs..."
 $startupEntries = [System.Collections.ArrayList]::new()
 $startupProtected = [System.Collections.ArrayList]::new()
@@ -693,7 +693,7 @@ if ($startupEntries.Count -gt 0) {
         )))
 }
 
-# ── NTFS TUNING ───────────────────────────────────────────────────────────────
+# â”€â”€ NTFS TUNING â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 Write-Progress2 "Checking NTFS/filesystem tuning..."
 
 $memUsage = 0
@@ -736,7 +736,7 @@ if ($ntfsSolutions.Count -gt 0) {
         -Solutions @($ntfsSolutions.ToArray())))
 }
 
-# ── VISUAL EFFECTS ────────────────────────────────────────────────────────────
+# â”€â”€ VISUAL EFFECTS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 Write-Progress2 "Checking visual effects..."
 $vfx = Get-ItemProperty -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\VisualEffects' -EA SilentlyContinue
 $vfxSetting = if ($vfx) { [int]$vfx.VisualFXSetting } else { 3 }
@@ -759,7 +759,7 @@ if ($vfxSetting -ne 2) {
         )))
 }
 
-# ── POWER PLAN CHECK ──────────────────────────────────────────────────────────
+# â”€â”€ POWER PLAN CHECK â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 Write-Progress2 "Checking power plan..."
 $activePlan = powercfg /getactivescheme 2>$null
 $isHighPerf = $activePlan -match '8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c'
@@ -781,14 +781,14 @@ if (-not $isHighPerf) {
         )))
 }
 
-# ── ALREADY OPTIMIZED (positive findings) ─────────────────────────────────────
+# â”€â”€ ALREADY OPTIMIZED (positive findings) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 Write-Progress2 "Collecting positive findings..."
 $positives = [System.Collections.ArrayList]::new()
 $repairOfficeChannelScript = Join-Path $PSScriptRoot 'repair-office-m365-channel.ps1'
 $repairWslConfigScript = Join-Path $PSScriptRoot 'repair-wsl-config.ps1'
 $recommendedM365Channels = 'Current Channel, Monthly Enterprise Channel, Semi-Annual Enterprise Channel'
 
-# ── WSL CONFIGURATION ─────────────────────────────────────────────────────────
+# â”€â”€ WSL CONFIGURATION â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 Write-Progress2 "Checking WSL configuration..."
 if (Test-Path -LiteralPath $repairWslConfigScript) {
     try {
@@ -818,7 +818,7 @@ if (Test-Path -LiteralPath $repairWslConfigScript) {
     }
 }
 
-# ── STARTUP INTEGRITY (legacy hub paths / missing -File targets) ───────────────
+# â”€â”€ STARTUP INTEGRITY (legacy hub paths / missing -File targets) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 Write-Progress2 "Checking leftover hub startup tasks..."
 $startupIntegrityLib = Join-Path $PSScriptRoot 'lib\startup-integrity.ps1'
 $startupIntegrityScript = Join-Path $PSScriptRoot 'audit-startup-integrity.ps1'
@@ -849,7 +849,7 @@ if ((Test-Path -LiteralPath $startupIntegrityLib) -and (Test-Path -LiteralPath $
     }
 }
 
-# ── OFFICE UPDATE CHANNEL ─────────────────────────────────────────────────────
+# â”€â”€ OFFICE UPDATE CHANNEL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 Write-Progress2 "Checking Office update channel compatibility..."
 $officePolicyPath = 'HKLM:\SOFTWARE\Policies\Microsoft\office\16.0\common\officeupdate'
 $officePolicy = Get-ItemProperty -LiteralPath $officePolicyPath -EA SilentlyContinue
@@ -894,7 +894,7 @@ if ($officeMismatch -and (Test-Path -LiteralPath $repairOfficeChannelScript)) {
     [void]$positives.Add(("Office channel aligned for Microsoft 365 Apps ({0})" -f $officeBranch))
 }
 
-# ── REQUIRED SYSTEM PACKAGES ─────────────────────────────────────────────────
+# â”€â”€ REQUIRED SYSTEM PACKAGES â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 Write-Progress2 "Checking required system packages..."
 
 $wingetAvailable = Test-CommandAvailable -Name 'winget'
@@ -916,7 +916,7 @@ if (-not $wingetAvailable) {
             (New-Solution -Level 'Safe' -Label '[OpenLink] PowerShell release page (manual install)' `
                 -Command 'Start-Process "https://aka.ms/powershell-release?tag=stable"' `
                 -Rollback 'N/A (manual install path)' `
-                -RiskNote 'Opens browser only — does not install. Uses external vendor page without Store dependency.' `
+                -RiskNote 'Opens browser only â€” does not install. Uses external vendor page without Store dependency.' `
                 -Kind 'OpenLink')
         )))
 }
@@ -929,12 +929,12 @@ if ($pwshMajor -lt 7) {
     [void]$pwshSolutions.Add((New-Solution -Level 'Safe' -Label '[Install] PowerShell 7 via ensure-powershell-core.ps1' `
         -Command $ensureCoreCmd `
         -Rollback 'Uninstall PowerShell 7 from Apps and Features if needed' `
-        -RiskNote 'Runs installer script — installs pwsh. Prefer this over OpenLink when automation is allowed.' `
+        -RiskNote 'Runs installer script â€” installs pwsh. Prefer this over OpenLink when automation is allowed.' `
         -Kind 'Install'))
     [void]$pwshSolutions.Add((New-Solution -Level 'Safe' -Label '[OpenLink] PowerShell 7 download page' `
         -Command 'Start-Process "https://aka.ms/powershell-release?tag=stable"' `
         -Rollback 'N/A (manual install path)' `
-        -RiskNote 'Opens browser only — does not install. Use when automated install is blocked by policy.' `
+        -RiskNote 'Opens browser only â€” does not install. Use when automated install is blocked by policy.' `
         -Kind 'OpenLink'))
 
     [void]$findings.Add((New-Finding `
@@ -967,7 +967,7 @@ if ($diskHealthWarning -and (-not $crystalInstalled)) {
             (New-Solution -Level 'Safe' -Label '[OpenLink] CrystalDiskInfo official download page' `
                 -Command 'Start-Process "https://crystalmark.info/en/software/crystaldiskinfo/"' `
                 -Rollback 'N/A (manual install path)' `
-                -RiskNote 'Opens browser only — does not install CrystalDiskInfo.' `
+                -RiskNote 'Opens browser only â€” does not install CrystalDiskInfo.' `
                 -Kind 'OpenLink')
         )
     ))
@@ -1015,9 +1015,9 @@ if ($isHighPerf) {
     [void]$positives.Add('Power plan: High Performance')
 }
 
-# ══════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 #  PHASE 3 - Load KB overrides (future extensibility)
-# ══════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 if ($KnowledgeBase -and (Test-Path $KnowledgeBase)) {
     Write-Progress2 "Loading knowledge base overrides..."
     try {
@@ -1051,9 +1051,9 @@ if ($KnowledgeBase -and (Test-Path $KnowledgeBase)) {
     }
 }
 
-# ══════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 #  PHASE 4 - Build & Write JSON report
-# ══════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 Write-Progress2 "Building report..."
 
 # Sort findings: Critical first, then Important, Moderate, Info

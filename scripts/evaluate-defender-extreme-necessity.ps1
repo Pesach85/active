@@ -12,6 +12,23 @@ $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $hubRoot = Split-Path -Parent $scriptDir
 $corePath = Join-Path $scriptDir 'lib\process-pressure-core.ps1'
 . $corePath
+. (Join-Path $scriptDir 'lib\hub-core-routing.ps1')
+
+if (-not $OutputJson) {
+    $OutputJson = Join-Path $hubRoot 'logs\defender-extreme-necessity-eval.json'
+}
+
+if (Test-HubUseCore) {
+    $dir = Split-Path -Parent $OutputJson
+    if ($dir -and -not (Test-Path -LiteralPath $dir)) { New-Item -Path $dir -ItemType Directory -Force | Out-Null }
+    if (Invoke-HubCoreDefenderEvaluate -HubRoot $hubRoot -InputJson $InputJson -OutputJson $OutputJson -CatalogPath $CatalogPath) {
+        $result = Get-Content -LiteralPath $OutputJson -Raw | ConvertFrom-Json
+        Write-Host ("[HUB_USE_CORE] Tier={0} Composite={1}" -f $result.RecommendedTier, $result.CompositeScore)
+        $result
+        return
+    }
+    Write-Warning 'HUB_USE_CORE defender evaluate failed — falling back to PS.'
+}
 
 if (-not $CatalogPath) { $CatalogPath = Join-Path $hubRoot 'config\process-intelligence.json' }
 $catalog = Get-ProcessIntelligenceCatalog -CatalogPath $CatalogPath
@@ -48,9 +65,6 @@ if (-not $msmp) {
 $result = Get-DefenderExtremeNecessityEvaluation -MsMpEngRow $msmp -Catalog $catalog -IsAdmin:$isAdmin
 $result.SourceReport = if ($InputJson) { $InputJson } elseif ($report) { 'inline-sample' } else { '' }
 
-if (-not $OutputJson) {
-    $OutputJson = Join-Path $hubRoot 'logs\defender-extreme-necessity-eval.json'
-}
 $dir = Split-Path -Parent $OutputJson
 if ($dir -and -not (Test-Path -LiteralPath $dir)) { New-Item -Path $dir -ItemType Directory -Force | Out-Null }
 ($result | ConvertTo-Json -Depth 10) | Out-File -LiteralPath $OutputJson -Encoding utf8 -Force

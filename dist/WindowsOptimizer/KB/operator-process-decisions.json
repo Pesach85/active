@@ -1,5 +1,4 @@
 {
-  "UpdatedAt": "2026-08-31T12:53:45.6489162+02:00",
   "Decisions": {
     "vmware-vmx": {
       "ProcessName": "vmware-vmx",
@@ -8,18 +7,11 @@
       "RecordedAt": "2026-08-31T12:35:10.4300102+02:00",
       "RecordedBy": "operator"
     },
-    "mkssandbox": {
-      "ProcessName": "mksSandbox",
+    "dotnet": {
+      "ProcessName": "dotnet",
       "Decision": "Identified",
-      "Note": "Manual: VMware VMX sandbox helper (isolated GUI/input for guest) | ",
-      "RecordedAt": "2026-08-31T12:50:58.3635676+02:00",
-      "RecordedBy": "operator"
-    },
-    "startmenuexperiencehost": {
-      "ProcessName": "StartMenuExperienceHost",
-      "Decision": "Identified",
-      "Note": "Manual: Windows Start Experience Host | ",
-      "RecordedAt": "2026-08-31T12:52:52.6363379+02:00",
+      "Note": "Manual: .NET Host | ",
+      "RecordedAt": "2026-09-01T10:38:15.9712857+02:00",
       "RecordedBy": "operator"
     },
     "mysqld": {
@@ -29,20 +21,49 @@
       "RecordedAt": "2026-08-31T12:51:53.4944471+02:00",
       "RecordedBy": "operator"
     },
-    "e2eidentifychainxyz": {
-      "ProcessName": "E2eIdentifyChainXYZ",
+    "mkssandbox": {
+      "ProcessName": "mksSandbox",
       "Decision": "Identified",
-      "Note": "Manual: E2E chain test process | ",
-      "RecordedAt": "2026-08-31T12:52:14.1622199+02:00",
+      "Note": "Manual: VMware VMX sandbox helper (isolated GUI/input for guest) | ",
+      "RecordedAt": "2026-08-31T12:50:58.3635676+02:00",
       "RecordedBy": "operator"
     },
     "smoketestprocxyz": {
       "ProcessName": "SmokeTestProcXYZ",
       "Decision": "Identified",
       "Note": "Manual: SmokeTestProcess | ",
-      "RecordedAt": "2026-08-31T12:53:45.6521729+02:00",
+      "RecordedAt": "2026-09-01T12:13:54.7567686+02:00",
+      "RecordedBy": "operator"
+    },
+    "msmpeng": {
+      "ProcessName": "MsMpEng",
+      "Decision": "Identified",
+      "Note": "Manual: Catalog: Security | ",
+      "RecordedAt": "2026-09-01T11:34:27.2946719+02:00",
+      "RecordedBy": "operator"
+    },
+    "startmenuexperiencehost": {
+      "ProcessName": "StartMenuExperienceHost",
+      "Decision": "Identified",
+      "Note": "Manual: Windows Start Experience Host | ",
+      "RecordedAt": "2026-08-31T12:52:52.6363379+02:00",
+      "RecordedBy": "operator"
+    },
+    "firefox": {
+      "ProcessName": "firefox",
+      "Decision": "Identified",
+      "Note": "Manual: Firefox | ",
+      "RecordedAt": "2026-08-31T19:45:06.142848+02:00",
+      "RecordedBy": "operator"
+    },
+    "e2eidentifychainxyz": {
+      "ProcessName": "E2eIdentifyChainXYZ",
+      "Decision": "Identified",
+      "Note": "Manual: E2E chain test process | ",
+      "RecordedAt": "2026-09-01T12:09:56.947773+02:00",
       "RecordedBy": "operator"
     }
   },
+  "UpdatedAt": "2026-09-01T12:13:54.7542185+02:00",
   "SchemaVersion": "OperatorProcessDecisions.v1"
 }

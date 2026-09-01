@@ -326,6 +326,101 @@ else {
     if (-not $auth.ok -or -not $auth.skipped) { $failures.Add('auth verify skip-auth payload mismatch') }
 }
 
+Write-Host '[PARITY] resolve plan PS vs hub CLI...'
+$pwshCmd = Get-Command pwsh -ErrorAction SilentlyContinue
+$pwsh = if ($pwshCmd) { $pwshCmd.Path } else { (Get-Command powershell).Path }
+$resolveScript = Join-Path $scriptDir 'resolve-unknown-process.ps1'
+
+$planCases = @(
+    @{
+        Name = 'keep-blocked'
+        PsArgs = @('-ProcessName', 'MsMpEng', '-Action', 'ThrottleBelowNormal', '-SkipAuth', '-Offline', '-Quiet')
+        CliArgs = @('resolve', 'plan', '--name', 'MsMpEng', '--action', 'ThrottleBelowNormal', '--skip-auth', '--dry-run', '--catalog', $catalogPath)
+    },
+    @{
+        Name = 'dryrun-not-running'
+        PsArgs = @('-ProcessId', '1234', '-Action', 'ThrottleBelowNormal', '-DryRun', '-Offline', '-Quiet')
+        CliArgs = @('resolve', 'plan', '--name', 'PID1234', '--pid', '1234', '--action', 'ThrottleBelowNormal', '--dry-run', '--not-running', '--catalog', $catalogPath)
+    }
+)
+foreach ($pc in $planCases) {
+    $psPlanOut = Join-Path $hubRoot "logs\parity-plan-$($pc.Name)-ps.json"
+    $csPlanOut = Join-Path $hubRoot "logs\parity-plan-$($pc.Name)-cs.json"
+    $psArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $resolveScript) + $pc.PsArgs + @('-OutputJson', $psPlanOut)
+    $pPlan = Start-Process -FilePath $pwsh -ArgumentList $psArgs -Wait -PassThru -WindowStyle Hidden
+    if ($pPlan.ExitCode -ne 0) { $failures.Add("PS resolve plan failed $($pc.Name)"); continue }
+    $ec = Invoke-HubCli -CliArgs $pc.CliArgs -OutFile $csPlanOut
+    if ($ec -ne 0) { $failures.Add("CLI resolve plan failed $($pc.Name)"); continue }
+    $psPlan = Get-Content -LiteralPath $psPlanOut -Raw | ConvertFrom-Json
+    $csPlan = Get-Content -LiteralPath $csPlanOut -Raw | ConvertFrom-Json
+    if ([string]$psPlan.Outcome -ne [string]$csPlan.Outcome) {
+        $failures.Add("$($pc.Name) Outcome mismatch PS=$($psPlan.Outcome) CS=$($csPlan.Outcome)")
+    }
+}
+
+Write-Host '[PARITY] defender evaluate PS vs hub CLI (PPI fixture)...'
+if (Test-Path -LiteralPath $ppiOut) {
+    $psDefOut = Join-Path $hubRoot 'logs\parity-defender-ps.json'
+    $csDefOut = Join-Path $hubRoot 'logs\parity-defender-cs.json'
+    $pDef = Start-Process -FilePath $pwsh -ArgumentList @(
+        '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Join-Path $scriptDir 'evaluate-defender-extreme-necessity.ps1'),
+        '-InputJson', $ppiOut, '-OutputJson', $psDefOut
+    ) -Wait -PassThru -WindowStyle Hidden
+    if ($pDef.ExitCode -ne 0) { $failures.Add('PS defender evaluate failed') }
+    else {
+        $ec = Invoke-HubCli -CliArgs @('defender', 'evaluate', '--input', $ppiOut, '--catalog', $catalogPath) -OutFile $csDefOut
+        if ($ec -ne 0) { $failures.Add('CLI defender evaluate failed') }
+        else {
+            $psDef = Get-Content -LiteralPath $psDefOut -Raw | ConvertFrom-Json
+            $csDef = Get-Content -LiteralPath $csDefOut -Raw | ConvertFrom-Json
+            if ([string]$psDef.RecommendedTier -ne [string]$csDef.RecommendedTier) {
+                $failures.Add("defender RecommendedTier mismatch PS=$($psDef.RecommendedTier) CS=$($csDef.RecommendedTier)")
+            }
+            if ([double]$psDef.CompositeScore -ne [double]$csDef.CompositeScore) {
+                $failures.Add("defender CompositeScore mismatch PS=$($psDef.CompositeScore) CS=$($csDef.CompositeScore)")
+            }
+        }
+    }
+} else {
+    $failures.Add('defender parity skipped: PPI fixture missing')
+}
+
+Write-Host '[PARITY] defender apply dry-run PS vs hub CLI (fixture)...'
+$defFix = Join-Path $hubRoot 'config\fixtures\defender-eval-apply-dryrun.json'
+$exclPath = Join-Path $hubRoot 'logs\parity-defender-exclusion-tmp'
+if (-not (Test-Path -LiteralPath $exclPath)) { New-Item -Path $exclPath -ItemType Directory -Force | Out-Null }
+if (Test-Path -LiteralPath $defFix) {
+    $psApplyOut = Join-Path $hubRoot 'logs\parity-defender-apply-ps.json'
+    $csApplyOut = Join-Path $hubRoot 'logs\parity-defender-apply-cs.json'
+    $applyScript = Join-Path $scriptDir 'apply-defender-extreme-necessity.ps1'
+    $psApplyOk = $false
+    try {
+        & $applyScript -EvaluationJson $defFix -OutputJson $psApplyOut -Tier 'TuneExclusions' `
+            -ExclusionPaths @($exclPath) -DryRun -IUnderstandRisk | Out-Null
+        if (Test-Path -LiteralPath $psApplyOut) { $psApplyOk = $true }
+    } catch {
+        $failures.Add("PS defender apply dry-run failed: $($_.Exception.Message)")
+    }
+    if (-not $psApplyOk) {
+        if ($failures -notmatch 'PS defender apply') { $failures.Add('PS defender apply dry-run failed: no output') }
+    } else {
+        $ec = Invoke-HubCli -CliArgs @(
+            'defender', 'apply', '--evaluation', $defFix, '--tier', 'TuneExclusions',
+            '--exclusion-path', $exclPath, '--dry-run', '--understand-risk', '--skip-auth'
+        ) -OutFile $csApplyOut
+        if ($ec -ne 0) { $failures.Add('CLI defender apply dry-run failed') }
+        else {
+            $psA = Get-Content -LiteralPath $psApplyOut -Raw | ConvertFrom-Json
+            $csA = Get-Content -LiteralPath $csApplyOut -Raw | ConvertFrom-Json
+            if ([string]$psA.Tier -ne [string]$csA.Tier) { $failures.Add('defender apply Tier mismatch') }
+            if ([bool]$psA.DryRun -ne [bool]$csA.DryRun) { $failures.Add('defender apply DryRun mismatch') }
+            if (@($psA.Applied).Count -ne @($csA.Applied).Count) { $failures.Add('defender apply Applied count mismatch') }
+            if (-not (Test-Path -LiteralPath $psA.RollbackPath)) { $failures.Add('PS defender apply rollback missing') }
+            if (-not (Test-Path -LiteralPath $csA.RollbackPath)) { $failures.Add('CS defender apply rollback missing') }
+        }
+    }
+}
+
 if ($failures.Count -gt 0) {
     Write-Host '[PARITY] FAILED'
     foreach ($f in $failures) { Write-Host "  - $f" }

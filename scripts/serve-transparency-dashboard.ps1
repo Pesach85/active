@@ -157,6 +157,16 @@ function Read-RequestBodyJson {
     return ($raw | ConvertFrom-Json)
 }
 
+function Get-BodyProperty {
+    param(
+        $Body,
+        [Parameter(Mandatory = $true)][string]$Name
+    )
+    if ($null -eq $Body) { return $null }
+    if ($Body.PSObject.Properties[$Name]) { return $Body.$Name }
+    return $null
+}
+
 function Send-JsonResponse {
     param(
         [System.Net.HttpListenerContext]$Context,
@@ -256,6 +266,23 @@ try {
             continue
         }
 
+        if ($context.Request.HttpMethod -eq 'POST' -and $path -eq '/api/network/deep-scan') {
+            $scanScript = Join-Path $scriptDir 'scan-network-deep.ps1'
+            $scanOut = Join-Path $hub.Logs 'network-deep-scan-latest.json'
+            try {
+                & $scanScript -HubRoot $hubRoot -OutputJson $scanOut -IncludeMemoryScan -Quiet | Out-Null
+                if (-not (Test-Path -LiteralPath $scanOut)) { throw 'scan_output_missing' }
+                $payload = Get-Content -LiteralPath $scanOut -Raw | ConvertFrom-Json
+                Send-JsonResponse -Context $context -Payload $payload
+            } catch {
+                Send-JsonResponse -Context $context -StatusCode 500 -Payload @{
+                    error = 'deep_scan_failed'
+                    message = $_.Exception.Message
+                }
+            }
+            continue
+        }
+
         if ($path -eq '/api/health') {
             $ok = [System.Text.Encoding]::UTF8.GetBytes('{"status":"ok","listening":true}')
             Send-Response -Context $context -ContentType 'application/json' -BodyBytes $ok
@@ -286,6 +313,38 @@ try {
             continue
         }
 
+        if ($context.Request.HttpMethod -eq 'POST' -and $path -eq '/api/operator/session/start') {
+            $body = Read-RequestBodyJson -Context $context
+            . (Join-Path $scriptDir 'lib\operator-auth.ps1')
+            try {
+                $env:HUB_ROOT = $hubRoot
+                $env:HUB_DECISION_PATH = 'web'
+                $password = Get-BodyProperty $body 'password'
+                if (-not $password) { throw 'password_required' }
+                $sess = Start-OperatorHitlSession -Password ([string]$password) -RiskAcknowledged -HumanPresent
+                Send-JsonResponse -Context $context -Payload @{
+                    ok = $true
+                    sessionToken = [string]$sess.Token
+                    expiresAt = $sess.ExpiresAt.ToString('o')
+                }
+            } catch {
+                Send-JsonResponse -Context $context -StatusCode 401 -Payload @{ error = 'session_start_failed'; message = $_.Exception.Message }
+            }
+            continue
+        }
+
+        if ($context.Request.HttpMethod -eq 'GET' -and $path -eq '/api/operator/session/status') {
+            . (Join-Path $scriptDir 'lib\operator-auth.ps1')
+            $token = [string]$context.Request.QueryString['token']
+            $active = Test-OperatorHitlSession -SessionToken $token
+            $sess = Get-OperatorHitlSession
+            Send-JsonResponse -Context $context -Payload @{
+                active = $active
+                expiresAt = if ($sess) { $sess.ExpiresAt.ToString('o') } else { $null }
+            }
+            continue
+        }
+
         if ($context.Request.HttpMethod -eq 'POST' -and $path -eq '/api/process/action') {
             $body = Read-RequestBodyJson -Context $context
             $action = [string]$body.action
@@ -293,8 +352,10 @@ try {
                 Send-JsonResponse -Context $context -StatusCode 400 -Payload @{ error = 'action_required' }
                 continue
             }
-            if (-not $body.password) {
-                Send-JsonResponse -Context $context -StatusCode 401 -Payload @{ error = 'password_required' }
+            $sessionToken = Get-BodyProperty $body 'sessionToken'
+            $password = Get-BodyProperty $body 'password'
+            if (-not $sessionToken -and -not $password) {
+                Send-JsonResponse -Context $context -StatusCode 401 -Payload @{ error = 'session_required' }
                 continue
             }
             . (Join-Path $scriptDir 'lib\operator-auth.ps1')
@@ -305,7 +366,7 @@ try {
                 if ($run.Payload -and $run.Payload.Message) { $msg = [string]$run.Payload.Message }
                 elseif ($run.Stderr) { $msg = [string]$run.Stderr }
                 Send-JsonResponse -Context $context -StatusCode 403 -Payload @{
-                    error = if ($msg -match 'password verification failed') { 'auth_failed' } else { 'action_failed' }
+                    error = if ($msg -match 'session expired|password verification failed') { 'auth_failed' } else { 'action_failed' }
                     exitCode = $run.ExitCode
                     message = $msg
                     result = $run.Payload
@@ -322,8 +383,10 @@ try {
                 Send-JsonResponse -Context $context -StatusCode 400 -Payload @{ error = 'whatItIs_and_whatItDoes_required' }
                 continue
             }
-            if (-not $body.password) {
-                Send-JsonResponse -Context $context -StatusCode 401 -Payload @{ error = 'password_required' }
+            $sessionToken = Get-BodyProperty $body 'sessionToken'
+            $password = Get-BodyProperty $body 'password'
+            if (-not $sessionToken -and -not $password) {
+                Send-JsonResponse -Context $context -StatusCode 401 -Payload @{ error = 'session_required' }
                 continue
             }
             . (Join-Path $scriptDir 'lib\operator-auth.ps1')

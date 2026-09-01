@@ -81,15 +81,33 @@
 
     <section class="card" id="cardNetwork">
       <h2>Rete (connessioni attive)</h2>
-      <p class="hint">T3 = traffico non riconducibile a task hub/catalogo · hidden = processo piccolo con egress</p>
+      <p class="hint">T3 = traffico non riconducibile · hidden = processo piccolo con egress · deep scan = cross-netstat/UDP/DNS/Tor/memory</p>
+      <div class="network-toolbar">
+        <button type="button" id="btnNetworkDeepScan" class="btn-mini">Deep scan (multi-layer)</button>
+        <span id="networkDeepStatus" class="muted"></span>
+      </div>
       <div id="networkSummary" class="stats-inline muted"></div>
-      <div class="table-wrap">
+      <div class="net-tabs">
+        <button type="button" class="net-tab active" data-nettab="connections">Connessioni</button>
+        <button type="button" class="net-tab" data-nettab="listeners">Listener</button>
+        <button type="button" class="net-tab" data-nettab="findings">Findings deep</button>
+      </div>
+      <div id="networkConnectionsPanel" class="table-wrap">
         <table>
           <thead>
-            <tr><th>Processo</th><th>Local</th><th>Remote</th><th>Trust</th></tr>
+            <tr><th>Processo</th><th>Local</th><th>Remote</th><th>Trust</th><th></th></tr>
           </thead>
           <tbody id="networkBody"></tbody>
         </table>
+      </div>
+      <div id="networkListenersPanel" class="table-wrap hidden">
+        <table>
+          <thead><tr><th>Processo</th><th>Local</th><th>Trust</th></tr></thead>
+          <tbody id="networkListenersBody"></tbody>
+        </table>
+      </div>
+      <div id="networkFindingsPanel" class="hidden">
+        <ul id="networkFindingsList" class="actions"></ul>
       </div>
       <h3>Processi piccoli / nascosti con egress</h3>
       <ul id="hiddenNetList" class="actions"></ul>
@@ -167,9 +185,16 @@
         </div>
         <div class="auth-box">
           <span id="operatorUser" class="muted">—</span>
-          <label>Password Windows (richiesta per azioni)
-            <input id="operatorPassword" type="password" autocomplete="current-password" />
-          </label>
+          <div id="authLocked">
+            <label>Sessione HITL (~45 min, password una volta)
+              <input id="operatorPassword" type="password" autocomplete="current-password" placeholder="Password Windows" />
+            </label>
+            <button type="button" id="btnUnlockSession">Sblocca sessione</button>
+          </div>
+          <div id="authLoggedIn" class="auth-logged-in hidden">
+            <span id="sessionLoggedInMsg" class="session-ok">Sessione HITL attiva</span>
+            <button type="button" id="btnEndSession" class="btn-mini">Termina sessione</button>
+          </div>
         </div>
         <div id="wizardStatus" class="wizard-status muted"></div>
       </div>

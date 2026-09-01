@@ -1,26 +1,5 @@
 {
-  "SchemaVersion": "ProcessKnowledgeCache.v1",
   "Entries": {
-    "charon-svc": {
-      "ProcessName": "charon-svc",
-      "WhatItIs": "StrongSwan IKE/IPsec VPN daemon (charon service wrapper on Windows)",
-      "WhatItDoes": "Maintains VPN tunnels; loopback traffic to companion process is normal",
-      "SuggestedCategory": "VPN",
-      "SuggestedPriority": "Review",
-      "ResourceProfile": "NetworkIO",
-      "BusinessHint": "Keep if corporate VPN requires StrongSwan; classify as business-critical after operator confirm",
-      "SuggestedActions": [
-        "Verify VPN profile owner",
-        "Add to catalog as Keep if mandatory for work",
-        "Disconnect VPN when not needed"
-      ],
-      "Confidence": 0.88,
-      "Sources": [
-        "kb-seed",
-        "https://wiki.strongswan.org/projects/strongswan/wiki/Charon"
-      ],
-      "LearnedAt": "2026-08-31T10:00:00"
-    },
     "vmware-vmx": {
       "ProcessName": "vmware-vmx",
       "WhatItIs": "Host VMware VM",
@@ -41,31 +20,11 @@
       "OperatorNote": "",
       "ImagePath": "C:\\Program Files (x86)\\VMware\\VMware Workstation\\x64\\vmware-vmx.exe"
     },
-    "e2eidentifychainxyz": {
-      "ProcessName": "E2eIdentifyChainXYZ",
-      "WhatItIs": "E2E chain test process",
-      "WhatItDoes": "Validates identify to catalog to report pipeline",
-      "SuggestedCategory": "Other",
-      "SuggestedPriority": "Review",
-      "ResourceProfile": "Mixed",
-      "BusinessHint": "",
-      "SuggestedActions": [
-        "Operator manual identification - catalog auto-merge on auth"
-      ],
-      "Confidence": 0.98,
-      "Sources": [
-        "operator-manual",
-        "PID=0"
-      ],
-      "LearnedAt": "2026-08-31T12:57:24.3194854+02:00",
-      "OperatorNote": "",
-      "ImagePath": ""
-    },
-    "startmenuexperiencehost": {
-      "ProcessName": "StartMenuExperienceHost",
-      "WhatItIs": "Windows Start Experience Host",
-      "WhatItDoes": "Product: Microsoft® Windows® Operating System by Microsoft Corporation",
-      "SuggestedCategory": "Other",
+    "dotnet": {
+      "ProcessName": "dotnet",
+      "WhatItIs": ".NET Host",
+      "WhatItDoes": "Product: .NET by Microsoft Corporation",
+      "SuggestedCategory": "IDE",
       "SuggestedPriority": "Tune",
       "ResourceProfile": "Mixed",
       "BusinessHint": "",
@@ -75,53 +34,11 @@
       "Confidence": 0.98,
       "Sources": [
         "operator-manual",
-        "PID=12272"
+        "PID=10956"
       ],
-      "LearnedAt": "2026-08-31T12:52:35.5180764+02:00",
+      "LearnedAt": "2026-09-01T10:37:56.0473732+02:00",
       "OperatorNote": "",
-      "ImagePath": "C:\\WINDOWS\\SystemApps\\Microsoft.Windows.StartMenuExperienceHost_cw5n1h2txyewy\\StartMenuExperienceHost.exe"
-    },
-    "smoketestprocxyz": {
-      "ProcessName": "SmokeTestProcXYZ",
-      "WhatItIs": "SmokeTestProcess",
-      "WhatItDoes": "ValidatesManualIdentify",
-      "SuggestedCategory": "Other",
-      "SuggestedPriority": "Review",
-      "ResourceProfile": "Mixed",
-      "BusinessHint": "",
-      "SuggestedActions": [
-        "Operator manual identification — review catalog merge separately"
-      ],
-      "Confidence": 0.98,
-      "Sources": [
-        "operator-manual",
-        "PID=0"
-      ],
-      "LearnedAt": "2026-08-31T12:56:52.496347+02:00",
-      "OperatorNote": "",
-      "ImagePath": ""
-    },
-    "mkssandbox": {
-      "ProcessName": "mksSandbox",
-      "WhatItIs": "VMware VMX sandbox helper (isolated GUI/input for guest)",
-      "WhatItDoes": "Supports VMware guest display and input isolation",
-      "SuggestedCategory": "Virtualization",
-      "SuggestedPriority": "Keep",
-      "ResourceProfile": "MemoryHeavy",
-      "BusinessHint": "Child of VMware stack Ã¢â‚¬â€ classify with vmware-vmx",
-      "SuggestedActions": [
-        "Treat as part of VMware VM lifecycle",
-        "Stops when VM is powered off"
-      ],
-      "Confidence": 0.98,
-      "Sources": [
-        "operator-manual",
-        "PID=9428",
-        "kb-seed"
-      ],
-      "LearnedAt": "2026-08-31T12:50:43.2933684+02:00",
-      "OperatorNote": "",
-      "ImagePath": "C:\\Program Files (x86)\\VMware\\VMware Workstation\\x64\\mksSandbox.exe"
+      "ImagePath": "C:\\Program Files\\dotnet\\dotnet.exe"
     },
     "mysqld": {
       "ProcessName": "mysqld",
@@ -146,7 +63,153 @@
       "LearnedAt": "2026-08-31T12:51:39.7501891+02:00",
       "OperatorNote": "",
       "ImagePath": "D:\\MySQL9_7Server\\bin\\mysqld.exe"
+    },
+    "mkssandbox": {
+      "ProcessName": "mksSandbox",
+      "WhatItIs": "VMware VMX sandbox helper (isolated GUI/input for guest)",
+      "WhatItDoes": "Supports VMware guest display and input isolation",
+      "SuggestedCategory": "Virtualization",
+      "SuggestedPriority": "Keep",
+      "ResourceProfile": "MemoryHeavy",
+      "BusinessHint": "Child of VMware stack ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â classify with vmware-vmx",
+      "SuggestedActions": [
+        "Treat as part of VMware VM lifecycle",
+        "Stops when VM is powered off"
+      ],
+      "Confidence": 0.98,
+      "Sources": [
+        "operator-manual",
+        "PID=9428",
+        "kb-seed"
+      ],
+      "LearnedAt": "2026-08-31T12:50:43.2933684+02:00",
+      "OperatorNote": "",
+      "ImagePath": "C:\\Program Files (x86)\\VMware\\VMware Workstation\\x64\\mksSandbox.exe"
+    },
+    "charon-svc": {
+      "ProcessName": "charon-svc",
+      "WhatItIs": "StrongSwan IKE/IPsec VPN daemon (charon service wrapper on Windows)",
+      "WhatItDoes": "Maintains VPN tunnels; loopback traffic to companion process is normal",
+      "SuggestedCategory": "VPN",
+      "SuggestedPriority": "Review",
+      "ResourceProfile": "NetworkIO",
+      "BusinessHint": "Keep if corporate VPN requires StrongSwan; classify as business-critical after operator confirm",
+      "SuggestedActions": [
+        "Verify VPN profile owner",
+        "Add to catalog as Keep if mandatory for work",
+        "Disconnect VPN when not needed"
+      ],
+      "Confidence": 0.88,
+      "Sources": [
+        "kb-seed",
+        "https://wiki.strongswan.org/projects/strongswan/wiki/Charon"
+      ],
+      "LearnedAt": "2026-08-31T10:00:00"
+    },
+    "smoketestprocxyz": {
+      "ProcessName": "SmokeTestProcXYZ",
+      "WhatItIs": "SmokeTestProcess",
+      "WhatItDoes": "ValidatesManualIdentify",
+      "SuggestedCategory": "Other",
+      "SuggestedPriority": "Review",
+      "ResourceProfile": "Mixed",
+      "BusinessHint": "",
+      "SuggestedActions": [
+        "Operator manual identification — review catalog merge separately"
+      ],
+      "Confidence": 0.98,
+      "Sources": [
+        "operator-manual",
+        "PID=0"
+      ],
+      "LearnedAt": "2026-09-01T12:13:54.5767671+02:00",
+      "OperatorNote": "",
+      "ImagePath": ""
+    },
+    "msmpeng": {
+      "ProcessName": "MsMpEng",
+      "WhatItIs": "Catalog: Security",
+      "WhatItDoes": "Security component - tune schedule/scope only; never disable without HITL security review.",
+      "SuggestedCategory": "Security",
+      "SuggestedPriority": "Tune",
+      "ResourceProfile": "Mixed",
+      "BusinessHint": "Already classified in process-intelligence.json - no merge needed.",
+      "SuggestedActions": [
+        "Identify owner application in Task Manager -> Properties -> path",
+        "Add entry to process-intelligence.json after human approval",
+        "Do not auto-terminate (T3 until classified)"
+      ],
+      "Confidence": 0.98,
+      "Sources": [
+        "operator-manual",
+        "PID=5856",
+        "process-intelligence-catalog"
+      ],
+      "LearnedAt": "2026-09-01T11:34:26.9263275+02:00",
+      "OperatorNote": "",
+      "ImagePath": ""
+    },
+    "startmenuexperiencehost": {
+      "ProcessName": "StartMenuExperienceHost",
+      "WhatItIs": "Windows Start Experience Host",
+      "WhatItDoes": "Product: MicrosoftÃ‚Â® WindowsÃ‚Â® Operating System by Microsoft Corporation",
+      "SuggestedCategory": "Other",
+      "SuggestedPriority": "Tune",
+      "ResourceProfile": "Mixed",
+      "BusinessHint": "",
+      "SuggestedActions": [
+        "Operator manual identification - catalog auto-merge on auth"
+      ],
+      "Confidence": 0.98,
+      "Sources": [
+        "operator-manual",
+        "PID=12272"
+      ],
+      "LearnedAt": "2026-08-31T12:52:35.5180764+02:00",
+      "OperatorNote": "",
+      "ImagePath": "C:\\WINDOWS\\SystemApps\\Microsoft.Windows.StartMenuExperienceHost_cw5n1h2txyewy\\StartMenuExperienceHost.exe"
+    },
+    "firefox": {
+      "ProcessName": "firefox",
+      "WhatItIs": "Firefox",
+      "WhatItDoes": "Product: Firefox by Mozilla Corporation",
+      "SuggestedCategory": "Browser",
+      "SuggestedPriority": "Tune",
+      "ResourceProfile": "Mixed",
+      "BusinessHint": "",
+      "SuggestedActions": [
+        "Operator manual identification - catalog auto-merge on auth"
+      ],
+      "Confidence": 0.98,
+      "Sources": [
+        "operator-manual",
+        "PID=8036"
+      ],
+      "LearnedAt": "2026-08-31T19:44:45.134751+02:00",
+      "OperatorNote": "",
+      "ImagePath": "C:\\Program Files\\Mozilla Firefox\\firefox.exe"
+    },
+    "e2eidentifychainxyz": {
+      "ProcessName": "E2eIdentifyChainXYZ",
+      "WhatItIs": "E2E chain test process",
+      "WhatItDoes": "Validates identify to catalog to report pipeline",
+      "SuggestedCategory": "Other",
+      "SuggestedPriority": "Review",
+      "ResourceProfile": "Mixed",
+      "BusinessHint": "",
+      "SuggestedActions": [
+        "Operator manual identification - catalog auto-merge on auth"
+      ],
+      "Confidence": 0.98,
+      "Sources": [
+        "operator-manual",
+        "PID=0"
+      ],
+      "LearnedAt": "2026-09-01T12:09:56.6867986+02:00",
+      "OperatorNote": "",
+      "ImagePath": ""
     }
   },
-  "UpdatedAt": "2026-08-31T12:57:24.4396828+02:00"
+  "UpdatedAt": "2026-09-01T12:13:54.6872527+02:00",
+  "SchemaVersion": "ProcessKnowledgeCache.v1"
 }

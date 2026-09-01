@@ -656,6 +656,59 @@ else {
     }
 }
 
+Write-Host '[SMOKE] hub-defender-apply-dryrun...'
+$defFixSmoke = Join-Path $HubRoot 'config\fixtures\defender-eval-apply-dryrun.json'
+$exclSmoke = Join-Path $logs 'smoke-defender-exclusion-tmp'
+if (-not (Test-Path -LiteralPath $exclSmoke)) { New-Item -Path $exclSmoke -ItemType Directory -Force | Out-Null }
+$hubDefApplyOut = Join-Path $logs 'smoke-hub-defender-apply-dryrun.json'
+$hubDefApplyEc = Invoke-HubCliSmoke -CliArgs @(
+    'defender', 'apply', '--evaluation', $defFixSmoke, '--tier', 'TuneExclusions',
+    '--exclusion-path', $exclSmoke, '--dry-run', '--understand-risk', '--skip-auth'
+) -OutFile $hubDefApplyOut
+if ($hubDefApplyEc -ne 0) { $failures.Add('hub-defender-apply-dryrun: CLI exit non-zero') }
+else {
+    $hubDefApplyJ = Get-Content -LiteralPath $hubDefApplyOut -Raw | ConvertFrom-Json
+    if ([string]$hubDefApplyJ.SchemaVersion -notmatch 'DefenderExtremeApplyResult') { $failures.Add('hub-defender-apply-dryrun: schema') }
+    elseif (-not $hubDefApplyJ.DryRun) { $failures.Add('hub-defender-apply-dryrun: expected DryRun') }
+    elseif (-not (Test-Path -LiteralPath $hubDefApplyJ.RollbackPath)) { $failures.Add('hub-defender-apply-dryrun: rollback missing') }
+    else { Write-Host '[SMOKE] hub-defender-apply-dryrun OK' }
+}
+
+Write-Host '[SMOKE] network-deep-scan...'
+$netDeepOut = Join-Path $logs 'smoke-network-deep-scan.json'
+& (Join-Path $HubRoot 'scripts\scan-network-deep.ps1') -OutputJson $netDeepOut -Quiet -ErrorAction Stop
+if (-not (Test-Path -LiteralPath $netDeepOut)) { $failures.Add('network-deep-scan: output missing') }
+else {
+    $netDeepJ = Get-Content -LiteralPath $netDeepOut -Raw | ConvertFrom-Json
+    if ([string]$netDeepJ.SchemaVersion -notmatch 'NetworkDeepScan') { $failures.Add('network-deep-scan: schema') }
+    elseif (-not $netDeepJ.Layers) { $failures.Add('network-deep-scan: Layers missing') }
+    else { Write-Host '[SMOKE] network-deep-scan OK' }
+}
+
+Write-Host '[SMOKE] hub-use-core-defender-evaluate...'
+$prevUseCore = $env:HUB_USE_CORE
+try {
+    $env:HUB_USE_CORE = '1'
+    $hubCoreDefOut = Join-Path $logs 'smoke-hub-use-core-defender-eval.json'
+    if (-not (Test-Path -LiteralPath $ppiSmokeOut)) {
+        $failures.Add('hub-use-core-defender-evaluate: PPI sample missing')
+    }
+    else {
+        & (Join-Path $HubRoot 'scripts\evaluate-defender-extreme-necessity.ps1') `
+            -InputJson $ppiSmokeOut -OutputJson $hubCoreDefOut -CatalogPath $catPath | Out-Null
+        if (-not (Test-Path -LiteralPath $hubCoreDefOut)) { $failures.Add('hub-use-core-defender-evaluate: output missing') }
+        else {
+            $hubCoreDefJ = Get-Content -LiteralPath $hubCoreDefOut -Raw | ConvertFrom-Json
+            if (-not $hubCoreDefJ.RecommendedTier) { $failures.Add('hub-use-core-defender-evaluate: missing tier') }
+            else { Write-Host '[SMOKE] hub-use-core-defender-evaluate OK' }
+        }
+    }
+}
+finally {
+    if ($null -eq $prevUseCore) { Remove-Item Env:HUB_USE_CORE -ErrorAction SilentlyContinue }
+    else { $env:HUB_USE_CORE = $prevUseCore }
+}
+
 if ($failures.Count -gt 0) {
     Write-Host '[SMOKE] FAILED'
     $failures | ForEach-Object { Write-Host ("  - {0}" -f $_) }

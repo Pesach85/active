@@ -62,3 +62,5 @@ Motivo: massimo score tra `ready`, riusa Core già portato, read-only, minimo ri
 - Saltare Phase 1 read-only e andare a mutating (Phase 2)
 - Big-bang rewrite senza parity golden JSON
 - Abilitare `HUB_USE_CORE=1` senza gate ALL PASSED
+
+Vedi anche: [`KB/hub-hitl-paths-decision.md`](../../KB/hub-hitl-paths-decision.md) — matrice deterministica Phase 3 HITL.

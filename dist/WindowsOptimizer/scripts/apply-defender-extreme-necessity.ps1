@@ -1,17 +1,4 @@
-﻿#Requires -RunAsAdministrator
-<#
-.SYNOPSIS
-  Gated apply for Defender extreme-necessity tiers (HITL only, never auto).
-
-.PARAMETER Tier
-  Must match evaluation RecommendedTier: TuneExclusions | TemporaryRealtimeOff | ExtremeServiceDisable
-
-.PARAMETER ReasonCode
-  DevBuild | EmergencyPerf | ForensicCapture | VendorSupport
-
-.PARAMETER ExclusionPaths
-  For TuneExclusions â€” trusted folder paths to exclude from scanning.
-#>
+﻿# Live apply requires elevation; dry-run parity gate runs without admin.
 [CmdletBinding(SupportsShouldProcess)]
 param(
     [Parameter(Mandatory)][string]$EvaluationJson,
@@ -31,6 +18,14 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+if (-not $DryRun) {
+    $scriptDirEarly = Split-Path -Parent $MyInvocation.MyCommand.Path
+    . (Join-Path $scriptDirEarly 'hub-common.ps1')
+    if (-not (Test-HubAdmin)) {
+        throw 'Administrator elevation required for live Defender apply (dry-run does not require admin).'
+    }
+}
+
 if (-not $IUnderstandRisk) {
     throw 'HITL gate: pass -IUnderstandRisk after reading evaluation blockers and prerequisites.'
 }
@@ -40,6 +35,7 @@ if ($Tier -eq 'ExtremeServiceDisable' -and -not $ConfirmExtremeDisable) {
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $hubRoot = Split-Path -Parent $scriptDir
+. (Join-Path $scriptDir 'lib\hub-decision-log.ps1')
 $logsDir = Join-Path $hubRoot 'logs'
 if (-not (Test-Path -LiteralPath $logsDir)) { New-Item -Path $logsDir -ItemType Directory -Force | Out-Null }
 
@@ -148,10 +144,22 @@ $out = [ordered]@{
     Tier = $Tier
     ReasonCode = $ReasonCode
     DryRun = [bool]$DryRun
-    Applied = @($applied)
+    Applied = $applied.ToArray()
     RollbackPath = $RollbackJson
     After = if (-not $DryRun) { Get-DefenderPlatformStatus } else { $null }
 }
 ($out | ConvertTo-Json -Depth 10) | Out-File -LiteralPath $OutputJson -Encoding utf8 -Force
+$decisionContext = @{
+    Tier         = [string]$Tier
+    DryRun       = [bool]$DryRun
+    AppliedCount = [int]$applied.Count
+}
+Write-HubDecisionLog -HubRoot $hubRoot `
+    -Domain 'defender-apply' `
+    -Path $(if ($env:HUB_DECISION_PATH) { [string]$env:HUB_DECISION_PATH } else { 'ps' }) `
+    -Action 'ApplyTier' `
+    -Outcome $(if ($DryRun) { 'DryRunApplied' } else { 'Applied' }) `
+    -Success:$true `
+    -Context $decisionContext
 Write-Host ("Defender apply tier={0} rollback={1}" -f $Tier, $RollbackJson)
 $out

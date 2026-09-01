@@ -8,6 +8,7 @@ param(
     [string]$OperatorNote = '',
     [string]$WindowsPassword = '',
     [string]$WindowsPasswordFile = '',
+    [string]$SessionToken = '',
     [string]$RequestJsonPath = '',
     [string]$OutputJson = '',
     [string]$HubRoot = '',
@@ -29,6 +30,7 @@ if (-not $HubRoot) { $HubRoot = Split-Path -Parent $scriptDir }
 . (Join-Path $scriptDir 'lib\process-resolution-policy.ps1')
 . (Join-Path $scriptDir 'lib\transparency-events.ps1')
 . (Join-Path $scriptDir 'lib\operator-auth.ps1')
+. (Join-Path $scriptDir 'lib\hub-decision-log.ps1')
 
 $hub = Get-HubPaths -HubRoot $HubRoot
 $resCfg = Get-ProcessResolutionConfig -HubRoot $HubRoot
@@ -43,6 +45,7 @@ if ($RequestJsonPath -and (Test-Path -LiteralPath $RequestJsonPath)) {
     if ($reqNames -contains 'confirmPhrase' -and $req.confirmPhrase) { $ConfirmPhrase = [string]$req.confirmPhrase }
     if ($reqNames -contains 'operatorNote' -and $req.operatorNote) { $OperatorNote = [string]$req.operatorNote }
     if ($reqNames -contains 'password' -and $req.password) { $WindowsPassword = [string]$req.password }
+    if ($reqNames -contains 'sessionToken' -and $req.sessionToken) { $SessionToken = [string]$req.sessionToken }
     if ($reqNames -contains 'dryRun' -and $req.dryRun) { $DryRun = $true }
     if ($reqNames -contains 'offline' -and $req.offline) { $Offline = $true }
 }
@@ -138,7 +141,7 @@ else {
         $result.Message = 'Process is not running - cannot apply this action. Refresh the list and pick a live process.'
     }
     else {
-    [void](Assert-OperatorWindowsPassword -Password $WindowsPassword -SkipAuth:$SkipAuth)
+    [void](Assert-OperatorAuth -Password $WindowsPassword -SessionToken $SessionToken -SkipAuth:$SkipAuth)
 
     $block = Test-ProcessCatalogActionBlocked -Action $Action -CatalogNecessity $catalogNecessity
     if ($block.Blocked) {
@@ -238,6 +241,21 @@ if (-not $OutputJson) {
 $dir = Split-Path -Parent $OutputJson
 if ($dir -and -not (Test-Path -LiteralPath $dir)) { New-Item -Path $dir -ItemType Directory -Force | Out-Null }
 ($result | ConvertTo-Json -Depth 12) | Out-File -LiteralPath $OutputJson -Encoding utf8 -Force
+
+$resolveSuccess = [string]$result.Outcome -notin @('ActionBlocked', 'ProcessNotRunning', 'AuthRequired', 'ConfirmPhraseRequired', 'TerminateBlocked')
+$resolveContext = @{
+    ProcessName = [string]$snap.ProcessName
+    ProcessId   = [int]$snap.PID
+    DryRun      = [bool]$DryRun
+    Recommended = [string]$advisory.RecommendedActionId
+}
+Write-HubDecisionLog -HubRoot $HubRoot `
+    -Domain 'resolve-apply' `
+    -Path $(if ($env:HUB_DECISION_PATH) { [string]$env:HUB_DECISION_PATH } else { 'ps' }) `
+    -Action $Action `
+    -Outcome ([string]$result.Outcome) `
+    -Success:$resolveSuccess `
+    -Context $resolveContext
 
 if (-not $Quiet) {
     Write-Host ("Resolution action={0} outcome={1} recommended={2}" -f $Action, $result.Outcome, $advisory.RecommendedActionId)

@@ -24,6 +24,12 @@ public sealed class ProcessResolutionConfig
 
     [JsonPropertyName("NeverTerminateExact")]
     public List<string> NeverTerminateExact { get; set; } = [];
+
+    [JsonPropertyName("ConfirmPhraseTerminate")]
+    public string ConfirmPhraseTerminate { get; set; } = "STOP UNKNOWN";
+
+    [JsonPropertyName("ConfirmPhraseMarkNecessary")]
+    public string ConfirmPhraseMarkNecessary { get; set; } = "KEEP FOR WORK";
 }
 
 public sealed record KnowledgeHintInput(

@@ -16,6 +16,11 @@ public sealed record PlatformInfo(
     string RuntimeVersion,
     string HubCoreVersion);
 
+public sealed record DefenderServiceState(
+    string Name,
+    string StartType,
+    string Status);
+
 public interface IProcessSnapshotProvider
 {
     Task<ProcessSnapshot?> GetLiveSnapshotAsync(int processId, string processName, CancellationToken ct = default);
@@ -27,9 +32,21 @@ public interface IProcessMutator
     Task TerminateAsync(int processId, CancellationToken ct = default);
 }
 
+/// <summary>Port of apply-defender-extreme-necessity.ps1 OS mutations (Windows Defender module).</summary>
+public interface IDefenderPolicyMutator
+{
+    Task AddExclusionPathAsync(string path, CancellationToken ct = default);
+    Task SetRealtimeMonitoringAsync(bool enabled, CancellationToken ct = default);
+    Task<DefenderServiceState?> GetWinDefendServiceStateAsync(CancellationToken ct = default);
+    Task StopWinDefendServiceAsync(CancellationToken ct = default);
+    Task SetWinDefendStartupManualAsync(CancellationToken ct = default);
+    Task RegisterRollbackReenableTaskAsync(string rollbackJsonPath, string restoreScriptPath, int delayMinutes, string taskName, CancellationToken ct = default);
+}
+
 public interface IPlatformServices
 {
     PlatformInfo GetPlatformInfo();
     IProcessSnapshotProvider ProcessSnapshots { get; }
     IProcessMutator ProcessMutator { get; }
+    IDefenderPolicyMutator DefenderPolicy { get; }
 }
