@@ -4,22 +4,33 @@
 
 Detect **hidden or untracked network activity** that standard admin tooling (`Get-NetTCPConnection`, Task Manager, Resource Monitor) may miss. Surface actionable findings in the transparency web panel and CLI.
 
-## Layers (current PS implementation)
+## Layers (current PS + Core v0.7.3)
 
 | Layer | Technique | What it catches |
 |-------|-----------|-----------------|
-| L1 Cross-diff | `netstat -ano` vs `Get-NetTCPConnection` | Ghost sockets, stale PID mapping, enumeration gaps |
-| L2 UDP | `netstat -ano -p udp` | Covert UDP channels, DNS tunneling precursors |
-| L3 DNS cache | `Get-DnsClientCache` | Recently resolved suspicious domains |
-| L4 Tor heuristics | Ports 9050/9150/9051, process names, memory strings | Tor client/proxy presence (not full Tor network probe) |
-| L5 Ghost PID | Connections referencing dead/missing processes | Rootkit-style PID reuse, zombie handles |
-| L6 Memory forensics | `process-forensics.ps1` string scan on high-risk PIDs | SOCKS/proxy/onion strings in process memory |
+| L1 Cross-diff | `netstat -ano` vs `Get-NetTCPConnection` | Ghost sockets, stale PID mapping |
+| L2 UDP | `Get-NetUDPEndpoint` | Covert UDP channels |
+| L3 DNS cache | `Get-DnsClientCache` | Suspicious / Tor-related domains |
+| L4 Tor heuristics | Ports, process names, memory strings | Tor client/proxy presence |
+| L5 Ghost PID | Connections referencing dead processes | Rootkit-style PID reuse |
+| L6 Memory forensics | PE string scan (bounded) | SOCKS/proxy/onion strings |
+| L7 Admin probes | ETW TCPIP log + `netsh wfp show state` | Kernel/WFP visibility (admin) |
 
-## Actions (web panel)
+## Panel actions (HITL)
 
-- **Connessioni / Listener**: baseline snapshot + Resolve/Identify per row (HITL wizard).
-- **Findings**: deep scan results grouped by severity.
-- **Deep scan**: `POST /api/network/deep-scan` → `scan-network-deep.ps1` → `logs/network-deep-scan-latest.json`.
+| Action | Gate | Effect |
+|--------|------|--------|
+| Kill conn | Session + understandRisk | `Reset-NetTCPConnection` |
+| Block IP | Session + `BLOCK-REMOTE-IP` | Outbound firewall rule |
+| Terminate | Session + `TERMINATE-NETWORK-PROCESS` | Process kill via Core |
+
+CLI: `hub network snapshot|deep-scan|action`
+
+## Core port
+
+- `NetworkTransparencyService`, `NetworkDeepScanService`, `NetworkActionService`
+- Windows: `WindowsNetworkProbeProvider`, `WindowsNetworkMutator`
+- Routing: `HUB_USE_CORE=1` → `hub network deep-scan`
 
 ## Limitations (explicit)
 

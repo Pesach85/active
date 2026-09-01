@@ -1,24 +1,11 @@
 {
+  "SchemaVersion": "OperatorProcessDecisions.v1",
   "Decisions": {
-    "vmware-vmx": {
-      "ProcessName": "vmware-vmx",
+    "startmenuexperiencehost": {
+      "ProcessName": "StartMenuExperienceHost",
       "Decision": "Identified",
-      "Note": "Manual: Host VMware VM | ",
-      "RecordedAt": "2026-08-31T12:35:10.4300102+02:00",
-      "RecordedBy": "operator"
-    },
-    "dotnet": {
-      "ProcessName": "dotnet",
-      "Decision": "Identified",
-      "Note": "Manual: .NET Host | ",
-      "RecordedAt": "2026-09-01T10:38:15.9712857+02:00",
-      "RecordedBy": "operator"
-    },
-    "mysqld": {
-      "ProcessName": "mysqld",
-      "Decision": "Identified",
-      "Note": "Manual: MySQL/MariaDB database server daemon | ",
-      "RecordedAt": "2026-08-31T12:51:53.4944471+02:00",
+      "Note": "Manual: Windows Start Experience Host | ",
+      "RecordedAt": "2026-08-31T12:52:52.6363379+02:00",
       "RecordedBy": "operator"
     },
     "mkssandbox": {
@@ -28,11 +15,39 @@
       "RecordedAt": "2026-08-31T12:50:58.3635676+02:00",
       "RecordedBy": "operator"
     },
+    "dotnet": {
+      "ProcessName": "dotnet",
+      "Decision": "Identified",
+      "Note": "Manual: .NET Host | ",
+      "RecordedAt": "2026-09-01T10:38:15.9712857+02:00",
+      "RecordedBy": "operator"
+    },
     "smoketestprocxyz": {
       "ProcessName": "SmokeTestProcXYZ",
       "Decision": "Identified",
       "Note": "Manual: SmokeTestProcess | ",
-      "RecordedAt": "2026-09-01T12:13:54.7567686+02:00",
+      "RecordedAt": "2026-09-01T12:59:54.7425971+02:00",
+      "RecordedBy": "operator"
+    },
+    "vmware-vmx": {
+      "ProcessName": "vmware-vmx",
+      "Decision": "Identified",
+      "Note": "Manual: Host VMware VM | ",
+      "RecordedAt": "2026-08-31T12:35:10.4300102+02:00",
+      "RecordedBy": "operator"
+    },
+    "svchost": {
+      "ProcessName": "svchost",
+      "Decision": "Identified",
+      "Note": "Manual: Catalog: CriticalSystem | ",
+      "RecordedAt": "2026-09-01T12:51:33.8359305+02:00",
+      "RecordedBy": "operator"
+    },
+    "e2eidentifychainxyz": {
+      "ProcessName": "E2eIdentifyChainXYZ",
+      "Decision": "Identified",
+      "Note": "Manual: E2E chain test process | ",
+      "RecordedAt": "2026-09-01T12:55:52.5305837+02:00",
       "RecordedBy": "operator"
     },
     "msmpeng": {
@@ -42,11 +57,11 @@
       "RecordedAt": "2026-09-01T11:34:27.2946719+02:00",
       "RecordedBy": "operator"
     },
-    "startmenuexperiencehost": {
-      "ProcessName": "StartMenuExperienceHost",
+    "rockwell.web": {
+      "ProcessName": "Rockwell.Web",
       "Decision": "Identified",
-      "Note": "Manual: Windows Start Experience Host | ",
-      "RecordedAt": "2026-08-31T12:52:52.6363379+02:00",
+      "Note": "Manual: Rockwell | ",
+      "RecordedAt": "2026-09-01T12:55:46.90297+02:00",
       "RecordedBy": "operator"
     },
     "firefox": {
@@ -56,14 +71,13 @@
       "RecordedAt": "2026-08-31T19:45:06.142848+02:00",
       "RecordedBy": "operator"
     },
-    "e2eidentifychainxyz": {
-      "ProcessName": "E2eIdentifyChainXYZ",
+    "mysqld": {
+      "ProcessName": "mysqld",
       "Decision": "Identified",
-      "Note": "Manual: E2E chain test process | ",
-      "RecordedAt": "2026-09-01T12:09:56.947773+02:00",
+      "Note": "Manual: MySQL/MariaDB database server daemon | ",
+      "RecordedAt": "2026-08-31T12:51:53.4944471+02:00",
       "RecordedBy": "operator"
     }
   },
-  "UpdatedAt": "2026-09-01T12:13:54.7542185+02:00",
-  "SchemaVersion": "OperatorProcessDecisions.v1"
+  "UpdatedAt": "2026-09-01T12:59:54.7386285+02:00"
 }

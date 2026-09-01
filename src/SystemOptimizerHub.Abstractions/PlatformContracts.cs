@@ -43,10 +43,18 @@ public interface IDefenderPolicyMutator
     Task RegisterRollbackReenableTaskAsync(string rollbackJsonPath, string restoreScriptPath, int delayMinutes, string taskName, CancellationToken ct = default);
 }
 
+/// <summary>HITL network mutations (kill connection, block remote IP).</summary>
+public interface INetworkMutator
+{
+    Task ResetTcpConnectionAsync(string localAddress, int localPort, string remoteAddress, int remotePort, CancellationToken ct = default);
+    Task BlockRemoteIpAsync(string remoteAddress, string ruleName, CancellationToken ct = default);
+}
+
 public interface IPlatformServices
 {
     PlatformInfo GetPlatformInfo();
     IProcessSnapshotProvider ProcessSnapshots { get; }
     IProcessMutator ProcessMutator { get; }
     IDefenderPolicyMutator DefenderPolicy { get; }
+    INetworkMutator NetworkMutator { get; }
 }

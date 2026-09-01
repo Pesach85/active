@@ -198,12 +198,12 @@
       "Id": "phase5-network-deep-panel",
       "Phase": 5,
       "Title": "Network deep scan panel + hidden connection actions",
-      "Status": "next",
-      "HitlRequired": false,
+      "Status": "done",
+      "HitlRequired": true,
       "BlockedBy": ["phase4-hub-use-core"],
       "PsOrigin": "scripts/lib/network-deep-scan.ps1",
-      "CoreTarget": "NetworkDeepScanService (future C# port)",
-      "Deliverable": "Multi-layer scan + web panel actions + ETW/WFP admin layer",
+      "CoreTarget": "NetworkDeepScanService + NetworkActionService",
+      "Deliverable": "Core port + ETW/WFP admin probes + panel Kill/Block/Terminate HITL",
       "Scores": {
         "ParityFeasibility": 68,
         "RegressionRiskInverse": 75,
@@ -211,7 +211,26 @@
         "GateReadiness": 70,
         "EffortInverse": 55
       },
-      "Rationale": "Cybersec deep visibility: netstat cross-diff, UDP, DNS cache, Tor heuristics, memory forensics, ghost PID detection."
+      "Rationale": "Cybersec deep visibility delivered: Core NetworkDeepScanService, admin ETW/WFP probes, web panel HITL actions."
+    },
+    {
+      "Id": "phase6-transparency-network-parity",
+      "Phase": 6,
+      "Title": "Transparency report live network snapshot in Core",
+      "Status": "next",
+      "HitlRequired": false,
+      "BlockedBy": ["phase5-network-deep-panel"],
+      "PsOrigin": "scripts/build-transparency-report.ps1",
+      "CoreTarget": "TransparencyReportBuilder network section",
+      "Deliverable": "hub transparency report includes full Network object (parity PS)",
+      "Scores": {
+        "ParityFeasibility": 72,
+        "RegressionRiskInverse": 80,
+        "UserValue": 75,
+        "GateReadiness": 78,
+        "EffortInverse": 65
+      },
+      "Rationale": "C# transparency report still omits live network snapshot; wire NetworkTransparencyService."
     }
   ]
 }

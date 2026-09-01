@@ -60,3 +60,23 @@ function Invoke-HubCoreDefenderEvaluate {
     if ($ec -ne 0) { return $false }
     return (Test-Path -LiteralPath $OutputJson)
 }
+
+function Invoke-HubCoreNetworkDeepScan {
+    param(
+        [string]$HubRoot,
+        [string]$OutputJson = '',
+        [string]$CatalogPath = '',
+        [switch]$IncludeMemoryScan
+    )
+
+    if (-not (Test-HubUseCore)) { return $false }
+
+    $args = @('network', 'deep-scan')
+    if ($CatalogPath) { $args += @('--catalog', $CatalogPath) }
+    if ($OutputJson) { $args += @('--output', $OutputJson) }
+    if ($IncludeMemoryScan) { $args += '--include-memory' }
+
+    $ec = Invoke-HubCoreCli -HubRoot $HubRoot -CliArgs $args -OutFile $OutputJson -BuildFirst
+    if ($ec -ne 0) { return $false }
+    return (Test-Path -LiteralPath $OutputJson)
+}

@@ -196,6 +196,7 @@ th { color: var(--muted); font-weight: 600; }
 .net-tabs { display: flex; gap: 0.35rem; margin: 0.5rem 0; }
 .net-tab { background: var(--surface); border: 1px solid var(--border); color: var(--muted); padding: 0.25rem 0.55rem; border-radius: 6px; cursor: pointer; font-size: 0.8rem; }
 .net-tab.active { color: var(--text); border-color: var(--accent); }
+.net-actions .btn-mini { margin: 0 0.15rem 0.15rem 0; }
 .hidden { display: none !important; }
 
 @media (max-width: 800px) {

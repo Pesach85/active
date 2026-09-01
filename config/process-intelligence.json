@@ -154,7 +154,7 @@
                                                            "references":  [
 
                                                                           ],
-                                                           "mergedAt":  "2026-09-01T12:13:55.7532406+02:00",
+                                                           "mergedAt":  "2026-09-01T12:59:55.8889824+02:00",
                                                            "mergedFrom":  [
                                                                               "operator-manual-identify",
                                                                               "kb-hint-enrichment"
@@ -210,7 +210,7 @@
                                                           "references":  [
 
                                                                          ],
-                                                          "mergedAt":  "2026-09-01T12:09:58.1611614+02:00",
+                                                          "mergedAt":  "2026-09-01T12:55:53.6899748+02:00",
                                                           "mergedFrom":  [
                                                                              "operator-manual-identify",
                                                                              "kb-hint-enrichment"
@@ -277,7 +277,7 @@
                                                               "priority":  "Tune",
                                                               "displayName":  "StartMenuExperienceHost",
                                                               "description":  "Windows Start Experience Host",
-                                                              "whatItDoes":  "Product: MicrosoftÃƒâ€šÃ‚Â® WindowsÃƒâ€šÃ‚Â® Operating System by Microsoft Corporation",
+                                                              "whatItDoes":  "Product: MicrosoftÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â® WindowsÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â® Operating System by Microsoft Corporation",
                                                               "resourceProfile":  "Mixed",
                                                               "businessHint":  "",
                                                               "pressureMitigations":  {
@@ -327,7 +327,35 @@
                                                                 "operator-manual-identify",
                                                                 "kb-hint-enrichment"
                                                             ]
-                                         }
+                                         },
+                              "rockwell.web":  {
+                                                   "category":  "DevTool",
+                                                   "priority":  "Tune",
+                                                   "displayName":  "Rockwell.Web",
+                                                   "description":  "Rockwell",
+                                                   "whatItDoes":  "Product: Rockwell.Web by Rockwell.Web\n\nDevelopment Manutenzione da Windows senza VMWARE",
+                                                   "resourceProfile":  "Mixed",
+                                                   "businessHint":  "PE AMD64/Subsys0 entry 0x00000000 | Parent chain depth 6, root explorer.exe | Loaded modules sample: C:\\WINDOWS\\System32\\OLEAUT32.dll; C:\\WINDOWS\\System32\\bcryptPrimitives.dll; C:\\Program Files\\dotnet\\shared\\Microsoft.NETCore.App\\8.0.30\\System.Private.CoreLib.dll",
+                                                   "pressureMitigations":  {
+                                                                               "MemoryHeavy":  [
+                                                                                                   "Review if RAM justified for active work on Rockwell.Web"
+                                                                                               ],
+                                                                               "CPUBound":  [
+                                                                                                "Check for runaway loops or updates"
+                                                                                            ],
+                                                                               "IOHeavy":  [
+                                                                                               "Check disk usage by parent application"
+                                                                                           ]
+                                                                           },
+                                                   "references":  [
+
+                                                                  ],
+                                                   "mergedAt":  "2026-09-01T12:55:31.3827630+02:00",
+                                                   "mergedFrom":  [
+                                                                      "operator-manual-identify",
+                                                                      "kb-hint-enrichment"
+                                                                  ]
+                                               }
                           },
     "optionalBackgroundPatterns":  [
                                        "AnyDesk",
@@ -378,7 +406,7 @@
                                                                    "minCompositeScore":  0,
                                                                    "maxCompositeScore":  84,
                                                                    "level":  "Safe",
-                                                                   "description":  "Monitor only ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â pressure within normal tuning range."
+                                                                   "description":  "Monitor only ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â pressure within normal tuning range."
                                                                },
                                                    "TuneExclusions":  {
                                                                           "minCompositeScore":  85,
@@ -391,13 +419,13 @@
                                                                                 "maxCompositeScore":  94,
                                                                                 "level":  "Aggressive",
                                                                                 "maxDurationMinutes":  60,
-                                                                                "description":  "Time-boxed real-time protection off ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â requires Tamper Protection off + explicit HITL."
+                                                                                "description":  "Time-boxed real-time protection off ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â requires Tamper Protection off + explicit HITL."
                                                                             },
                                                    "ExtremeServiceDisable":  {
                                                                                  "minCompositeScore":  95,
                                                                                  "level":  "Aggressive",
                                                                                  "maxDurationMinutes":  120,
-                                                                                 "description":  "Last resort: stop WinDefend service ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â double HITL, mandatory rollback timer."
+                                                                                 "description":  "Last resort: stop WinDefend service ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â double HITL, mandatory rollback timer."
                                                                              }
                                                },
                                      "reasonCodes":  {
