@@ -1,5 +1,21 @@
 # Bugs Fixed
 
+## 2026-09-01 - Boot: leftover NVMe postboot task on C:\ hub path
+
+### Bug 32
+- **Sintomo**: all'avvio, PowerShell Admin: `L'argomento 'C:\SystemOptimizerHub\active\scripts\verify-nvme-writeoffload-postboot.ps1' per il parametro -File non esiste`. Exit `4294770688`.
+- **Causa**: task `\NVMe-WriteOffload-PostBootVerify` (AtStartup, creato da `monitor-robocopy-pending-reboot.ps1` in Wave 3) con path assoluto sulla root C: dopo relocation ADR-0002. `activate-hub-profile` reinstallava solo monitor/cleanup.
+- **Fix**: `audit-startup-integrity.ps1` + lib (scan task XML/Run/Startup, classifica one-shot vs suite persistente); finding Health `STARTUP-LEGACY-001`; apply Safe unregister/retarget con backup XML; verify-nvme si auto-unregister; post-reboot-verify senza path C: hardcoded. GUI **v3.11.7**.
+- **Check**: smoke `startup-integrity`; apply sul task NVMe; Health Scan mostra/non mostra finding a seconda dello stato.
+
+## 2026-08-31 - EXE: $tab unset on Control tab Refresh (ps2exe)
+
+### Bug 31
+- **Sintomo**: all'apertura di `WindowsOptimizer.exe`, dialog: `Impossibile recuperare la variabile $tab perché non è stata impostata.`
+- **Causa**: `form.Shown` e `SelectedIndexChanged` invocano `$script:transparencyUi.Refresh`. Quel scriptblock (e ShowReport/click) chiudeva su `$tab` locale di `New-TransparencyTab`. Sotto ps2exe + `Set-StrictMode` la closure del file dot-sourced non esiste più.
+- **Fix**: stesso pattern di Bug 28 — `$global:HubTransparencyPanel` + `Get-HubTransparencyPanel`; colori/tema copiati nello state (niente `$clr*` in delayed scriptblocks); lingua via `Get-I18nLang`; `ShowReport` legge proprietà JSON opzionali con `Get-PsNoteValue` (StrictMode-safe). GUI **v3.11.6**.
+- **Check**: smoke `transparency-panel-registry`; l'EXE esistente carica `scripts/gui/transparency-panel.ps1` a runtime (rebuild EXE non obbligatorio).
+
 ## 2026-08-27 - EXE: HubWorkers unset under StrictMode (ps2exe)
 
 ### Bug 29

@@ -179,6 +179,43 @@ function New-WslConfigFinding {
         -Solutions $solutions
 }
 
+function New-StartupLegacyFinding {
+    param(
+        [int]$NeedsRepair,
+        [int]$OneShotStale,
+        [int]$Relocatable,
+        [int]$Broken,
+        [string]$Sample,
+        [string]$RepairScriptPath
+    )
+
+    $inspectCommand = "& '$RepairScriptPath' -OutputJson (Join-Path (Split-Path '$RepairScriptPath' -Parent) '..\logs\startup-integrity-latest.json')"
+    $repairCommand = "& '$RepairScriptPath' -Apply"
+    $rollbackCommand = "& '$RepairScriptPath' -RestoreLatest"
+
+    $solutions = @(
+        (New-Solution -Level 'Safe' -Label 'Inspect leftover startup tasks/Run keys (read-only JSON)' `
+            -Command $inspectCommand `
+            -Rollback 'N/A (read-only)' `
+            -RiskNote 'Scans Task Scheduler XML, Run keys, and Startup folders. Does not change anything.'),
+        (New-Solution -Level 'Safe' -Label 'Repair hub leftovers: unregister stale one-shot tasks, retarget suite tasks to current hub' `
+            -Command $repairCommand `
+            -Rollback $rollbackCommand `
+            -RiskNote 'Exports task XML before unregister. Does not remove vendor Run keys (Adobe/VMware/Sophos/Defender). Requires Administrator.')
+    )
+
+    return New-Finding `
+        -Id 'STARTUP-LEGACY-001' `
+        -Severity 'Important' `
+        -Category 'OS' `
+        -Title 'Leftover startup entries from a previous hub install (missing script path)' `
+        -Description "Scheduled tasks or Run keys still point at an old hub root (for example C:\SystemOptimizerHub) or a script that was renamed/removed. At boot Windows shows a PowerShell -File error. Sample: $Sample" `
+        -CurrentValue "needsRepair=$NeedsRepair oneShotStale=$OneShotStale relocatable=$Relocatable broken=$Broken" `
+        -RecommendedValue 'All hub tasks/Run keys resolve under the current hub root; one-shot post-boot campaign tasks unregistered after they ran.' `
+        -Impact 'Boot-time PowerShell error dialogs; automation from a relocated clone never runs.' `
+        -Solutions $solutions
+}
+
 function Test-CommandAvailable {
     param([string]$Name)
 
@@ -778,6 +815,37 @@ if (Test-Path -LiteralPath $repairWslConfigScript) {
         }
     } catch {
         Write-Progress2 "WSL assessment skipped: $($_.Exception.Message)"
+    }
+}
+
+# ── STARTUP INTEGRITY (legacy hub paths / missing -File targets) ───────────────
+Write-Progress2 "Checking leftover hub startup tasks..."
+$startupIntegrityLib = Join-Path $PSScriptRoot 'lib\startup-integrity.ps1'
+$startupIntegrityScript = Join-Path $PSScriptRoot 'audit-startup-integrity.ps1'
+if ((Test-Path -LiteralPath $startupIntegrityLib) -and (Test-Path -LiteralPath $startupIntegrityScript)) {
+    try {
+        . $startupIntegrityLib
+        $siHub = Split-Path $PSScriptRoot -Parent
+        $siReport = Get-StartupIntegrityReport -HubRoot $siHub
+        $siNeed = 0
+        if ($siReport -and $siReport.Summary) { $siNeed = [int]$siReport.Summary.NeedsRepair }
+        if ($siNeed -gt 0) {
+            $samples = @($siReport.Items | Where-Object { $_.Classification -in @('HubOneShotStale', 'HubRelocatable', 'HubBroken') } | Select-Object -First 3 | ForEach-Object {
+                '{0} [{1}] {2}' -f $_.Name, $_.Classification, $_.TargetPath
+            })
+            $sampleText = if ($samples.Count -gt 0) { ($samples -join '; ') } else { 'n/a' }
+            [void]$findings.Add((New-StartupLegacyFinding `
+                -NeedsRepair $siNeed `
+                -OneShotStale ([int]$siReport.Summary.HubOneShotStale) `
+                -Relocatable ([int]$siReport.Summary.HubRelocatable) `
+                -Broken ([int]$siReport.Summary.HubBroken) `
+                -Sample $sampleText `
+                -RepairScriptPath $startupIntegrityScript))
+        } else {
+            [void]$positives.Add('Hub startup integrity healthy (no leftover C:\SystemOptimizerHub tasks/Run keys)')
+        }
+    } catch {
+        Write-Progress2 "Startup integrity assessment skipped: $($_.Exception.Message)"
     }
 }
 

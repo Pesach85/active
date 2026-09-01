@@ -33,8 +33,9 @@ if (Test-Path -LiteralPath $scriptsUnderBase) {
 }
 
 $script:guiDir = Join-Path $script:scriptRoot "gui"
-# Pre-init worker registry before StrictMode modules (ps2exe + hub-common safe)
+# Pre-init registries before StrictMode modules (ps2exe + hub-common safe)
 $global:HubWorkers = @{}
+$global:HubTransparencyPanel = $null
 $hubCommonPath = Join-Path $script:scriptRoot "hub-common.ps1"
 if (Test-Path -LiteralPath $hubCommonPath) {
     . $hubCommonPath

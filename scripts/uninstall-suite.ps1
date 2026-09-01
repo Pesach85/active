@@ -7,7 +7,7 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
-$taskNames = @("SystemResourceMonitor", "StorageCleanupSafe")
+$taskNames = @("SystemResourceMonitor", "StorageCleanupSafe", "SystemOptimizerHub-Orchestrator", "NVMe-WriteOffload-PostBootVerify")
 foreach ($task in $taskNames) {
     try {
         Unregister-ScheduledTask -TaskName $task -Confirm:$false -ErrorAction Stop

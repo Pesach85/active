@@ -8,7 +8,7 @@ Workspace operativo globale su C, D e sistema operativo, con profilo centralizza
 ### Runtime condiviso
 - `scripts/hub-common.ps1` — hub root, config JSON, event log health, `Test-HubAdmin` / `Assert-HubAdmin`.
 - `scripts/hub-orchestrator.ps1` — heartbeat, log rotation, trigger WHEA/fs-integrity.
-- `config/sys-maintenance.json` — Monitor, Cleanup, Whea, Orchestrator, FsIntegrity, **ProcessPressure**, **Gui**, **Privacy**.
+- `config/sys-maintenance.json` — Monitor, Cleanup, Whea, Orchestrator, FsIntegrity, **ProcessPressure**, **Gui**, **Privacy**, **StartupIntegrity**.
 - `config/locale/{en,it}.json` + `config/command-catalog.json` — i18n e help comandi GUI.
 
 ### Monitor e storage
@@ -27,6 +27,7 @@ Workspace operativo globale su C, D e sistema operativo, con profilo centralizza
 - `scripts/system-health-audit.ps1` — findings JSON (`AlreadyOptimized` = **array di stringhe**).
 - `scripts/apply-safe-fixes.ps1` — **una** soluzione per finding ≤ MaxLevel.
 - `scripts/repair-office-m365-channel.ps1` / `scripts/repair-wsl-config.ps1` — fix mirati con rollback JSON.
+- `scripts/audit-startup-integrity.ps1` + `scripts/lib/startup-integrity.ps1` — residui task/Run da vecchie root hub (`STARTUP-LEGACY-001`).
 
 ### Privacy
 - `scripts/privacy-scan-secrets.ps1` — read-only, report redatti `PrivacyScanReport.v1`.
@@ -37,11 +38,13 @@ Workspace operativo globale su C, D e sistema operativo, con profilo centralizza
 - `scripts/gui/worker-helpers.ps1` — Wait-ForOutputFile, exit/err tail.
 - `scripts/gui/i18n.ps1` / `command-help.ps1` — lingua + pannello "Cosa fa".
 - `scripts/gui/keep-service-wizard.ps1` — HITL wizard KEEP extreme apply (Defender).
+- `scripts/gui/async-worker.ps1` — registry worker su `$global:HubWorkers` (ps2exe + StrictMode).
+- `scripts/gui/transparency-panel.ps1` — tab Control; stato su `$global:HubTransparencyPanel` (niente closure su `$tab`).
 
 ### Install / package / gate
 - `scripts/install-*-task.ps1`, `ensure-powershell-core.ps1`, `activate-hub-profile.ps1`.
 - `scripts/package-suite.ps1` → `dist/WindowsOptimizer` (subset + BOM).
-- `scripts/test-hub-smoke.ps1` — gate health + garbage + privacy + process-pressure + moduli gui.
+- `scripts/test-hub-smoke.ps1` — gate health + garbage + privacy + process-pressure + moduli gui + registry async-worker/transparency-panel + startup-integrity.
 
 ### Lab / campagne (spesso fuori dist)
 - NVMe writeoffload, WHEA monitor/KPI, kernel/bloatware/eventlog tuners, DD-WRT scripts.

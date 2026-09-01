@@ -9,7 +9,7 @@
       "writesSystem": false,
       "en": {
         "title": "Health Scan",
-        "summary": "Read-only inventory of disk, services, startup, power, WSL and Office policy.",
+        "summary": "Read-only inventory of disk, services, leftover startup tasks, power, WSL and Office policy.",
         "does": "Runs WMI/CIM checks and writes a JSON report with severity-ranked findings.",
         "doesNot": "Does not change settings, install packages, or apply fixes.",
         "expect": "Actionable report in Health tab; review before applying anything.",
@@ -17,7 +17,7 @@
       },
       "it": {
         "title": "Scansione Salute",
-        "summary": "Inventario read-only di disco, servizi, avvio, alimentazione, WSL e policy Office.",
+        "summary": "Inventario read-only di disco, servizi, residui di avvio, alimentazione, WSL e policy Office.",
         "does": "Esegue controlli WMI/CIM e scrive un report JSON con finding per severità.",
         "doesNot": "Non modifica impostazioni, non installa pacchetti, non applica fix.",
         "expect": "Report consultabile nel tab Salute; rivedi prima di applicare.",
@@ -45,6 +45,29 @@
         "doesNot": "Non sostituisce la revisione manuale per item Moderate/Aggressive (servizi, avvio, registry).",
         "expect": "Alcuni item corretti in automatico; altri possono richiedere reboot o admin.",
         "tip": "Usa livello Safe salvo conoscenza dei finding. Preferisci prima Scansione Salute."
+      }
+    },
+    "startup_integrity": {
+      "scripts": ["audit-startup-integrity.ps1"],
+      "efficacy": 70,
+      "effortImpact": 75,
+      "risk": "Low",
+      "writesSystem": true,
+      "en": {
+        "title": "Startup Integrity",
+        "summary": "Finds leftover scheduled tasks and Run keys from old hub installs (missing -File paths).",
+        "does": "Scans Task Scheduler, Run/RunOnce, Startup folders. Safe apply unregisters stale one-shot hub tasks and retargets suite tasks to the current hub root.",
+        "doesNot": "Does not remove vendor autostart (Adobe, VMware, Sophos, Defender).",
+        "expect": "JSON report in logs/startup-integrity-latest.json; Health Scan surfaces STARTUP-LEGACY-001.",
+        "tip": "After moving the repo off C:, run this once elevated, or use Health Scan + Apply Safe."
+      },
+      "it": {
+        "title": "Integrità avvio",
+        "summary": "Trova task e chiavi Run residui di vecchie installazioni hub (percorsi -File mancanti).",
+        "does": "Analizza Utilità di pianificazione, Run/RunOnce, cartelle Esecuzione automatica. Apply Safe rimuove i one-shot obsoleti e riallinea i task della suite alla root hub attuale.",
+        "doesNot": "Non rimuove l'avvio automatico di vendor (Adobe, VMware, Sophos, Defender).",
+        "expect": "Report JSON in logs/startup-integrity-latest.json; Health Scan mostra STARTUP-LEGACY-001.",
+        "tip": "Dopo lo spostamento del repo da C:, eseguilo una volta da amministratore, oppure Scansione Salute + Applica Safe."
       }
     },
     "scan_storage": {

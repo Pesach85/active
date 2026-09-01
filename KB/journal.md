@@ -2521,3 +2521,46 @@ Phase 2 NBD: port HITL operator auth + catalog merge to C# Core v0.5.0 con quali
 
 ### Esito
 ALL gates PASS; deploy via package-suite pending push
+
+## 2026-09-01 08:30:00
+### Obiettivo
+Phase 2 NBD (read-only): `hub resolve plan` + `hub defender evaluate` — Hub Core v0.6.0
+
+### Task
+- ResolutionExecutionService: port planning logic da resolve-unknown-process.ps1 (dry-run, ActionBlocked, ProcessNotRunning; live apply -> HitlApplyRequired)
+- DefenderExtremeNecessityEvaluator + WindowsDefenderStatusProvider (Get-MpComputerStatus read-only)
+- CLI: hub resolve plan, hub defender evaluate
+- Parity/smoke: keep-blocked, dryrun-not-running, defender tier/composite vs PS
+- migration-nbd: phase2-resolve-plan + phase2-defender-evaluate done; phase3-resolve-apply + phase3-defender-apply blocked (HITL)
+
+### STOP HITL (non automatizzato)
+- hub resolve apply (live throttle/terminate) — password + confirm phrase + OS mutation
+- hub defender apply — disabilita Defender; Tamper Protection + rollback obbligatori
+- HUB_USE_CORE=1 su path mutanti produzione — non approvato
+
+### Quality gate
+- dotnet test, test-core-parity.ps1, test-hub-smoke.ps1, test-identify-chain-e2e.ps1
+
+### Deliverable
+- Hub Core 0.6.0, Linux package 0.6.0
+
+## 2026-09-01 08:41:27
+### Obiettivo
+Stop boot PowerShell error from leftover NVMe postboot task on C:\SystemOptimizerHub after hub move to D:.
+
+### Task
+Add startup-integrity audit/repair; unregister stale AtStartup task; wire Health Scan STARTUP-LEGACY-001.
+
+### Modifiche
+- audit-startup-integrity.ps1 and lib/startup-integrity.ps1
+- Health finding STARTUP-LEGACY-001
+- verify-nvme self-unregister; post-reboot-verify portable paths
+- package-suite dist; GUI v3.11.7
+
+### Decisioni
+- Unregister one-shot campaign tasks rather than retarget to boot forever
+- Never auto-remove vendor Run keys
+- Apply Safe on this host: NVMe-WriteOffload-PostBootVerify removed with XML backup
+
+### Esito
+Task gone; audit NeedsRepair=0; smoke startup-integrity OK; dist packaged. Full smoke hung on pre-existing transparency-web-ensure wait.

@@ -1,4 +1,45 @@
 ﻿# WinForms "Controllo & Trasparenza" tab - dot-source from system-optimizer-gui.ps1
+#
+# Delayed scriptblocks (Refresh, clicks, ShowReport) MUST NOT close over function-local
+# variables such as $tab. Under ps2exe + Set-StrictMode those closures are lost and the
+# EXE shows: "Impossibile recuperare la variabile $tab perché non è stata impostata."
+# Same pattern as Bug 28 ($global:HubWorkers): keep panel state on $global:.
+
+function Initialize-HubTransparencyPanel {
+    $var = Get-Variable -Name HubTransparencyPanel -Scope Global -ErrorAction SilentlyContinue
+    if ($null -eq $var) {
+        Set-Variable -Name HubTransparencyPanel -Scope Global -Value $null -Force
+    }
+}
+
+function Get-HubTransparencyPanel {
+    Initialize-HubTransparencyPanel
+    $var = Get-Variable -Name HubTransparencyPanel -Scope Global -ErrorAction SilentlyContinue
+    if ($null -eq $var) { return $null }
+    return $var.Value
+}
+
+function Set-HubTransparencyPanel {
+    param($State)
+    Set-Variable -Name HubTransparencyPanel -Scope Global -Value $State -Force
+}
+
+Initialize-HubTransparencyPanel
+
+function Get-PsNoteValue {
+    param($Obj, [string]$Name)
+    if ($null -eq $Obj) { return $null }
+    $prop = $Obj.PSObject.Properties[$Name]
+    if ($null -eq $prop) { return $null }
+    return $prop.Value
+}
+
+function Get-PsNoteArray {
+    param($Obj, [string]$Name)
+    $v = Get-PsNoteValue $Obj $Name
+    if ($null -eq $v) { return , @() }
+    return , @($v)
+}
 
 function New-TransparencyTab {
     param(
@@ -137,8 +178,15 @@ function New-TransparencyTab {
         TxtDetail      = $txtDetail
         LblPosture     = $lblPosture
         Tab            = $tab
+        BtnResolve     = $btnResolve
+        ClrAccent      = $clrAccent
+        ClrCyan        = $clrCyan
+        ClrAmber       = $clrAmber
+        ClrRed         = $clrRed
+        ClrRowHigh     = $clrRowHigh
     }
     $tab.Tag = $panelState
+    Set-HubTransparencyPanel -State $panelState
 
     $panelState.WaitTcp = {
         param(
@@ -159,30 +207,34 @@ function New-TransparencyTab {
 
     $panelState.GetTrustColor = {
         param([string]$Level)
+        $st = Get-HubTransparencyPanel
+        if ($null -eq $st) { return [System.Drawing.Color]::Gray }
         switch ($Level) {
-            'T0_Observed' { return $clrAccent }
-            'T1_Delegated' { return $clrCyan }
-            'T2_Review' { return $clrAmber }
-            default { return $clrRed }
+            'T0_Observed' { return $st.ClrAccent }
+            'T1_Delegated' { return $st.ClrCyan }
+            'T2_Review' { return $st.ClrAmber }
+            default { return $st.ClrRed }
         }
     }
 
     $panelState.ShowReport = {
         param($Report)
-        $st = $tab.Tag
+        $st = Get-HubTransparencyPanel
+        if ($null -eq $st) { return }
         if (-not $Report) { return }
 
-        $score = [int]$Report.Posture.Score
-        $grade = [string]$Report.Posture.Grade
+        $posture = Get-PsNoteValue $Report 'Posture'
+        $score = [int](Get-PsNoteValue $posture 'Score')
+        $grade = [string](Get-PsNoteValue $posture 'Grade')
         $st.LblPosture.Text = "Posture: $score/100 ($grade)"
         $st.LblPosture.ForeColor = switch ($grade) {
-            'Good' { $clrAccent }
-            'Review' { $clrAmber }
-            default { $clrRed }
+            'Good' { $st.ClrAccent }
+            'Review' { $st.ClrAmber }
+            default { $st.ClrRed }
         }
 
         $st.ListAgents.Items.Clear()
-        foreach ($a in @($Report.RegisteredAgents)) {
+        foreach ($a in (Get-PsNoteArray $Report 'RegisteredAgents')) {
             $item = New-Object System.Windows.Forms.ListViewItem([string]$a.DisplayName)
             [void]$item.SubItems.Add([string]$a.TaskState)
             [void]$item.SubItems.Add([string]$a.ControlLevel)
@@ -193,7 +245,7 @@ function New-TransparencyTab {
 
         $st.ListRam.Items.Clear()
         $st.RamPidByRow = @{}
-        foreach ($p in @($Report.RamConsumers)) {
+        foreach ($p in (Get-PsNoteArray $Report 'RamConsumers')) {
             $item = New-Object System.Windows.Forms.ListViewItem([string]$p.Name)
             [void]$item.SubItems.Add([string]$p.RamMb)
             [void]$item.SubItems.Add([string]$p.TrustLevel)
@@ -202,51 +254,56 @@ function New-TransparencyTab {
             $st.RamPidByRow[[string]$p.Name] = [int]$p.PID
             $item.ForeColor = & $st.GetTrustColor ([string]$p.TrustLevel)
             if ([string]$p.TrustLevel -eq 'T3_Unknown') {
-                $item.BackColor = $clrRowHigh
+                $item.BackColor = $st.ClrRowHigh
             }
             [void]$st.ListRam.Items.Add($item)
         }
 
+        $manifest = Get-PsNoteValue $Report 'DelegationManifest'
         $lines = [System.Collections.Generic.List[string]]::new()
         [void]$lines.Add('=== Delegation contract ===')
-        foreach ($pr in @($Report.DelegationManifest.Principles)) { [void]$lines.Add("* $pr") }
+        foreach ($pr in (Get-PsNoteArray $manifest 'Principles')) { [void]$lines.Add("* $pr") }
         [void]$lines.Add('')
         [void]$lines.Add('=== Human only ===')
-        foreach ($h in @($Report.DelegationManifest.HumanOnly)) { [void]$lines.Add("* $h") }
+        foreach ($h in (Get-PsNoteArray $manifest 'HumanOnly')) { [void]$lines.Add("* $h") }
         [void]$lines.Add('')
         [void]$lines.Add('=== AI delegated (when enabled) ===')
-        foreach ($d in @($Report.DelegationManifest.AiDelegatedWhenEnabled)) { [void]$lines.Add("* $d") }
+        foreach ($d in (Get-PsNoteArray $manifest 'AiDelegatedWhenEnabled')) { [void]$lines.Add("* $d") }
         [void]$lines.Add('')
         [void]$lines.Add('=== Recent automated actions ===')
-        foreach ($act in @($Report.RecentAutomatedActions | Select-Object -Last 15)) {
+        foreach ($act in ((Get-PsNoteArray $Report 'RecentAutomatedActions') | Select-Object -Last 15)) {
             [void]$lines.Add(("{0} [{1}] {2}: {3}" -f $act.Timestamp, $act.Source, $act.Action, $act.Detail))
         }
-        if (@($Report.UnknownHighRam).Count -gt 0) {
+        $unknownHigh = Get-PsNoteArray $Report 'UnknownHighRam'
+        if ($unknownHigh.Count -gt 0) {
             [void]$lines.Add('')
             [void]$lines.Add('=== ALERT: Unknown high RAM ===')
-            foreach ($u in @($Report.UnknownHighRam)) {
+            foreach ($u in $unknownHigh) {
                 [void]$lines.Add(("{0} PID={1} {2}MB" -f $u.Name, $u.PID, $u.RamMb))
             }
         }
-        if ($Report.Network -and $Report.Network.Summary) {
+        $net = Get-PsNoteValue $Report 'Network'
+        $ns = Get-PsNoteValue $net 'Summary'
+        if ($ns) {
             [void]$lines.Add('')
             [void]$lines.Add('=== Network transparency ===')
-            $ns = $Report.Network.Summary
             [void]$lines.Add(("{0} established | {1} listen | T3: {2} | hidden small: {3}" -f $ns.Established, $ns.Listen, $ns.UnknownTrustCount, $ns.HiddenNetworkProcessCount))
-            foreach ($h in @($Report.Network.HiddenNetworkProcesses | Select-Object -First 8)) {
+            foreach ($h in ((Get-PsNoteArray $net 'HiddenNetworkProcesses') | Select-Object -First 8)) {
                 [void]$lines.Add(("{0} PID={1} {2}MB ext={3} - {4}" -f $h.Name, $h.PID, $h.RamMb, $h.ExternalConnections, $h.TrustReason))
             }
-            foreach ($nc in @($Report.Network.Connections | Where-Object { $_.TrustLevel -eq 'T3_Unknown' } | Select-Object -First 8)) {
+            foreach ($nc in ((Get-PsNoteArray $net 'Connections') | Where-Object { (Get-PsNoteValue $_ 'TrustLevel') -eq 'T3_Unknown' } | Select-Object -First 8)) {
                 [void]$lines.Add(("[T3 NET] {0} {1} -> {2}" -f $nc.ProcessName, $nc.Local, $nc.Remote))
             }
         }
-        if ($Report.ClassificationHints) {
+        $hints = Get-PsNoteValue $Report 'ClassificationHints'
+        if ($hints) {
             [void]$lines.Add('')
             [void]$lines.Add('=== Classification hints (deterministic + KB + AI-assisted) ===')
-            foreach ($h in @($Report.ClassificationHints | Select-Object -First 6)) {
+            foreach ($h in @($hints | Select-Object -First 6)) {
                 [void]$lines.Add(("{0} [{1}] conf={2} - {3}" -f $h.ProcessName, $h.SuggestedCategory, $h.Confidence, $h.WhatItIs))
                 [void]$lines.Add(("  Does: {0}" -f $h.WhatItDoes))
-                if ($h.BusinessHint) { [void]$lines.Add(("  Hint: {0}" -f $h.BusinessHint)) }
+                $hint = Get-PsNoteValue $h 'BusinessHint'
+                if ($hint) { [void]$lines.Add(("  Hint: {0}" -f $hint)) }
             }
         }
         $st.TxtDetail.Text = ($lines -join [Environment]::NewLine)
@@ -254,7 +311,8 @@ function New-TransparencyTab {
 
     $panelState.BuildReport = {
         param([switch]$Quiet)
-        $st = $tab.Tag
+        $st = Get-HubTransparencyPanel
+        if ($null -eq $st) { return $null }
         if ($st.TestBusy -and (& $st.TestBusy)) {
             if (-not $Quiet) { [System.Windows.Forms.MessageBox]::Show('Another operation is running.', 'Busy') | Out-Null }
             return $null
@@ -280,7 +338,8 @@ function New-TransparencyTab {
     }
 
     $panelState.StartWeb = {
-        $st = $tab.Tag
+        $st = Get-HubTransparencyPanel
+        if ($null -eq $st) { return $false }
         $pwshExe = if (Get-Command Get-HubPwshExecutable -ErrorAction SilentlyContinue) {
             Get-HubPwshExecutable
         } else {
@@ -320,7 +379,8 @@ function New-TransparencyTab {
     }
 
     $btnRefresh.Add_Click({
-        $st = $tab.Tag
+        $st = Get-HubTransparencyPanel
+        if ($null -eq $st) { return }
         if ($st.OnStatus) { & $st.OnStatus 'Refreshing transparency report...' }
         $r = & $st.BuildReport
         if ($r) {
@@ -332,7 +392,8 @@ function New-TransparencyTab {
     })
 
     $btnRunReport.Add_Click({
-        $st = $tab.Tag
+        $st = Get-HubTransparencyPanel
+        if ($null -eq $st) { return }
         if ($st.OnStatus) { & $st.OnStatus 'Running full transparency audit...' }
         $r = & $st.BuildReport
         if ($r) {
@@ -342,7 +403,8 @@ function New-TransparencyTab {
     })
 
     $btnOpenWeb.Add_Click({
-        $st = $tab.Tag
+        $st = Get-HubTransparencyPanel
+        if ($null -eq $st) { return }
         try {
             & $st.BuildReport -Quiet | Out-Null
             [void](& $st.StartWeb)
@@ -355,7 +417,8 @@ function New-TransparencyTab {
     })
 
     $btnResolve.Add_Click({
-        $st = $tab.Tag
+        $st = Get-HubTransparencyPanel
+        if ($null -eq $st) { return }
         if (-not (Get-Command Show-UnknownProcessResolutionWizard -ErrorAction SilentlyContinue)) {
             [System.Windows.Forms.MessageBox]::Show('Unknown process wizard not loaded.', 'Resolve') | Out-Null
             return
@@ -374,7 +437,7 @@ function New-TransparencyTab {
             (Get-Command powershell.exe).Path
         }
         $lang = 'en'
-        if ($script:guiLanguage) { $lang = $script:guiLanguage }
+        if (Get-Command Get-I18nLang -ErrorAction SilentlyContinue) { $lang = Get-I18nLang }
         [void](Show-UnknownProcessResolutionWizard -Owner $st.Tab.FindForm() -HubRoot $st.HubRoot -ScriptRoot $st.ScriptRoot `
             -PsHost $pwshExe -Language $lang -OnStatus $st.OnStatus -ProcessId $pidVal -ProcessName $procName)
         $r = & $st.BuildReport -Quiet
@@ -382,7 +445,8 @@ function New-TransparencyTab {
     })
 
     $btnIdentify.Add_Click({
-        $st = $tab.Tag
+        $st = Get-HubTransparencyPanel
+        if ($null -eq $st) { return }
         if (-not (Get-Command Show-IdentifyProcessWizard -ErrorAction SilentlyContinue)) {
             [System.Windows.Forms.MessageBox]::Show('Identify wizard not loaded.', 'Identify') | Out-Null
             return
@@ -401,7 +465,7 @@ function New-TransparencyTab {
             (Get-Command powershell.exe).Path
         }
         $lang = 'en'
-        if ($script:guiLanguage) { $lang = $script:guiLanguage }
+        if (Get-Command Get-I18nLang -ErrorAction SilentlyContinue) { $lang = Get-I18nLang }
         [void](Show-IdentifyProcessWizard -Owner $st.Tab.FindForm() -HubRoot $st.HubRoot -ScriptRoot $st.ScriptRoot `
             -PsHost $pwshExe -Language $lang -OnStatus $st.OnStatus -ProcessId $pidVal -ProcessName $procName)
         $r = & $st.BuildReport -Quiet
@@ -409,13 +473,16 @@ function New-TransparencyTab {
     })
 
     $listRam.Add_DoubleClick({
-        if ($btnResolve.Enabled) { $btnResolve.PerformClick() }
+        $st = Get-HubTransparencyPanel
+        if ($null -eq $st) { return }
+        if ($st.BtnResolve -and $st.BtnResolve.Enabled) { $st.BtnResolve.PerformClick() }
     })
 
     return @{
         Tab = $tab
         Refresh = {
-            $st = $tab.Tag
+            $st = Get-HubTransparencyPanel
+            if ($null -eq $st) { return }
             if (Test-Path -LiteralPath $st.ReportPath) {
                 try {
                     $r = Get-Content -LiteralPath $st.ReportPath -Raw | ConvertFrom-Json
@@ -434,4 +501,3 @@ function Set-TransparencyTabLanguage {
 
     $Controls.Tab.Text = Get-I18n 'tabs.control'
 }
-

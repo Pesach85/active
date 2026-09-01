@@ -68,6 +68,16 @@ if ($UpdateMachinePath.IsPresent) {
 & $psHost -NoProfile -ExecutionPolicy Bypass -File $monitorInstaller -TaskName "SystemResourceMonitor" -MonitorScriptPath $monitorScript -ConfigPath $configPath -RequireCore
 & $psHost -NoProfile -ExecutionPolicy Bypass -File $cleanupInstaller -TaskName "StorageCleanupSafe" -CleanupScriptPath $cleanupScript -ConfigPath $configPath -RequireCore
 
+$startupIntegrity = Join-Path $scriptsDir "audit-startup-integrity.ps1"
+if (Test-Path -LiteralPath $startupIntegrity) {
+    $siOut = Join-Path $logsDir "startup-integrity-latest.json"
+    try {
+        & $psHost -NoProfile -ExecutionPolicy Bypass -File $startupIntegrity -HubRoot $HubRoot -Apply -OutputJson $siOut
+    } catch {
+        Write-Warning "Startup integrity apply skipped: $($_.Exception.Message)"
+    }
+}
+
 Write-Host "Hub profile activated from $HubRoot"
 Write-Host "Config: $configPath"
 Write-Host "Logs: $logsDir"
