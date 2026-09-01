@@ -26,7 +26,7 @@ Port read-only analyzers; PS calls Core via CLI or embedded DLL.
 
 Deliverable: `hub analyze pressure`, `hub transparency report` — Core subset with PS parity on posture/RamConsumers/PPI rows.
 
-**HITL stop:** Phase 2 (`phase2-identify-catalog`) requires operator password auth — do not enable `HUB_USE_CORE=1` for mutating paths until HITL port is complete.
+**HITL stop:** Phase 3 paths require operator decision — see [`KB/hub-hitl-paths-decision.md`](../../KB/hub-hitl-paths-decision.md). Do not enable `HUB_USE_CORE=1` for mutating paths until parity apply gate passes.
 
 ## Phase 2 — Mutating actions with HITL (Q1 2027, **Core auth+merge DONE v0.5.0**)
 

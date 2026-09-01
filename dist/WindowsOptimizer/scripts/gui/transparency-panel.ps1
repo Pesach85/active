@@ -47,7 +47,8 @@ function New-TransparencyTab {
         [string]$ScriptRoot,
         [string]$ConfigPath,
         [scriptblock]$OnStatus,
-        [scriptblock]$TestBusy
+        [scriptblock]$TestBusy,
+        [scriptblock]$OnDefenderReview = $null
     )
 
     $tab = New-Object System.Windows.Forms.TabPage
@@ -75,12 +76,15 @@ function New-TransparencyTab {
     $btnIdentify = New-Btn 'Identify...' $clrPurple 100 38
     $btnIdentify.Location = New-Object System.Drawing.Point(520, 14)
 
+    $btnHitlPaths = New-Btn 'HITL Paths...' $clrAmber 110 38
+    $btnHitlPaths.Location = New-Object System.Drawing.Point(626, 14)
+
     $lblPosture = New-Object System.Windows.Forms.Label
     $lblPosture.Text = 'Posture: -'
     $lblPosture.Font = $fntH2
     $lblPosture.ForeColor = $clrAccent
     $lblPosture.AutoSize = $true
-    $lblPosture.Location = New-Object System.Drawing.Point(630, 18)
+    $lblPosture.Location = New-Object System.Drawing.Point(744, 18)
     $lblPosture.BackColor = [System.Drawing.Color]::Transparent
 
     $lblTransDesc = New-Object System.Windows.Forms.Label
@@ -96,7 +100,7 @@ function New-TransparencyTab {
     $pnlHeaderBorder.Height = 1
     $pnlHeaderBorder.BackColor = $clrBorderC
 
-    $pnlHeader.Controls.AddRange(@($btnRefresh, $btnOpenWeb, $btnRunReport, $btnResolve, $btnIdentify, $lblPosture, $lblTransDesc, $pnlHeaderBorder))
+    $pnlHeader.Controls.AddRange(@($btnRefresh, $btnOpenWeb, $btnRunReport, $btnResolve, $btnIdentify, $btnHitlPaths, $lblPosture, $lblTransDesc, $pnlHeaderBorder))
 
     $listAgents = New-Object System.Windows.Forms.ListView
     $listAgents.View = 'Details'
@@ -172,6 +176,7 @@ function New-TransparencyTab {
         WebLogPath     = (Join-Path $HubRoot 'logs\transparency-web.log')
         WebErrLogPath  = (Join-Path $HubRoot 'logs\transparency-web.err.log')
         OnStatus       = $OnStatus
+        OnDefenderReview = $OnDefenderReview
         TestBusy       = $TestBusy
         ListAgents     = $listAgents
         ListRam        = $listRam
@@ -470,6 +475,24 @@ function New-TransparencyTab {
             -PsHost $pwshExe -Language $lang -OnStatus $st.OnStatus -ProcessId $pidVal -ProcessName $procName)
         $r = & $st.BuildReport -Quiet
         if ($r) { & $st.ShowReport $r }
+    })
+
+    $btnHitlPaths.Add_Click({
+        $st = Get-HubTransparencyPanel
+        if ($null -eq $st) { return }
+        if (-not (Get-Command Show-HitlPathsPanel -ErrorAction SilentlyContinue)) {
+            [System.Windows.Forms.MessageBox]::Show('HITL paths panel not loaded.', 'HITL') | Out-Null
+            return
+        }
+        $pwshExe = if (Get-Command Get-HubPwshExecutable -ErrorAction SilentlyContinue) {
+            Get-HubPwshExecutable
+        } else {
+            (Get-Command powershell.exe).Path
+        }
+        $lang = 'en'
+        if (Get-Command Get-I18nLang -ErrorAction SilentlyContinue) { $lang = Get-I18nLang }
+        Show-HitlPathsPanel -Owner $st.Tab.FindForm() -HubRoot $st.HubRoot -ScriptRoot $st.ScriptRoot `
+            -PsHost $pwshExe -Language $lang -OnStatus $st.OnStatus -OnDefenderReview $st.OnDefenderReview
     })
 
     $listRam.Add_DoubleClick({

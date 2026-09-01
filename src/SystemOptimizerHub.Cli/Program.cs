@@ -6,6 +6,7 @@ using SystemOptimizerHub.Core;
 using SystemOptimizerHub.Core.Catalog;
 using SystemOptimizerHub.Core.Models;
 using SystemOptimizerHub.Core.Config;
+using SystemOptimizerHub.Core.Defender;
 using SystemOptimizerHub.Core.Identify;
 using SystemOptimizerHub.Core.Pressure;
 using SystemOptimizerHub.Core.Transparency;
@@ -91,6 +92,7 @@ internal static class Program
         var hubRootOpt = new Option<string?>("--hub-root", () => null, "Hub repository root");
         var pwdFileOpt = new Option<FileInfo?>("--password-file", () => null, "Password file (temp, deleted after read)");
         var skipAuthOpt = new Option<bool>("--skip-auth", () => false, "Skip auth (smoke/tests only)");
+        var sessionTokenOpt = new Option<string?>("--session-token", () => null, "HITL session token (from auth session-start)");
 
         var mergeDirectCmd = new Command("merge-direct", "Direct catalog merge (parity/smoke, no HITL pipeline gate)");
         mergeDirectCmd.AddOption(mergeNameOpt);
@@ -243,6 +245,137 @@ internal static class Program
         });
 
         resolveCmd.AddCommand(advisoryCmd);
+
+        var planCmd = new Command("plan", "Plan resolution outcome (dry-run default; no OS mutation)");
+        var actionPlanOpt = new Option<string>("--action", () => "Advisory", "Observe|ThrottleBelowNormal|Terminate|Advisory|...");
+        var dryRunOpt = new Option<bool>("--dry-run", () => true, "Plan only (default true)");
+        var notRunningOpt = new Option<bool>("--not-running", () => false, "Treat process as not running");
+        var confirmOpt = new Option<string?>("--confirm-phrase", () => null, "HITL confirm phrase");
+        planCmd.AddOption(actionPlanOpt);
+        planCmd.AddOption(dryRunOpt);
+        planCmd.AddOption(notRunningOpt);
+        planCmd.AddOption(confirmOpt);
+        planCmd.AddOption(nameOpt);
+        planCmd.AddOption(pidOpt);
+        planCmd.AddOption(ramMbOpt);
+        planCmd.AddOption(confOpt);
+        planCmd.AddOption(categoryOpt);
+        planCmd.AddOption(trustOpt);
+        planCmd.AddOption(whatOpt);
+        planCmd.AddOption(opDecOpt);
+        planCmd.AddOption(catalogOpt);
+        planCmd.AddOption(configOpt);
+        planCmd.AddOption(skipAuthOpt);
+        planCmd.SetHandler((InvocationContext ctx) =>
+        {
+            var action = ctx.ParseResult.GetValueForOption(actionPlanOpt)!;
+            var dryRun = ctx.ParseResult.GetValueForOption(dryRunOpt);
+            var notRunning = ctx.ParseResult.GetValueForOption(notRunningOpt);
+            var confirmPhrase = ctx.ParseResult.GetValueForOption(confirmOpt);
+            var name = ctx.ParseResult.GetValueForOption(nameOpt)!;
+            var pid = ctx.ParseResult.GetValueForOption(pidOpt);
+            var ramMb = ctx.ParseResult.GetValueForOption(ramMbOpt);
+            var confidence = ctx.ParseResult.GetValueForOption(confOpt);
+            var category = ctx.ParseResult.GetValueForOption(categoryOpt)!;
+            var trustLevel = ctx.ParseResult.GetValueForOption(trustOpt)!;
+            var whatItIs = ctx.ParseResult.GetValueForOption(whatOpt)!;
+            var operatorDecision = ctx.ParseResult.GetValueForOption(opDecOpt);
+            var skipAuth = ctx.ParseResult.GetValueForOption(skipAuthOpt);
+            var catalogFile = ctx.ParseResult.GetValueForOption(catalogOpt);
+            var configFile = ctx.ParseResult.GetValueForOption(configOpt);
+
+            var catalogPath = ResolveCatalogPath(catalogFile);
+            var catalog = CatalogLoader.LoadFromFile(catalogPath);
+            var nec = ProcessNecessityResolver.Resolve(name, catalog);
+            var configPath = configFile?.Exists == true
+                ? configFile.FullName
+                : TryResolveConfigPath("process-resolution.json");
+            var resCfg = configPath is not null
+                ? ResolutionConfigLoader.LoadFromFile(configPath)
+                : ResolutionConfigLoader.CreateDefault();
+
+            var snap = new ProcessSnapshotInput(pid, name, ramMb, notRunning);
+            var hint = new KnowledgeHintInput(confidence, trustLevel, whatItIs, category);
+            var adv = ResolutionAdvisoryService.BuildAdvisory(snap, hint, resCfg, nec, operatorDecision);
+            var result = ResolutionExecutionService.Plan(
+                action, dryRun, snap, adv, nec, resCfg, confirmPhrase, skipAuth, authVerified: skipAuth);
+            Console.WriteLine(JsonSerializer.Serialize(result, JsonOut));
+            if (result.Outcome is "AuthRequired" or "ConfirmPhraseRequired" or "TerminateBlocked")
+                Environment.ExitCode = 1;
+        });
+        resolveCmd.AddCommand(planCmd);
+
+        var applyCmd = new Command("apply", "Apply resolution action (live; requires HITL session)");
+        applyCmd.AddOption(actionPlanOpt);
+        applyCmd.AddOption(confirmOpt);
+        applyCmd.AddOption(sessionTokenOpt);
+        applyCmd.AddOption(nameOpt);
+        applyCmd.AddOption(pidOpt);
+        applyCmd.AddOption(ramMbOpt);
+        applyCmd.AddOption(confOpt);
+        applyCmd.AddOption(categoryOpt);
+        applyCmd.AddOption(trustOpt);
+        applyCmd.AddOption(whatOpt);
+        applyCmd.AddOption(opDecOpt);
+        applyCmd.AddOption(catalogOpt);
+        applyCmd.AddOption(configOpt);
+        applyCmd.AddOption(skipAuthOpt);
+        applyCmd.SetHandler(async (InvocationContext ctx) =>
+        {
+            if (!OperatingSystem.IsWindows())
+            {
+                Console.Error.WriteLine("resolve apply requires Windows.");
+                Environment.ExitCode = 2;
+                return;
+            }
+
+            var action = ctx.ParseResult.GetValueForOption(actionPlanOpt)!;
+            var confirmPhrase = ctx.ParseResult.GetValueForOption(confirmOpt);
+            var sessionToken = ctx.ParseResult.GetValueForOption(sessionTokenOpt);
+            var name = ctx.ParseResult.GetValueForOption(nameOpt)!;
+            var pid = ctx.ParseResult.GetValueForOption(pidOpt);
+            var ramMb = ctx.ParseResult.GetValueForOption(ramMbOpt);
+            var skipAuth = ctx.ParseResult.GetValueForOption(skipAuthOpt);
+            var catalogFile = ctx.ParseResult.GetValueForOption(catalogOpt);
+            var configFile = ctx.ParseResult.GetValueForOption(configOpt);
+            var confidence = ctx.ParseResult.GetValueForOption(confOpt);
+            var category = ctx.ParseResult.GetValueForOption(categoryOpt)!;
+            var trustLevel = ctx.ParseResult.GetValueForOption(trustOpt)!;
+            var whatItIs = ctx.ParseResult.GetValueForOption(whatOpt)!;
+            var operatorDecision = ctx.ParseResult.GetValueForOption(opDecOpt);
+
+            var authOk = skipAuth || OperatorHitlSessionStore.TryValidate(sessionToken, out _);
+            if (!authOk)
+            {
+                Console.Error.WriteLine("HITL session expired or missing.");
+                Environment.ExitCode = 1;
+                return;
+            }
+
+            var catalogPath = ResolveCatalogPath(catalogFile);
+            var catalog = CatalogLoader.LoadFromFile(catalogPath);
+            var nec = ProcessNecessityResolver.Resolve(name, catalog);
+            var configPath = configFile?.Exists == true
+                ? configFile.FullName
+                : TryResolveConfigPath("process-resolution.json");
+            var resCfg = configPath is not null
+                ? ResolutionConfigLoader.LoadFromFile(configPath)
+                : ResolutionConfigLoader.CreateDefault();
+
+            var snap = new ProcessSnapshotInput(pid, name, ramMb);
+            var hint = new KnowledgeHintInput(confidence, trustLevel, whatItIs, category);
+            var adv = ResolutionAdvisoryService.BuildAdvisory(snap, hint, resCfg, nec, operatorDecision);
+            var hubRoot = ResolveHubRoot(null);
+            var rollbackDir = Path.Combine(hubRoot, "logs");
+            var platform = WindowsPlatform.CreateServices();
+            var result = await ResolutionExecutionService.ApplyAsync(
+                action, snap, adv, nec, resCfg, platform.ProcessMutator,
+                confirmPhrase, skipAuth, authVerified: authOk, rollbackDir);
+            Console.WriteLine(JsonSerializer.Serialize(result, JsonOut));
+            if (result.Outcome is "AuthRequired" or "ConfirmPhraseRequired" or "TerminateBlocked" or "ActionBlocked")
+                Environment.ExitCode = 1;
+        });
+        resolveCmd.AddCommand(applyCmd);
         root.AddCommand(resolveCmd);
 
         var analyzeCmd = new Command("analyze", "Process pressure analysis (migration preview)");
@@ -421,8 +554,177 @@ internal static class Program
                 TryDeletePasswordFile(pwdFile);
             }
         }, pwdFileOpt, skipAuthOpt);
+
+        var sessionStartCmd = new Command("session-start", "Start HITL session (~45 min; password once)");
+        sessionStartCmd.AddOption(pwdFileOpt);
+        sessionStartCmd.AddOption(skipAuthOpt);
+        sessionStartCmd.SetHandler((pwdFile, skipAuth) =>
+        {
+            if (!OperatingSystem.IsWindows())
+            {
+                Console.Error.WriteLine("auth session-start requires Windows.");
+                Environment.ExitCode = 2;
+                return;
+            }
+
+            try
+            {
+                var password = ReadPassword(pwdFile);
+                var token = WindowsOperatorAuth.StartSession(password, skipAuth);
+                var identity = WindowsOperatorAuth.GetCurrentIdentity();
+                Console.WriteLine(JsonSerializer.Serialize(new
+                {
+                    ok = true,
+                    sessionToken = token,
+                    expiresInMinutes = 45,
+                    identity
+                }, JsonOut));
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine(ex.Message);
+                Environment.ExitCode = 1;
+            }
+            finally
+            {
+                TryDeletePasswordFile(pwdFile);
+            }
+        }, pwdFileOpt, skipAuthOpt);
+
+        authCmd.AddCommand(sessionStartCmd);
         authCmd.AddCommand(verifyCmd);
         root.AddCommand(authCmd);
+
+        var defenderCmd = new Command("defender", "Defender extreme necessity (evaluate + HITL apply)");
+        var evalCmd = new Command("evaluate", "Evaluate MsMpEng pressure tier from PPI report JSON");
+        var defenderInputOpt = new Option<FileInfo?>("--input", () => null, "ProcessPressureReport JSON");
+        evalCmd.AddOption(defenderInputOpt);
+        evalCmd.AddOption(catalogOpt);
+        evalCmd.SetHandler((inputFile, catalogFile) =>
+        {
+            if (!OperatingSystem.IsWindows())
+            {
+                Console.Error.WriteLine("defender evaluate requires Windows for platform status.");
+                Environment.ExitCode = 2;
+                return;
+            }
+
+            ProcessPressureReport? report = null;
+            if (inputFile is not null && inputFile.Exists)
+            {
+                report = JsonSerializer.Deserialize<ProcessPressureReport>(
+                    File.ReadAllText(inputFile.FullName),
+                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            }
+
+            var catalogPath = ResolveCatalogPath(catalogFile);
+            var catalog = CatalogLoader.LoadFromFile(catalogPath);
+            var row = DefenderExtremeNecessityEvaluator.FindMsMpEngRow(report);
+            var status = WindowsDefenderStatusProvider.GetStatus();
+            var isAdmin = WindowsDefenderStatusProvider.IsCurrentUserAdmin();
+            var eval = DefenderExtremeNecessityEvaluator.Evaluate(
+                row, catalog.ExtremeNecessityDefender, status, isAdmin);
+            Console.WriteLine(JsonSerializer.Serialize(eval, JsonOut));
+        }, defenderInputOpt, catalogOpt);
+        defenderCmd.AddCommand(evalCmd);
+
+        var applyDefCmd = new Command("apply", "Apply Defender extreme-necessity tier (HITL; session required)");
+        var evalFileOpt = new Option<FileInfo>("--evaluation", "DefenderExtremeNecessityEvaluation JSON") { IsRequired = true };
+        var tierOpt = new Option<string>("--tier", "TuneExclusions|TemporaryRealtimeOff|ExtremeServiceDisable") { IsRequired = true };
+        var reasonOpt = new Option<string>("--reason-code", () => "DevBuild", "DevBuild|EmergencyPerf|ForensicCapture|VendorSupport");
+        var exclusionOpt = new Option<string[]>("--exclusion-path", () => [], "Exclusion paths (TuneExclusions)");
+        var reenableOpt = new Option<int>("--auto-reenable-minutes", () => 0, "Scheduled restore delay");
+        var dryRunDefOpt = new Option<bool>("--dry-run", () => false, "Plan rollback only");
+        var understandOpt = new Option<bool>("--understand-risk", () => false, "HITL: I understand risk");
+        var confirmExtremeOpt = new Option<bool>("--confirm-extreme-disable", () => false, "Second gate for ExtremeServiceDisable");
+        var defOutOpt = new Option<FileInfo?>("--output", () => null, "Write apply result JSON");
+        applyDefCmd.AddOption(evalFileOpt);
+        applyDefCmd.AddOption(tierOpt);
+        applyDefCmd.AddOption(reasonOpt);
+        applyDefCmd.AddOption(exclusionOpt);
+        applyDefCmd.AddOption(reenableOpt);
+        applyDefCmd.AddOption(dryRunDefOpt);
+        applyDefCmd.AddOption(understandOpt);
+        applyDefCmd.AddOption(confirmExtremeOpt);
+        applyDefCmd.AddOption(defOutOpt);
+        applyDefCmd.AddOption(sessionTokenOpt);
+        applyDefCmd.AddOption(skipAuthOpt);
+        applyDefCmd.SetHandler(async (InvocationContext ctx) =>
+        {
+            if (!OperatingSystem.IsWindows())
+            {
+                Console.Error.WriteLine("defender apply requires Windows.");
+                Environment.ExitCode = 2;
+                return;
+            }
+
+            var evalFile = ctx.ParseResult.GetValueForOption(evalFileOpt)!;
+            var tier = ctx.ParseResult.GetValueForOption(tierOpt)!;
+            var reasonCode = ctx.ParseResult.GetValueForOption(reasonOpt)!;
+            var exclusions = ctx.ParseResult.GetValueForOption(exclusionOpt)!;
+            var reenable = ctx.ParseResult.GetValueForOption(reenableOpt);
+            var dryRun = ctx.ParseResult.GetValueForOption(dryRunDefOpt);
+            var understand = ctx.ParseResult.GetValueForOption(understandOpt);
+            var confirmExtreme = ctx.ParseResult.GetValueForOption(confirmExtremeOpt);
+            var output = ctx.ParseResult.GetValueForOption(defOutOpt);
+            var sessionToken = ctx.ParseResult.GetValueForOption(sessionTokenOpt);
+            var skipAuth = ctx.ParseResult.GetValueForOption(skipAuthOpt);
+
+            if (!skipAuth && !OperatorHitlSessionStore.TryValidate(sessionToken, out _))
+            {
+                Console.Error.WriteLine("HITL session expired or missing.");
+                Environment.ExitCode = 1;
+                return;
+            }
+
+            var evaluation = JsonSerializer.Deserialize<DefenderExtremeNecessityEvaluation>(
+                await File.ReadAllTextAsync(evalFile.FullName),
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            if (evaluation is null)
+            {
+                Console.Error.WriteLine("Invalid evaluation JSON.");
+                Environment.ExitCode = 1;
+                return;
+            }
+
+            var hubRoot = ResolveHubRoot(null);
+            var options = new DefenderExtremeApplyOptions
+            {
+                Tier = tier,
+                ReasonCode = reasonCode,
+                ExclusionPaths = exclusions,
+                AutoReenableMinutes = reenable,
+                DryRun = dryRun,
+                IUnderstandRisk = understand,
+                ConfirmExtremeDisable = confirmExtreme,
+                RollbackDirectory = Path.Combine(hubRoot, "logs"),
+                RestoreScriptPath = Path.Combine(hubRoot, "scripts", "restore-defender-from-rollback.ps1")
+            };
+
+            try
+            {
+                var platform = WindowsPlatform.CreateServices();
+                var result = await DefenderExtremeNecessityApplyService.ApplyAsync(
+                    evaluation, options, platform.DefenderPolicy,
+                    WindowsDefenderStatusProvider.GetStatus);
+                var json = JsonSerializer.Serialize(result, JsonOut);
+                if (output is not null)
+                {
+                    var dir = output.DirectoryName;
+                    if (!string.IsNullOrEmpty(dir))
+                        Directory.CreateDirectory(dir);
+                    await File.WriteAllTextAsync(output.FullName, json);
+                }
+                Console.WriteLine(json);
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine(ex.Message);
+                Environment.ExitCode = 1;
+            }
+        });
+        defenderCmd.AddCommand(applyDefCmd);
+        root.AddCommand(defenderCmd);
 
         return await root.InvokeAsync(args);
     }

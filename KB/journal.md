@@ -2539,10 +2539,72 @@ Phase 2 NBD (read-only): `hub resolve plan` + `hub defender evaluate` — Hub Co
 - HUB_USE_CORE=1 su path mutanti produzione — non approvato
 
 ### Quality gate
-- dotnet test, test-core-parity.ps1, test-hub-smoke.ps1, test-identify-chain-e2e.ps1
+- dotnet test 24/24 PASS
+- test-core-parity.ps1 ALL PASSED (+ resolve plan, defender evaluate)
+- test-hub-smoke.ps1 ALL PASSED (+ hub-resolve-plan-*, hub-defender-evaluate)
+- test-identify-chain-e2e.ps1 ALL PASSED
+- package-suite.ps1 -> dist/WindowsOptimizer/hub/
 
-### Deliverable
-- Hub Core 0.6.0, Linux package 0.6.0
+### Esito
+ALL gates PASS; Hub Core 0.6.0 deployato in dist
+
+## 2026-09-01 09:05:00
+### Obiettivo
+Documentazione data-driven sui 3 path HITL Phase 3 per decisione operatore
+
+### Task
+- KB/hub-hitl-paths-decision.md (flussi, pro/contro, matrice NBD, checklist GO)
+- .cursor/skills/hub-hitl-migration-decision/SKILL.md (workflow agente)
+- Link da KB/README, migration-nbd-quality-gate, migration-roadmap
+
+### Decisioni
+- Path 1 (resolve apply) raccomandato prima di Path 2 (defender apply) per RegressionRisk e UserValue
+- HUB_USE_CORE è rollout per dominio, non alternativa — solo dopo parity apply
+
+### Esito
+Documentazione pronta; decision log tabella vuota in attesa scelta operatore
+
+## 2026-09-01 09:30:00
+### Obiettivo
+HITL UX: pannello 3 path, session auth once, composite max tiers, hub resolve apply
+
+### Task
+- Session HITL: Start-OperatorHitlSession (~45min), Assert-OperatorAuth (PS + Core OperatorHitlSessionStore)
+- GUI: hitl-paths-panel.ps1 + Control tab HITL Paths button; wizard usa sessionToken
+- Web: /api/operator/session/start, sessionStorage token
+- Composite tiers: 85/90/95; MinCompositeScoreForPrompt=85
+- Core: hub resolve apply, hub auth session-start (v0.7.0)
+- migration-nbd: phase3-resolve-apply done
+
+### Esito
+dotnet test 24/24; parity ALL PASSED; smoke ALL PASSED; package-suite deploy v0.7.0
+
+## 2026-09-01 11:10:00
+### Obiettivo
+Decision log strutturato per efficacia HITL + feed automatico NBD (Phase 4 readiness)
+
+### Task
+- `scripts/lib/hub-decision-log.ps1`: JSONL `logs/hub-decision-log.jsonl` + snapshot `logs/hub-decision-effectiveness-latest.json`
+- Wire: session start/end, resolve apply, identify, defender apply, NBD evaluate
+- `evaluate-migration-nbd.ps1`: include `DecisionEffectiveness` + `EffectivenessReady` on NextBestDecision
+- Fix session file-backed auth (subprocess); web UX session logged-in only
+
+### Esito
+Web HITL validato operatore; NBD next = phase4-hub-use-core con segnali effectiveness automatici
+
+## 2026-09-01 12:00:00
+### Obiettivo
+Phase 4 NBD (`HUB_USE_CORE`) + Phase 5 network deep scan panel (multi-layer cybersec)
+
+### Task
+- `hub-core-routing.ps1`: Core routing per defender evaluate quando `HUB_USE_CORE=1`
+- `network-deep-scan.ps1` + `scan-network-deep.ps1`: cross netstat, UDP, DNS, Tor heuristics, ghost PID, memory forensics
+- Web transparency: tab Connessioni/Listener/Findings + Deep scan API
+- Hub v0.7.2; migration-nbd phase4 done, phase5 next
+- Smoke: network-deep-scan + hub-use-core-defender-evaluate
+
+### Esito
+Gate completo verde: dotnet 27/27, parity, smoke (+ network-deep-scan, HUB_USE_CORE), e2e, NBD → phase5-network-deep-panel next, package dist. Hub Core v0.7.2.
 
 ## 2026-09-01 08:41:27
 ### Obiettivo

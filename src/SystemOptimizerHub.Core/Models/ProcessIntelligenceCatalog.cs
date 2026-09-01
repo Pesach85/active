@@ -24,6 +24,9 @@ public sealed class ProcessIntelligenceCatalog
 
     [JsonPropertyName("knownApplications")]
     public Dictionary<string, KnownApplicationEntry> KnownApplications { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
+    [JsonPropertyName("extremeNecessityDefender")]
+    public ExtremeNecessityDefenderConfig? ExtremeNecessityDefender { get; set; }
 }
 
 public sealed class KnownApplicationEntry

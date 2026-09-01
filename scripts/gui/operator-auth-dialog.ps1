@@ -90,6 +90,110 @@ function Show-OperatorPasswordDialog {
     return @{ Ok = $script:authOk; Password = $script:authPassword }
 }
 
+function Show-OperatorHitlSessionDialog {
+    param(
+        [System.Windows.Forms.Form]$Owner = $null,
+        [string]$Language = 'en'
+    )
+
+    $it = ($Language -eq 'it')
+    $identity = if (Get-Command Get-OperatorWindowsIdentity -ErrorAction SilentlyContinue) {
+        Get-OperatorWindowsIdentity
+    } else {
+        @{ UserName = [Environment]::UserName; Domain = $env:USERDOMAIN }
+    }
+
+    $form = New-Object System.Windows.Forms.Form
+    $form.Text = if ($it) { 'Sblocco sessione HITL' } else { 'Unlock HITL session' }
+    $form.Size = New-Object System.Drawing.Size(520, 320)
+    $form.StartPosition = 'CenterParent'
+    $form.FormBorderStyle = 'FixedDialog'
+    $form.MaximizeBox = $false
+    $form.MinimizeBox = $false
+    $form.BackColor = $clrBg
+    $form.ForeColor = $clrText
+    $form.Font = $fntUI
+
+    $lblIntro = New-Object System.Windows.Forms.Label
+    $lblIntro.Text = if ($it) {
+        "Una sola verifica per sessione (~45 min). Password + consapevolezza rischi.`nUtente: $($identity.Domain)\$($identity.UserName)"
+    } else {
+        "One verification per session (~45 min). Password + risk awareness.`nUser: $($identity.Domain)\$($identity.UserName)"
+    }
+    $lblIntro.AutoSize = $true
+    $lblIntro.MaximumSize = New-Object System.Drawing.Size(480, 0)
+    $lblIntro.Location = New-Object System.Drawing.Point(12, 12)
+
+    $chkHuman = New-Object System.Windows.Forms.CheckBox
+    $chkHuman.Text = if ($it) { 'Confermo di essere l operatore umano a questa console' } else { 'I confirm I am the human operator at this console' }
+    $chkHuman.AutoSize = $true
+    $chkHuman.Location = New-Object System.Drawing.Point(12, 72)
+
+    $chkRisk = New-Object System.Windows.Forms.CheckBox
+    $chkRisk.Text = if ($it) { 'Comprendo che throttle/terminate/Defender possono danneggiare il sistema' } else { 'I understand throttle/terminate/Defender actions can harm the system' }
+    $chkRisk.AutoSize = $true
+    $chkRisk.MaximumSize = New-Object System.Drawing.Size(480, 0)
+    $chkRisk.Location = New-Object System.Drawing.Point(12, 98)
+
+    $chkResp = New-Object System.Windows.Forms.CheckBox
+    $chkResp.Text = if ($it) { 'Accetto responsabilita per le azioni di questa sessione' } else { 'I accept responsibility for actions in this session' }
+    $chkResp.AutoSize = $true
+    $chkResp.Location = New-Object System.Drawing.Point(12, 138)
+
+    $lblPwd = New-Object System.Windows.Forms.Label
+    $lblPwd.Text = if ($it) { 'Password Windows (solo ora):' } else { 'Windows password (once now):' }
+    $lblPwd.AutoSize = $true
+    $lblPwd.Location = New-Object System.Drawing.Point(12, 172)
+
+    $tbPwd = New-Object System.Windows.Forms.TextBox
+    $tbPwd.UseSystemPasswordChar = $true
+    $tbPwd.Width = 460
+    $tbPwd.Location = New-Object System.Drawing.Point(12, 192)
+
+    $btnOk = New-Btn $(if ($it) { 'Sblocca sessione' } else { 'Unlock session' }) $clrAccent 140 32
+    $btnOk.Location = New-Object System.Drawing.Point(12, 232)
+    $btnCancel = New-Btn $(if ($it) { 'Annulla' } else { 'Cancel' }) $clrRaised 100 32
+    $btnCancel.Location = New-Object System.Drawing.Point(158, 232)
+
+    $form.Controls.AddRange(@($lblIntro, $chkHuman, $chkRisk, $chkResp, $lblPwd, $tbPwd, $btnOk, $btnCancel))
+    $form.AcceptButton = $btnOk
+    $form.CancelButton = $btnCancel
+
+    $script:sessionOk = $false
+    $script:sessionToken = $null
+
+    $btnOk.Add_Click({
+        if (-not $chkHuman.Checked -or -not $chkRisk.Checked -or -not $chkResp.Checked) {
+            [void][System.Windows.Forms.MessageBox]::Show(
+                $(if ($it) { 'Seleziona tutte le caselle di consapevolezza.' } else { 'Check all awareness boxes.' }),
+                $form.Text, 'OK', 'Warning')
+            return
+        }
+        if ([string]::IsNullOrWhiteSpace($tbPwd.Text)) {
+            [void][System.Windows.Forms.MessageBox]::Show(
+                $(if ($it) { 'Password obbligatoria per aprire la sessione.' } else { 'Password required to open session.' }),
+                $form.Text, 'OK', 'Warning')
+            return
+        }
+        try {
+            $sess = Start-OperatorHitlSession -Password $tbPwd.Text -RiskAcknowledged -HumanPresent
+            $script:sessionToken = [string]$sess.Token
+            $script:sessionOk = $true
+            $form.DialogResult = 'OK'
+            $form.Close()
+        } catch {
+            [void][System.Windows.Forms.MessageBox]::Show($_.Exception.Message, $form.Text, 'OK', 'Error')
+        }
+    })
+    $btnCancel.Add_Click({ $script:sessionOk = $false; $form.DialogResult = 'Cancel'; $form.Close() })
+
+    if ($Owner) { [void]$form.ShowDialog($Owner) } else { [void]$form.ShowDialog() }
+    $tbPwd.Text = ''
+    if (-not $script:sessionOk) { return @{ Ok = $false } }
+    $sess = Get-OperatorHitlSession
+    return @{ Ok = $true; SessionToken = $script:sessionToken; ExpiresAt = $sess.ExpiresAt }
+}
+
 function Show-ProcessPickerDialog {
     param(
         [System.Windows.Forms.Form]$Owner = $null,

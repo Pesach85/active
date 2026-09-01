@@ -183,6 +183,9 @@
         }
       },
       "SystemOptimizerHub.Core/1.0.0": {
+        "dependencies": {
+          "SystemOptimizerHub.Abstractions": "1.0.0"
+        },
         "runtime": {
           "SystemOptimizerHub.Core.dll": {
             "assemblyVersion": "1.0.0.0",

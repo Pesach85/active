@@ -14,6 +14,7 @@ public sealed class LinuxPlatformServices : IPlatformServices
 
     public IProcessSnapshotProvider ProcessSnapshots { get; } = new LinuxProcessSnapshotProvider();
     public IProcessMutator ProcessMutator { get; } = new LinuxProcessMutator();
+    public IDefenderPolicyMutator DefenderPolicy { get; } = new LinuxDefenderPolicyMutatorStub();
 
     private static string ReadOsReleasePrettyName()
     {
@@ -86,6 +87,18 @@ internal sealed class LinuxProcessMutator : IProcessMutator
 
     public Task TerminateAsync(int processId, CancellationToken ct = default) =>
         throw new PlatformNotSupportedException("Terminate on Linux requires explicit HITL Phase 2 implementation.");
+}
+
+internal sealed class LinuxDefenderPolicyMutatorStub : IDefenderPolicyMutator
+{
+    private static Exception Ex() => new PlatformNotSupportedException("Defender apply requires Windows.");
+
+    public Task AddExclusionPathAsync(string path, CancellationToken ct = default) => throw Ex();
+    public Task SetRealtimeMonitoringAsync(bool enabled, CancellationToken ct = default) => throw Ex();
+    public Task<DefenderServiceState?> GetWinDefendServiceStateAsync(CancellationToken ct = default) => throw Ex();
+    public Task StopWinDefendServiceAsync(CancellationToken ct = default) => throw Ex();
+    public Task SetWinDefendStartupManualAsync(CancellationToken ct = default) => throw Ex();
+    public Task RegisterRollbackReenableTaskAsync(string rollbackJsonPath, string restoreScriptPath, int delayMinutes, string taskName, CancellationToken ct = default) => throw Ex();
 }
 
 public static class LinuxPlatform

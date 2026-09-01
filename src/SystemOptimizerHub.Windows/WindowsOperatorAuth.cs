@@ -71,6 +71,33 @@ public static class WindowsOperatorAuth
         return new OperatorAuthResult(true, false, identity);
     }
 
+    public static OperatorAuthResult AssertAuth(string? password, string? sessionToken, bool skipAuth)
+    {
+        var identity = GetCurrentIdentity();
+        if (skipAuth)
+            return new OperatorAuthResult(true, true, identity);
+
+        if (OperatorHitlSessionStore.TryValidate(sessionToken, out _))
+            return new OperatorAuthResult(true, false, identity);
+
+        if (!string.IsNullOrWhiteSpace(password))
+            return AssertPassword(password, skipAuth: false);
+
+        throw new InvalidOperationException("HITL session expired or missing. Unlock from HITL Paths panel first.");
+    }
+
+    public static string StartSession(string password, bool skipAuth, TimeSpan? ttl = null)
+    {
+        if (!skipAuth)
+        {
+            if (!ValidatePassword(password))
+                throw new InvalidOperationException("Windows password verification failed - session blocked.");
+        }
+
+        var identity = GetCurrentIdentity();
+        return OperatorHitlSessionStore.Start(identity.FullName, ttl ?? TimeSpan.FromMinutes(45), riskAcknowledged: true);
+    }
+
     private static bool PrincipalContextValidate(string userName, string password, string domain)
     {
         // System.DirectoryServices.AccountManagement when available

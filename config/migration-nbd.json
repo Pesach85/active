@@ -98,6 +98,120 @@
         "EffortInverse": 35
       },
       "Rationale": "Requires operator auth port. Phase 2 after read-only Phase 1 stable."
+    },
+    {
+      "Id": "phase2-resolve-plan",
+      "Phase": 2,
+      "Title": "Port resolve plan (dry-run outcomes) to Core",
+      "Status": "done",
+      "HitlRequired": false,
+      "BlockedBy": ["phase1-resolution-advisory"],
+      "PsOrigin": "scripts/resolve-unknown-process.ps1",
+      "CoreTarget": "ResolutionExecutionService",
+      "Deliverable": "hub resolve plan",
+      "Scores": {
+        "ParityFeasibility": 90,
+        "RegressionRiskInverse": 88,
+        "UserValue": 85,
+        "GateReadiness": 90,
+        "EffortInverse": 75
+      },
+      "Rationale": "Read-only planning parity with PS -DryRun and ActionBlocked gates. Live apply deferred (HITL)."
+    },
+    {
+      "Id": "phase2-defender-evaluate",
+      "Phase": 2,
+      "Title": "Port Defender extreme necessity evaluation (read-only)",
+      "Status": "done",
+      "HitlRequired": false,
+      "BlockedBy": ["phase1-ppi-analyze"],
+      "PsOrigin": "scripts/evaluate-defender-extreme-necessity.ps1",
+      "CoreTarget": "DefenderExtremeNecessityEvaluator",
+      "Deliverable": "hub defender evaluate",
+      "Scores": {
+        "ParityFeasibility": 85,
+        "RegressionRiskInverse": 90,
+        "UserValue": 80,
+        "GateReadiness": 88,
+        "EffortInverse": 70
+      },
+      "Rationale": "Tier scoring read-only. Apply path (disable Defender) remains HITL-blocked."
+    },
+    {
+      "Id": "phase3-resolve-apply",
+      "Phase": 3,
+      "Title": "Live resolve apply (throttle/terminate)",
+      "Status": "done",
+      "HitlRequired": true,
+      "BlockedBy": ["phase2-resolve-plan"],
+      "PsOrigin": "scripts/resolve-unknown-process.ps1",
+      "CoreTarget": "ResolutionExecutionService.Apply",
+      "Deliverable": "hub resolve apply + session HITL",
+      "Scores": {
+        "ParityFeasibility": 70,
+        "RegressionRiskInverse": 30,
+        "UserValue": 95,
+        "GateReadiness": 25,
+        "EffortInverse": 50
+      },
+      "Rationale": "Requires password + confirm phrase + OS mutation. Operator must approve HUB_USE_CORE on production paths."
+    },
+    {
+      "Id": "phase3-defender-apply",
+      "Phase": 3,
+      "Title": "Apply Defender extreme necessity tiers",
+      "Status": "done",
+      "HitlRequired": true,
+      "BlockedBy": ["phase2-defender-evaluate"],
+      "PsOrigin": "scripts/apply-defender-extreme-necessity.ps1",
+      "CoreTarget": "DefenderExtremeNecessityApplyService",
+      "Deliverable": "hub defender apply + session HITL",
+      "Scores": {
+        "ParityFeasibility": 55,
+        "RegressionRiskInverse": 15,
+        "UserValue": 75,
+        "GateReadiness": 20,
+        "EffortInverse": 40
+      },
+      "Rationale": "Maximum risk - disables AV. Mandatory HITL, rollback JSON, Tamper Protection off."
+    },
+    {
+      "Id": "phase4-hub-use-core",
+      "Phase": 4,
+      "Title": "HUB_USE_CORE rollout (parity domains → C# CLI)",
+      "Status": "done",
+      "HitlRequired": true,
+      "BlockedBy": ["phase3-resolve-apply", "phase3-defender-apply"],
+      "PsOrigin": "scripts/lib/hub-core-routing.ps1",
+      "CoreTarget": "Hub CLI routing layer",
+      "Deliverable": "HUB_USE_CORE=1 read-only: defender evaluate (+ fallback PS)",
+      "Scores": {
+        "ParityFeasibility": 82,
+        "RegressionRiskInverse": 70,
+        "UserValue": 88,
+        "GateReadiness": 85,
+        "EffortInverse": 65
+      },
+      "Rationale": "Phase 3 HITL paths done and gated. Roll out Core routing per domain after operator enables flag in HITL panel; apply paths remain HITL-gated."
+    },
+    {
+      "Id": "phase5-network-deep-panel",
+      "Phase": 5,
+      "Title": "Network deep scan panel + hidden connection actions",
+      "Status": "next",
+      "HitlRequired": false,
+      "BlockedBy": ["phase4-hub-use-core"],
+      "PsOrigin": "scripts/lib/network-deep-scan.ps1",
+      "CoreTarget": "NetworkDeepScanService (future C# port)",
+      "Deliverable": "Multi-layer scan + web panel actions + ETW/WFP admin layer",
+      "Scores": {
+        "ParityFeasibility": 68,
+        "RegressionRiskInverse": 75,
+        "UserValue": 92,
+        "GateReadiness": 70,
+        "EffortInverse": 55
+      },
+      "Rationale": "Cybersec deep visibility: netstat cross-diff, UDP, DNS cache, Tor heuristics, memory forensics, ghost PID detection."
     }
   ]
 }

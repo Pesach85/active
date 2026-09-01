@@ -1,5 +1,4 @@
 {
-  "UpdatedAt": "2026-08-31T12:53:45.5745722+02:00",
   "Entries": {
     "vmware-vmx": {
       "ProcessName": "vmware-vmx",
@@ -21,6 +20,50 @@
       "OperatorNote": "",
       "ImagePath": "C:\\Program Files (x86)\\VMware\\VMware Workstation\\x64\\vmware-vmx.exe"
     },
+    "dotnet": {
+      "ProcessName": "dotnet",
+      "WhatItIs": ".NET Host",
+      "WhatItDoes": "Product: .NET by Microsoft Corporation",
+      "SuggestedCategory": "IDE",
+      "SuggestedPriority": "Tune",
+      "ResourceProfile": "Mixed",
+      "BusinessHint": "",
+      "SuggestedActions": [
+        "Operator manual identification - catalog auto-merge on auth"
+      ],
+      "Confidence": 0.98,
+      "Sources": [
+        "operator-manual",
+        "PID=10956"
+      ],
+      "LearnedAt": "2026-09-01T10:37:56.0473732+02:00",
+      "OperatorNote": "",
+      "ImagePath": "C:\\Program Files\\dotnet\\dotnet.exe"
+    },
+    "mysqld": {
+      "ProcessName": "mysqld",
+      "WhatItIs": "MySQL/MariaDB database server daemon",
+      "WhatItDoes": "Serves SQL databases; RAM scales with buffer pool and connections",
+      "SuggestedCategory": "Database",
+      "SuggestedPriority": "Keep",
+      "ResourceProfile": "MemoryHeavy",
+      "BusinessHint": "Keep if local apps (WordPress, dev stack) need DB; stop service when not developing",
+      "SuggestedActions": [
+        "Confirm which app uses the DB",
+        "Lower innodb_buffer_pool_size if over-provisioned",
+        "Stop MySQL Windows service when unused"
+      ],
+      "Confidence": 0.98,
+      "Sources": [
+        "operator-manual",
+        "PID=7136",
+        "kb-seed",
+        "https://dev.mysql.com/doc/refman/8.0/en/mysqld.html"
+      ],
+      "LearnedAt": "2026-08-31T12:51:39.7501891+02:00",
+      "OperatorNote": "",
+      "ImagePath": "D:\\MySQL9_7Server\\bin\\mysqld.exe"
+    },
     "mkssandbox": {
       "ProcessName": "mksSandbox",
       "WhatItIs": "VMware VMX sandbox helper (isolated GUI/input for guest)",
@@ -28,7 +71,7 @@
       "SuggestedCategory": "Virtualization",
       "SuggestedPriority": "Keep",
       "ResourceProfile": "MemoryHeavy",
-      "BusinessHint": "Child of VMware stack Ã¢â‚¬â€ classify with vmware-vmx",
+      "BusinessHint": "Child of VMware stack ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â classify with vmware-vmx",
       "SuggestedActions": [
         "Treat as part of VMware VM lifecycle",
         "Stops when VM is powered off"
@@ -63,10 +106,53 @@
       ],
       "LearnedAt": "2026-08-31T10:00:00"
     },
+    "smoketestprocxyz": {
+      "ProcessName": "SmokeTestProcXYZ",
+      "WhatItIs": "SmokeTestProcess",
+      "WhatItDoes": "ValidatesManualIdentify",
+      "SuggestedCategory": "Other",
+      "SuggestedPriority": "Review",
+      "ResourceProfile": "Mixed",
+      "BusinessHint": "",
+      "SuggestedActions": [
+        "Operator manual identification — review catalog merge separately"
+      ],
+      "Confidence": 0.98,
+      "Sources": [
+        "operator-manual",
+        "PID=0"
+      ],
+      "LearnedAt": "2026-09-01T12:13:54.5767671+02:00",
+      "OperatorNote": "",
+      "ImagePath": ""
+    },
+    "msmpeng": {
+      "ProcessName": "MsMpEng",
+      "WhatItIs": "Catalog: Security",
+      "WhatItDoes": "Security component - tune schedule/scope only; never disable without HITL security review.",
+      "SuggestedCategory": "Security",
+      "SuggestedPriority": "Tune",
+      "ResourceProfile": "Mixed",
+      "BusinessHint": "Already classified in process-intelligence.json - no merge needed.",
+      "SuggestedActions": [
+        "Identify owner application in Task Manager -> Properties -> path",
+        "Add entry to process-intelligence.json after human approval",
+        "Do not auto-terminate (T3 until classified)"
+      ],
+      "Confidence": 0.98,
+      "Sources": [
+        "operator-manual",
+        "PID=5856",
+        "process-intelligence-catalog"
+      ],
+      "LearnedAt": "2026-09-01T11:34:26.9263275+02:00",
+      "OperatorNote": "",
+      "ImagePath": ""
+    },
     "startmenuexperiencehost": {
       "ProcessName": "StartMenuExperienceHost",
       "WhatItIs": "Windows Start Experience Host",
-      "WhatItDoes": "Product: Microsoft® Windows® Operating System by Microsoft Corporation",
+      "WhatItDoes": "Product: MicrosoftÃ‚Â® WindowsÃ‚Â® Operating System by Microsoft Corporation",
       "SuggestedCategory": "Other",
       "SuggestedPriority": "Tune",
       "ResourceProfile": "Mixed",
@@ -83,29 +169,25 @@
       "OperatorNote": "",
       "ImagePath": "C:\\WINDOWS\\SystemApps\\Microsoft.Windows.StartMenuExperienceHost_cw5n1h2txyewy\\StartMenuExperienceHost.exe"
     },
-    "mysqld": {
-      "ProcessName": "mysqld",
-      "WhatItIs": "MySQL/MariaDB database server daemon",
-      "WhatItDoes": "Serves SQL databases; RAM scales with buffer pool and connections",
-      "SuggestedCategory": "Database",
-      "SuggestedPriority": "Keep",
-      "ResourceProfile": "MemoryHeavy",
-      "BusinessHint": "Keep if local apps (WordPress, dev stack) need DB; stop service when not developing",
+    "firefox": {
+      "ProcessName": "firefox",
+      "WhatItIs": "Firefox",
+      "WhatItDoes": "Product: Firefox by Mozilla Corporation",
+      "SuggestedCategory": "Browser",
+      "SuggestedPriority": "Tune",
+      "ResourceProfile": "Mixed",
+      "BusinessHint": "",
       "SuggestedActions": [
-        "Confirm which app uses the DB",
-        "Lower innodb_buffer_pool_size if over-provisioned",
-        "Stop MySQL Windows service when unused"
+        "Operator manual identification - catalog auto-merge on auth"
       ],
       "Confidence": 0.98,
       "Sources": [
         "operator-manual",
-        "PID=7136",
-        "kb-seed",
-        "https://dev.mysql.com/doc/refman/8.0/en/mysqld.html"
+        "PID=8036"
       ],
-      "LearnedAt": "2026-08-31T12:51:39.7501891+02:00",
+      "LearnedAt": "2026-08-31T19:44:45.134751+02:00",
       "OperatorNote": "",
-      "ImagePath": "D:\\MySQL9_7Server\\bin\\mysqld.exe"
+      "ImagePath": "C:\\Program Files\\Mozilla Firefox\\firefox.exe"
     },
     "e2eidentifychainxyz": {
       "ProcessName": "E2eIdentifyChainXYZ",
@@ -123,30 +205,11 @@
         "operator-manual",
         "PID=0"
       ],
-      "LearnedAt": "2026-08-31T12:52:13.9465518+02:00",
-      "OperatorNote": "",
-      "ImagePath": ""
-    },
-    "smoketestprocxyz": {
-      "ProcessName": "SmokeTestProcXYZ",
-      "WhatItIs": "SmokeTestProcess",
-      "WhatItDoes": "ValidatesManualIdentify",
-      "SuggestedCategory": "Other",
-      "SuggestedPriority": "Review",
-      "ResourceProfile": "Mixed",
-      "BusinessHint": "",
-      "SuggestedActions": [
-        "Operator manual identification — review catalog merge separately"
-      ],
-      "Confidence": 0.98,
-      "Sources": [
-        "operator-manual",
-        "PID=0"
-      ],
-      "LearnedAt": "2026-08-31T12:53:45.4565794+02:00",
+      "LearnedAt": "2026-09-01T12:09:56.6867986+02:00",
       "OperatorNote": "",
       "ImagePath": ""
     }
   },
+  "UpdatedAt": "2026-09-01T12:13:54.6872527+02:00",
   "SchemaVersion": "ProcessKnowledgeCache.v1"
 }

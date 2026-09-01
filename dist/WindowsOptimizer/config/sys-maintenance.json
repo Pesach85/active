@@ -124,7 +124,7 @@
       "Enabled": true,
       "NeverAutoApply": true,
       "ShowReviewAfterCompute": true,
-      "MinCompositeScoreForPrompt": 55,
+      "MinCompositeScoreForPrompt": 85,
       "EvaluationOutputPath": "logs/defender-extreme-necessity-eval.json",
       "GuiKeepExtremeWizard": true
     },

@@ -33,7 +33,12 @@ function Show-UnknownProcessResolutionWizard {
     if ($ProcessId -gt 0) { $args += @('-ProcessId', "$ProcessId") }
     if ($ProcessName) { $args += @('-ProcessName', $ProcessName) }
 
-    $p = Start-Process -FilePath $PsHost -ArgumentList $args -Wait -PassThru -WindowStyle Hidden
+    if ($Owner) { $Owner.Cursor = [System.Windows.Forms.Cursors]::WaitCursor }
+    try {
+        $p = Start-Process -FilePath $PsHost -ArgumentList $args -Wait -PassThru -WindowStyle Hidden
+    } finally {
+        if ($Owner) { $Owner.Cursor = [System.Windows.Forms.Cursors]::Default }
+    }
     if ($p.ExitCode -ne 0 -or -not (Test-Path -LiteralPath $outJson)) {
         [void][System.Windows.Forms.MessageBox]::Show(
             $(if ($it) { "Impossibile costruire l'advisory. Seleziona un processo attivo dalla lista." } else { 'Failed to build advisory. Pick a running process from the list.' }),
@@ -222,31 +227,35 @@ function Show-UnknownProcessResolutionWizard {
     $form.Controls.Add($tabs)
     $form.Controls.Add($pnlFooter)
 
-    function Get-AuthPassword([string]$Purpose) {
-        $auth = Show-OperatorPasswordDialog -Owner $form -Language $Language -Purpose $Purpose
-        if (-not $auth.Ok) { return $null }
-        return $auth.Password
+    function Get-SessionTokenOrUnlock {
+        $sess = if (Get-Command Get-OperatorHitlSession -ErrorAction SilentlyContinue) { Get-OperatorHitlSession } else { $null }
+        if ($sess -and $sess.Token) { return [string]$sess.Token }
+        $unlock = Show-OperatorHitlSessionDialog -Owner $form -Language $Language
+        if (-not $unlock.Ok) { return $null }
+        return [string]$unlock.SessionToken
     }
 
     function Invoke-ResolutionAction {
         param([string]$ActionName, [string]$Confirm = '')
 
-        $purpose = if ($it) { "Autorizza: $ActionName" } else { "Authorize: $ActionName" }
-        $pwd = Get-AuthPassword -Purpose $purpose
-        if (-not $pwd) { return $false }
+        $sessionToken = Get-SessionTokenOrUnlock
+        if (-not $sessionToken) { return $false }
 
         $authLib = Join-Path $ScriptRoot 'lib\operator-auth.ps1'
         if (Test-Path -LiteralPath $authLib) { . $authLib }
 
         $body = @{
             action = $ActionName
-            password = $pwd
+            sessionToken = $sessionToken
         }
         if ($ProcessId -gt 0) { $body.processId = $ProcessId }
         if ($ProcessName) { $body.processName = $ProcessName }
         if ($Confirm) { $body.confirmPhrase = $Confirm }
 
         try {
+            $form.Cursor = [System.Windows.Forms.Cursors]::WaitCursor
+            $pnlAdvBtns.Enabled = $false
+            $btnSaveId.Enabled = $false
             if (Get-Command Invoke-HubProcessScriptViaRequest -ErrorAction SilentlyContinue) {
                 $run = Invoke-HubProcessScriptViaRequest -ScriptPath $resolveScript -RequestBody $body `
                     -LogsDir (Join-Path $HubRoot 'logs') -PwshExe $PsHost -HubRoot $HubRoot
@@ -265,6 +274,10 @@ function Show-UnknownProcessResolutionWizard {
         } catch {
             [void][System.Windows.Forms.MessageBox]::Show($_.Exception.Message, 'Resolve', 'OK', 'Error')
             return $false
+        } finally {
+            $form.Cursor = [System.Windows.Forms.Cursors]::Default
+            $pnlAdvBtns.Enabled = $true
+            $btnSaveId.Enabled = $true
         }
     }
 
@@ -325,9 +338,8 @@ function Show-UnknownProcessResolutionWizard {
                 'Identify', 'OK', 'Warning')
             return
         }
-        $purpose = if ($it) { 'Autorizza: identificazione manuale' } else { 'Authorize: manual identification' }
-        $pwd = Get-AuthPassword -Purpose $purpose
-        if (-not $pwd) { return }
+        $sessionToken = Get-SessionTokenOrUnlock
+        if (-not $sessionToken) { return }
 
         $authLib = Join-Path $ScriptRoot 'lib\operator-auth.ps1'
         if (Test-Path -LiteralPath $authLib) { . $authLib }
@@ -339,12 +351,15 @@ function Show-UnknownProcessResolutionWizard {
             priority = [string]$cmbPri.SelectedItem
             businessHint = $tbBusiness.Text.Trim()
             note = $tbNote.Text.Trim()
-            password = $pwd
+            sessionToken = $sessionToken
         }
         if ($ProcessId -gt 0) { $body.processId = $ProcessId }
         if ($ProcessName) { $body.processName = $ProcessName }
 
         try {
+            $form.Cursor = [System.Windows.Forms.Cursors]::WaitCursor
+            $btnSaveId.Enabled = $false
+            $pnlAdvBtns.Enabled = $false
             if (-not (Get-Command Invoke-HubProcessScriptViaRequest -ErrorAction SilentlyContinue)) {
                 throw 'Invoke-HubProcessScriptViaRequest not available'
             }
@@ -360,6 +375,10 @@ function Show-UnknownProcessResolutionWizard {
         } catch {
             [void][System.Windows.Forms.MessageBox]::Show($_.Exception.Message, 'Identify', 'OK', 'Error')
             return
+        } finally {
+            $form.Cursor = [System.Windows.Forms.Cursors]::Default
+            $btnSaveId.Enabled = $true
+            $pnlAdvBtns.Enabled = $true
         }
         if ($OnStatus) { & $OnStatus ("Identified: $ProcessName") }
         [void][System.Windows.Forms.MessageBox]::Show(

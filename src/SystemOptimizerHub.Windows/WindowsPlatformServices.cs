@@ -14,6 +14,7 @@ public sealed class WindowsPlatformServices : IPlatformServices
 
     public IProcessSnapshotProvider ProcessSnapshots { get; } = new WindowsProcessSnapshotProvider();
     public IProcessMutator ProcessMutator { get; } = new WindowsProcessMutator();
+    public IDefenderPolicyMutator DefenderPolicy { get; } = new WindowsDefenderPolicyMutator();
 }
 
 internal sealed class WindowsProcessSnapshotProvider : IProcessSnapshotProvider
