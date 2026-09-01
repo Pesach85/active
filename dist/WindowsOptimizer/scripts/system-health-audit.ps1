@@ -27,7 +27,7 @@ param(
 
 $ErrorActionPreference = 'Continue'
 
-# â”€â”€ helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── helpers ────────────────────────────────────────────────────────────────────
 function Write-Progress2 { param([string]$Msg) Write-Host "[AUDIT] $Msg" }
 
 function New-Finding {
@@ -179,6 +179,43 @@ function New-WslConfigFinding {
         -Solutions $solutions
 }
 
+function New-StartupLegacyFinding {
+    param(
+        [int]$NeedsRepair,
+        [int]$OneShotStale,
+        [int]$Relocatable,
+        [int]$Broken,
+        [string]$Sample,
+        [string]$RepairScriptPath
+    )
+
+    $inspectCommand = "& '$RepairScriptPath' -OutputJson (Join-Path (Split-Path '$RepairScriptPath' -Parent) '..\logs\startup-integrity-latest.json')"
+    $repairCommand = "& '$RepairScriptPath' -Apply"
+    $rollbackCommand = "& '$RepairScriptPath' -RestoreLatest"
+
+    $solutions = @(
+        (New-Solution -Level 'Safe' -Label 'Inspect leftover startup tasks/Run keys (read-only JSON)' `
+            -Command $inspectCommand `
+            -Rollback 'N/A (read-only)' `
+            -RiskNote 'Scans Task Scheduler XML, Run keys, and Startup folders. Does not change anything.'),
+        (New-Solution -Level 'Safe' -Label 'Repair hub leftovers: unregister stale one-shot tasks, retarget suite tasks to current hub' `
+            -Command $repairCommand `
+            -Rollback $rollbackCommand `
+            -RiskNote 'Exports task XML before unregister. Does not remove vendor Run keys (Adobe/VMware/Sophos/Defender). Requires Administrator.')
+    )
+
+    return New-Finding `
+        -Id 'STARTUP-LEGACY-001' `
+        -Severity 'Important' `
+        -Category 'OS' `
+        -Title 'Leftover startup entries from a previous hub install (missing script path)' `
+        -Description "Scheduled tasks or Run keys still point at an old hub root (for example C:\SystemOptimizerHub) or a script that was renamed/removed. At boot Windows shows a PowerShell -File error. Sample: $Sample" `
+        -CurrentValue "needsRepair=$NeedsRepair oneShotStale=$OneShotStale relocatable=$Relocatable broken=$Broken" `
+        -RecommendedValue 'All hub tasks/Run keys resolve under the current hub root; one-shot post-boot campaign tasks unregistered after they ran.' `
+        -Impact 'Boot-time PowerShell error dialogs; automation from a relocated clone never runs.' `
+        -Solutions $solutions
+}
+
 function Test-CommandAvailable {
     param([string]$Name)
 
@@ -225,13 +262,13 @@ function Test-WingetPackageInstalled {
     }
 }
 
-# â”€â”€ collector arrays â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── collector arrays ───────────────────────────────────────────────────────────
 $findings = [System.Collections.ArrayList]::new()
 $hardwareProfile = [ordered]@{}
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ══════════════════════════════════════════════════════════════════════════════
 #  PHASE 1 - Hardware Inventory
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ══════════════════════════════════════════════════════════════════════════════
 Write-Progress2 "Collecting hardware inventory..."
 
 # --- CPU ---
@@ -339,12 +376,12 @@ $hardwareProfile.GPU = @($gpus | ForEach-Object {
     }
 })
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ══════════════════════════════════════════════════════════════════════════════
 #  PHASE 2 - Finding Detection
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ══════════════════════════════════════════════════════════════════════════════
 Write-Progress2 "Analyzing disk health..."
 
-# â”€â”€ DISK HEALTH â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── DISK HEALTH ───────────────────────────────────────────────────────────────
 foreach ($pd in $physDisks) {
     if ($pd.HealthStatus -ne 'Healthy') {
         [void]$findings.Add((New-Finding `
@@ -374,7 +411,7 @@ foreach ($pd in $physDisks) {
     }
 }
 
-# â”€â”€ DISK SPACE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── DISK SPACE ────────────────────────────────────────────────────────────────
 Write-Progress2 "Analyzing disk space..."
 foreach ($vol in $volumes) {
     $sizeGB = [math]::Round($vol.Size / 1GB, 1)
@@ -478,7 +515,7 @@ Write-Host `"Removed `$cleaned temp files.`"" `
         -Solutions @($solutions.ToArray())))
 }
 
-# â”€â”€ RAM SINGLE-CHANNEL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── RAM SINGLE-CHANNEL ────────────────────────────────────────────────────────
 Write-Progress2 "Analyzing memory configuration..."
 if (-not $isDualChannel -and $slotsTotal -ge 2) {
     $currentModule = $dimms[0]
@@ -501,7 +538,7 @@ if (-not $isDualChannel -and $slotsTotal -ge 2) {
         )))
 }
 
-# â”€â”€ INTEL RST DRIVER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── INTEL RST DRIVER ──────────────────────────────────────────────────────────
 Write-Progress2 "Checking storage controller driver..."
 if ($rstDrv) {
     $rstVersionStr = $rstDrv.DriverVersion
@@ -551,7 +588,7 @@ Write-Host 'Registry prepared. REBOOT INTO SAFE MODE, then change BIOS from RAID
     }
 }
 
-# â”€â”€ SERVICES â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── SERVICES ──────────────────────────────────────────────────────────────────
 Write-Progress2 "Analyzing running services..."
 $heavyServices = @(
     @{ Name='MySQL80';                    Desc='MySQL Server';             Note='Database server' },
@@ -604,7 +641,7 @@ if ($runningHeavy.Count -gt 0) {
         )))
 }
 
-# â”€â”€ STARTUP PROGRAMS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── STARTUP PROGRAMS ──────────────────────────────────────────────────────────
 Write-Progress2 "Checking startup programs..."
 $startupEntries = [System.Collections.ArrayList]::new()
 $startupProtected = [System.Collections.ArrayList]::new()
@@ -656,7 +693,7 @@ if ($startupEntries.Count -gt 0) {
         )))
 }
 
-# â”€â”€ NTFS TUNING â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── NTFS TUNING ───────────────────────────────────────────────────────────────
 Write-Progress2 "Checking NTFS/filesystem tuning..."
 
 $memUsage = 0
@@ -699,7 +736,7 @@ if ($ntfsSolutions.Count -gt 0) {
         -Solutions @($ntfsSolutions.ToArray())))
 }
 
-# â”€â”€ VISUAL EFFECTS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── VISUAL EFFECTS ────────────────────────────────────────────────────────────
 Write-Progress2 "Checking visual effects..."
 $vfx = Get-ItemProperty -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\VisualEffects' -EA SilentlyContinue
 $vfxSetting = if ($vfx) { [int]$vfx.VisualFXSetting } else { 3 }
@@ -722,7 +759,7 @@ if ($vfxSetting -ne 2) {
         )))
 }
 
-# â”€â”€ POWER PLAN CHECK â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── POWER PLAN CHECK ──────────────────────────────────────────────────────────
 Write-Progress2 "Checking power plan..."
 $activePlan = powercfg /getactivescheme 2>$null
 $isHighPerf = $activePlan -match '8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c'
@@ -744,14 +781,14 @@ if (-not $isHighPerf) {
         )))
 }
 
-# â”€â”€ ALREADY OPTIMIZED (positive findings) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── ALREADY OPTIMIZED (positive findings) ─────────────────────────────────────
 Write-Progress2 "Collecting positive findings..."
 $positives = [System.Collections.ArrayList]::new()
 $repairOfficeChannelScript = Join-Path $PSScriptRoot 'repair-office-m365-channel.ps1'
 $repairWslConfigScript = Join-Path $PSScriptRoot 'repair-wsl-config.ps1'
 $recommendedM365Channels = 'Current Channel, Monthly Enterprise Channel, Semi-Annual Enterprise Channel'
 
-# â”€â”€ WSL CONFIGURATION â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── WSL CONFIGURATION ─────────────────────────────────────────────────────────
 Write-Progress2 "Checking WSL configuration..."
 if (Test-Path -LiteralPath $repairWslConfigScript) {
     try {
@@ -781,7 +818,38 @@ if (Test-Path -LiteralPath $repairWslConfigScript) {
     }
 }
 
-# â”€â”€ OFFICE UPDATE CHANNEL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── STARTUP INTEGRITY (legacy hub paths / missing -File targets) ───────────────
+Write-Progress2 "Checking leftover hub startup tasks..."
+$startupIntegrityLib = Join-Path $PSScriptRoot 'lib\startup-integrity.ps1'
+$startupIntegrityScript = Join-Path $PSScriptRoot 'audit-startup-integrity.ps1'
+if ((Test-Path -LiteralPath $startupIntegrityLib) -and (Test-Path -LiteralPath $startupIntegrityScript)) {
+    try {
+        . $startupIntegrityLib
+        $siHub = Split-Path $PSScriptRoot -Parent
+        $siReport = Get-StartupIntegrityReport -HubRoot $siHub
+        $siNeed = 0
+        if ($siReport -and $siReport.Summary) { $siNeed = [int]$siReport.Summary.NeedsRepair }
+        if ($siNeed -gt 0) {
+            $samples = @($siReport.Items | Where-Object { $_.Classification -in @('HubOneShotStale', 'HubRelocatable', 'HubBroken') } | Select-Object -First 3 | ForEach-Object {
+                '{0} [{1}] {2}' -f $_.Name, $_.Classification, $_.TargetPath
+            })
+            $sampleText = if ($samples.Count -gt 0) { ($samples -join '; ') } else { 'n/a' }
+            [void]$findings.Add((New-StartupLegacyFinding `
+                -NeedsRepair $siNeed `
+                -OneShotStale ([int]$siReport.Summary.HubOneShotStale) `
+                -Relocatable ([int]$siReport.Summary.HubRelocatable) `
+                -Broken ([int]$siReport.Summary.HubBroken) `
+                -Sample $sampleText `
+                -RepairScriptPath $startupIntegrityScript))
+        } else {
+            [void]$positives.Add('Hub startup integrity healthy (no leftover C:\SystemOptimizerHub tasks/Run keys)')
+        }
+    } catch {
+        Write-Progress2 "Startup integrity assessment skipped: $($_.Exception.Message)"
+    }
+}
+
+# ── OFFICE UPDATE CHANNEL ─────────────────────────────────────────────────────
 Write-Progress2 "Checking Office update channel compatibility..."
 $officePolicyPath = 'HKLM:\SOFTWARE\Policies\Microsoft\office\16.0\common\officeupdate'
 $officePolicy = Get-ItemProperty -LiteralPath $officePolicyPath -EA SilentlyContinue
@@ -826,7 +894,7 @@ if ($officeMismatch -and (Test-Path -LiteralPath $repairOfficeChannelScript)) {
     [void]$positives.Add(("Office channel aligned for Microsoft 365 Apps ({0})" -f $officeBranch))
 }
 
-# â”€â”€ REQUIRED SYSTEM PACKAGES â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── REQUIRED SYSTEM PACKAGES ─────────────────────────────────────────────────
 Write-Progress2 "Checking required system packages..."
 
 $wingetAvailable = Test-CommandAvailable -Name 'winget'
@@ -848,7 +916,7 @@ if (-not $wingetAvailable) {
             (New-Solution -Level 'Safe' -Label '[OpenLink] PowerShell release page (manual install)' `
                 -Command 'Start-Process "https://aka.ms/powershell-release?tag=stable"' `
                 -Rollback 'N/A (manual install path)' `
-                -RiskNote 'Opens browser only â€” does not install. Uses external vendor page without Store dependency.' `
+                -RiskNote 'Opens browser only — does not install. Uses external vendor page without Store dependency.' `
                 -Kind 'OpenLink')
         )))
 }
@@ -861,12 +929,12 @@ if ($pwshMajor -lt 7) {
     [void]$pwshSolutions.Add((New-Solution -Level 'Safe' -Label '[Install] PowerShell 7 via ensure-powershell-core.ps1' `
         -Command $ensureCoreCmd `
         -Rollback 'Uninstall PowerShell 7 from Apps and Features if needed' `
-        -RiskNote 'Runs installer script â€” installs pwsh. Prefer this over OpenLink when automation is allowed.' `
+        -RiskNote 'Runs installer script — installs pwsh. Prefer this over OpenLink when automation is allowed.' `
         -Kind 'Install'))
     [void]$pwshSolutions.Add((New-Solution -Level 'Safe' -Label '[OpenLink] PowerShell 7 download page' `
         -Command 'Start-Process "https://aka.ms/powershell-release?tag=stable"' `
         -Rollback 'N/A (manual install path)' `
-        -RiskNote 'Opens browser only â€” does not install. Use when automated install is blocked by policy.' `
+        -RiskNote 'Opens browser only — does not install. Use when automated install is blocked by policy.' `
         -Kind 'OpenLink'))
 
     [void]$findings.Add((New-Finding `
@@ -899,7 +967,7 @@ if ($diskHealthWarning -and (-not $crystalInstalled)) {
             (New-Solution -Level 'Safe' -Label '[OpenLink] CrystalDiskInfo official download page' `
                 -Command 'Start-Process "https://crystalmark.info/en/software/crystaldiskinfo/"' `
                 -Rollback 'N/A (manual install path)' `
-                -RiskNote 'Opens browser only â€” does not install CrystalDiskInfo.' `
+                -RiskNote 'Opens browser only — does not install CrystalDiskInfo.' `
                 -Kind 'OpenLink')
         )
     ))
@@ -947,9 +1015,9 @@ if ($isHighPerf) {
     [void]$positives.Add('Power plan: High Performance')
 }
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ══════════════════════════════════════════════════════════════════════════════
 #  PHASE 3 - Load KB overrides (future extensibility)
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ══════════════════════════════════════════════════════════════════════════════
 if ($KnowledgeBase -and (Test-Path $KnowledgeBase)) {
     Write-Progress2 "Loading knowledge base overrides..."
     try {
@@ -983,9 +1051,9 @@ if ($KnowledgeBase -and (Test-Path $KnowledgeBase)) {
     }
 }
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ══════════════════════════════════════════════════════════════════════════════
 #  PHASE 4 - Build & Write JSON report
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ══════════════════════════════════════════════════════════════════════════════
 Write-Progress2 "Building report..."
 
 # Sort findings: Critical first, then Important, Moderate, Info

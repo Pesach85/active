@@ -268,6 +268,20 @@ Write-Output "OK"
     $failures.Add(("transparency-panel-registry exception: {0}" -f $_.Exception.Message))
 }
 
+$startupIntegrityOut = Join-Path $logs 'smoke-startup-integrity.json'
+Invoke-SmokeStep -Name 'startup-integrity' `
+    -ScriptPath (Join-Path $scriptDir 'audit-startup-integrity.ps1') `
+    -Arguments @('-OutputJson', $startupIntegrityOut, '-HubRoot', $HubRoot) `
+    -OutputPath $startupIntegrityOut `
+    -Validate {
+        param($path)
+        $j = Get-Content -LiteralPath $path -Raw | ConvertFrom-Json
+        if ([string]$j.SchemaVersion -notmatch 'StartupIntegrityReport') { throw "Unexpected schema: $($j.SchemaVersion)" }
+        if ($null -eq $j.Summary) { throw 'Summary missing' }
+        if ($null -eq $j.Items) { throw 'Items missing' }
+        if (-not $j.PSObject.Properties['HubRoot']) { throw 'HubRoot missing' }
+    }
+
 $pressureOut = Join-Path $logs 'smoke-process-pressure.json'
 Invoke-SmokeStep -Name 'process-pressure' `
     -ScriptPath (Join-Path $scriptDir 'analyze-process-pressure.ps1') `
@@ -537,6 +551,32 @@ else {
     }
 }
 
+Write-Host '[SMOKE] hub-resolve-plan-keep-blocked...'
+$hubKeepBlockOut = Join-Path $logs 'smoke-hub-res-keep-blocked.json'
+$hubKeepEc = Invoke-HubCliSmoke -CliArgs @(
+    'resolve', 'plan', '--name', 'MsMpEng', '--action', 'ThrottleBelowNormal',
+    '--skip-auth', '--dry-run', '--catalog', $catPath
+) -OutFile $hubKeepBlockOut
+if ($hubKeepEc -ne 0) { $failures.Add('hub-resolve-plan-keep-blocked: CLI exit non-zero') }
+else {
+    $hubKeepJ = Get-Content -LiteralPath $hubKeepBlockOut -Raw | ConvertFrom-Json
+    if ([string]$hubKeepJ.Outcome -ne 'ActionBlocked') { $failures.Add("hub-resolve-plan-keep-blocked: $($hubKeepJ.Outcome)") }
+    else { Write-Host '[SMOKE] hub-resolve-plan-keep-blocked OK' }
+}
+
+Write-Host '[SMOKE] hub-resolve-plan-dryrun-missing...'
+$hubDryOut = Join-Path $logs 'smoke-hub-res-dryrun-missing.json'
+$hubDryEc = Invoke-HubCliSmoke -CliArgs @(
+    'resolve', 'plan', '--name', 'PID1234', '--pid', '1234', '--action', 'ThrottleBelowNormal',
+    '--dry-run', '--not-running', '--catalog', $catPath
+) -OutFile $hubDryOut
+if ($hubDryEc -ne 0) { $failures.Add('hub-resolve-plan-dryrun-missing: CLI exit non-zero') }
+else {
+    $hubDryJ = Get-Content -LiteralPath $hubDryOut -Raw | ConvertFrom-Json
+    if ([string]$hubDryJ.Outcome -ne 'ProcessNotRunning') { $failures.Add("hub-resolve-plan-dryrun-missing: $($hubDryJ.Outcome)") }
+    else { Write-Host '[SMOKE] hub-resolve-plan-dryrun-missing OK' }
+}
+
 $dryRunOut = Join-Path $logs 'smoke-res-dryrun-missing.json'
 Invoke-SmokeStep -Name 'process-resolution-dryrun-missing' `
     -ScriptPath (Join-Path $scriptDir 'resolve-unknown-process.ps1') `
@@ -595,6 +635,26 @@ Invoke-SmokeStep -Name 'defender-extreme-eval' `
         if ($null -eq $j.RecommendedTier) { throw 'RecommendedTier missing' }
         if ($null -eq $j.CompositeScore) { throw 'CompositeScore missing' }
     }
+
+Write-Host '[SMOKE] hub-defender-evaluate...'
+$ppiSmokeOut = Join-Path $logs 'smoke-ppi-for-defender.json'
+$ppiSmokeEc = Invoke-HubCliSmoke -CliArgs @(
+    'analyze', 'pressure', '--duration', '2', '--top', '5', '--catalog', $catPath
+) -OutFile $ppiSmokeOut
+if ($ppiSmokeEc -ne 0) { $failures.Add('hub-defender-evaluate: PPI sample failed') }
+else {
+    $hubDefOut = Join-Path $logs 'smoke-hub-defender-eval.json'
+    $hubDefEc = Invoke-HubCliSmoke -CliArgs @(
+        'defender', 'evaluate', '--input', $ppiSmokeOut, '--catalog', $catPath
+    ) -OutFile $hubDefOut
+    if ($hubDefEc -ne 0) { $failures.Add('hub-defender-evaluate: CLI exit non-zero') }
+    else {
+        $hubDefJ = Get-Content -LiteralPath $hubDefOut -Raw | ConvertFrom-Json
+        if ([string]$hubDefJ.SchemaVersion -notmatch 'DefenderExtremeNecessityEvaluation') { $failures.Add('hub-defender-evaluate: schema') }
+        elseif ($null -eq $hubDefJ.RecommendedTier) { $failures.Add('hub-defender-evaluate: RecommendedTier missing') }
+        else { Write-Host '[SMOKE] hub-defender-evaluate OK' }
+    }
+}
 
 if ($failures.Count -gt 0) {
     Write-Host '[SMOKE] FAILED'

@@ -1,5 +1,12 @@
 $ErrorActionPreference = 'SilentlyContinue'
 
+$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$hubCommon = Join-Path $scriptDir 'hub-common.ps1'
+if (Test-Path -LiteralPath $hubCommon) { . $hubCommon }
+$hubRoot = if (Get-Command Get-HubRoot -ErrorAction SilentlyContinue) { Get-HubRoot } else { Split-Path $scriptDir -Parent }
+$hubLogs = Join-Path $hubRoot 'logs'
+$hubScripts = Join-Path $hubRoot 'scripts'
+
 function Get-DriveStat($letter) {
     $v = Get-Volume -DriveLetter $letter
     if (-not $v) { return $null }
@@ -50,7 +57,7 @@ $winget = & winget list --id CrystalDewWorld.CrystalDiskInfo 2>&1
 $report.CrystalDiskInfoInstalled = [bool]($winget -match 'CrystalDiskInfo')
 $report.CrystalDiskInfoRaw = ($winget -join "`n")
 
-$repairWslScript = 'C:\SystemOptimizerHub\active\scripts\repair-wsl-config.ps1'
+$repairWslScript = Join-Path $hubScripts 'repair-wsl-config.ps1'
 if (Test-Path -LiteralPath $repairWslScript) {
     try {
         $wslRaw = & pwsh -NoProfile -ExecutionPolicy Bypass -File $repairWslScript 2>$null
@@ -68,7 +75,7 @@ if (Test-Path -LiteralPath $repairWslScript) {
     }
 }
 
-$auditPath = 'C:\SystemOptimizerHub\active\logs\health-audit-postreboot.json'
+$auditPath = Join-Path $hubLogs 'health-audit-postreboot.json'
 if (Test-Path $auditPath) {
     $audit = Get-Content -Raw $auditPath | ConvertFrom-Json
     $report.AuditSummary = [ordered]@{
@@ -82,7 +89,7 @@ if (Test-Path $auditPath) {
     $report.AuditFindingIds = @($audit.Findings | ForEach-Object { $_.Id })
 }
 
-$out = 'C:\SystemOptimizerHub\active\logs\post-reboot-verification.json'
+$out = Join-Path $hubLogs 'post-reboot-verification.json'
 $report | ConvertTo-Json -Depth 8 | Set-Content -Path $out -Encoding UTF8
 Write-Host "Verification report written: $out"
 Write-Host ("C: free {0} GB ({1}%)" -f $report.Drives[0].FreeGB, $report.Drives[0].FreePct)

@@ -23,6 +23,9 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Continue'
 
+. (Join-Path $PSScriptRoot 'hub-common.ps1')
+$hub = Get-HubPaths
+
 function Write-Progress2 {
     param([string]$Message)
     Write-Host "[ROBOCOPY-MONITOR] $Message"
@@ -71,11 +74,12 @@ try {
     if ($SchedulePostBootTask -and $status.PagefileConfigReady) {
         try {
             $taskName = 'NVMe-WriteOffload-PostBootVerify'
-            $scriptPath = Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Definition) 'verify-nvme-writeoffload-postboot.ps1'
-            $logPath = Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Definition) '..\logs\writeoffload-verify-postboot.json'
+            $scriptPath = Join-Path $hub.Scripts 'verify-nvme-writeoffload-postboot.ps1'
+            $logPath = Join-Path $hub.Logs 'writeoffload-verify-postboot.json'
+            $pwshExe = Get-HubPwshExecutable
 
             # Create task action to run verification script
-            $action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -ExecutionPolicy Bypass -File ""$scriptPath"" -OutputJson ""$logPath"""
+            $action = New-ScheduledTaskAction -Execute $pwshExe -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$scriptPath`" -OutputJson `"$logPath`""
             $trigger = New-ScheduledTaskTrigger -AtStartup
 
             # Register task (overwrites if exists)

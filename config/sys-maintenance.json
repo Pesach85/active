@@ -100,6 +100,16 @@
     "ShowAdvancedTools": false,
     "Language": "it"
   },
+  "StartupIntegrity": {
+    "Enabled": true,
+    "LegacyHubRoots": [
+      "C:\\SystemOptimizerHub",
+      "C:\\SystemOptimizer"
+    ],
+    "OneShotTaskNames": [
+      "NVMe-WriteOffload-PostBootVerify"
+    ]
+  },
   "ProcessPressure": {
     "Enabled": true,
     "DurationSec": 6,

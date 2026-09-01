@@ -53,6 +53,8 @@ $items = @(
     (Join-Path $scriptDir "lib\process-catalog-merge.ps1"),
     (Join-Path $scriptDir "lib\process-resolution-policy.ps1"),
     (Join-Path $scriptDir "lib\operator-auth.ps1"),
+    (Join-Path $scriptDir "lib\startup-integrity.ps1"),
+    (Join-Path $scriptDir "audit-startup-integrity.ps1"),
     (Join-Path $scriptDir "identify-unknown-process.ps1"),
     (Join-Path $scriptDir "resolve-unknown-process.ps1"),
     (Join-Path $configDir "process-resolution.json"),

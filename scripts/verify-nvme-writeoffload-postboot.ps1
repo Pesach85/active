@@ -144,4 +144,9 @@ finally {
     $json = $report | ConvertTo-Json -Depth 12 -Compress:$false
     [System.IO.File]::WriteAllText($OutputJson, $json, [System.Text.Encoding]::UTF8)
     Write-Progress2 "Validation report saved to $OutputJson"
+
+    try {
+        Unregister-ScheduledTask -TaskName 'NVMe-WriteOffload-PostBootVerify' -Confirm:$false -ErrorAction SilentlyContinue
+        Write-Progress2 'Unregistered one-shot task NVMe-WriteOffload-PostBootVerify (if present).'
+    } catch { }
 }
