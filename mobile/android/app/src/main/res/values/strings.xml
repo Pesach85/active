@@ -1,13 +1,24 @@
 <resources>
     <string name="app_name">System Optimizer Hub</string>
     <string name="app_title">Device Maintenance</string>
-    <string name="app_subtitle">Monitors and maintains THIS Android device — RAM, storage, processes.</string>
+    <string name="app_subtitle">Deep on-device analysis — RAM, storage, processes, waste, battery, network.</string>
     <string name="refresh">Refresh analysis</string>
     <string name="pressure_tier">Pressure: %1$s</string>
     <string name="pressure_score">Score %1$d/100</string>
+    <string name="posture_score">Transparency posture: %1$d/100</string>
     <string name="host_summary">RAM %1$d / %2$d MB free · Storage %3$d / %4$d MB free · Apps %5$d · Processes %6$d</string>
+    <string name="battery_network">Battery %1$d%% %2$s · %3$s · Network %4$s%5$s</string>
+    <string name="charging">charging</string>
+    <string name="not_charging">not charging</string>
+    <string name="metered"> (metered)</string>
     <string name="updated_at">Updated: %1$s</string>
+    <string name="section_waste">Resource waste findings</string>
     <string name="section_storage">Storage hotspots</string>
-    <string name="section_processes">Running processes</string>
+    <string name="section_apps">Top apps (storage / usage)</string>
+    <string name="section_processes">Process pressure</string>
+    <string name="section_boot">Boot receivers audit</string>
     <string name="section_actions">Recommended actions</string>
+    <string name="cache_cleared">Cleared %1$d MB app cache</string>
+    <string name="report_exported">Report saved: %1$s</string>
+    <string name="memory_trim_requested">Memory trim requested</string>
 </resources>

@@ -61,11 +61,22 @@ Assert-DeviceTest 'adb device connected' {
     if ($list -notmatch '(?m)^\S+\s+device\s*$') { throw 'No device in state device' }
 }
 
-Assert-DeviceTest 'native engine source present' {
+Assert-DeviceTest 'native engine v1 modules present' {
     $engine = Join-Path $HubRoot 'mobile\android\app\src\main\java\com\systemoptimizerhub\transparency\DeviceMaintenanceEngine.kt'
     if (-not (Test-Path -LiteralPath $engine)) { throw 'DeviceMaintenanceEngine.kt missing' }
     $content = Get-Content -LiteralPath $engine -Raw
     if ($content -match '127\.0\.0\.1:8765|WebView') { throw 'WebView/PC remote code still present in engine' }
+    $modules = @(
+        'engine\ProcessPressureEngine.kt',
+        'engine\StorageHotspotAnalyzer.kt',
+        'engine\WasteResourceAnalyzer.kt',
+        'engine\MemoryLiberationAdvisor.kt',
+        'report\TransparencyReportBuilder.kt'
+    )
+    foreach ($m in $modules) {
+        $p = Join-Path $HubRoot "mobile\android\app\src\main\java\com\systemoptimizerhub\transparency\$m"
+        if (-not (Test-Path -LiteralPath $p)) { throw "Missing module $m" }
+    }
 }
 
 if (-not $SkipInstall) {
@@ -78,11 +89,11 @@ if (-not $SkipInstall) {
     }
 }
 
-Assert-DeviceTest 'package version 0.9.x' {
+Assert-DeviceTest 'package version 1.0.x' {
     $ver = Invoke-AdbCommand -Adb $adb -Command @(
         'shell', 'dumpsys', 'package', 'com.systemoptimizerhub.transparency'
     ) -Serial $DeviceSerial
-    if ($ver -notmatch 'versionName=0\.9') { throw 'Expected native v0.9.x on device' }
+    if ($ver -notmatch 'versionName=1\.0') { throw 'Expected native v1.0.x on device' }
 }
 
 if (-not $SkipLaunch) {
@@ -123,5 +134,5 @@ if ($failures.Count -gt 0) {
     exit 1
 }
 
-Write-Host '[ANDROID-DEVICE] ALL PASSED (native on-device maintenance)'
+Write-Host '[ANDROID-DEVICE] ALL PASSED (native on-device maintenance v1.0)'
 exit 0

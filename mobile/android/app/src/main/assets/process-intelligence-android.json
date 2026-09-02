@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "ProcessIntelligenceAndroid.v1",
+  "systemPackagePrefixes": [
+    "com.android.",
+    "android.",
+    "com.google.android.gms",
+    "com.google.android.gsf",
+    "com.motorola.",
+    "com.qualcomm.",
+    "vendor."
+  ],
+  "vitalExactPackages": [
+    "com.android.systemui",
+    "com.android.phone",
+    "com.android.settings"
+  ],
+  "tunableCategories": {
+    "social": ["com.facebook", "com.instagram", "com.twitter", "com.zhiliaoapp"],
+    "browser": ["com.android.chrome", "org.mozilla", "com.microsoft.emmx"],
+    "media": ["com.spotify", "com.netflix", "com.google.android.youtube"]
+  },
+  "wasteSignals": {
+    "cacheHotspotMb": 128,
+    "backgroundHeavyMinutes": 120,
+    "idleCachedProcessCount": 40
+  }
+}

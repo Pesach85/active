@@ -25,7 +25,7 @@ class ProcessAdapter(private val items: List<ProcessEntry>) :
     override fun onBindViewHolder(holder: VH, position: Int) {
         val p = items[position]
         holder.name.text = p.processName
-        holder.meta.text = "pid=${p.pid} · ${p.importanceLabel} · ${p.trustLabel}"
+        holder.meta.text = "pid=${p.pid} · ${p.importanceLabel} · ${p.dominantPressure} · score=${p.score} · ${p.trustLabel}"
         holder.advisory.text = p.advisory
     }
 }
@@ -49,6 +49,72 @@ class StorageAdapter(private val items: List<StorageHotspot>) :
         val s = items[position]
         holder.label.text = "${s.label} [${s.severity}]"
         holder.detail.text = s.detail
+    }
+}
+
+class WasteAdapter(private val items: List<WasteFinding>) :
+    RecyclerView.Adapter<WasteAdapter.VH>() {
+
+    class VH(v: View) : RecyclerView.ViewHolder(v) {
+        val label: TextView = v.findViewById(R.id.storageLabel)
+        val detail: TextView = v.findViewById(R.id.storageDetail)
+    }
+
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
+        val v = LayoutInflater.from(parent.context).inflate(R.layout.item_storage, parent, false)
+        return VH(v)
+    }
+
+    override fun getItemCount() = items.size
+
+    override fun onBindViewHolder(holder: VH, position: Int) {
+        val w = items[position]
+        holder.label.text = "[${w.severity}] ${w.category}: ${w.title}"
+        holder.detail.text = w.detail
+    }
+}
+
+class AppAdapter(private val items: List<AppPressureEntry>) :
+    RecyclerView.Adapter<AppAdapter.VH>() {
+
+    class VH(v: View) : RecyclerView.ViewHolder(v) {
+        val label: TextView = v.findViewById(R.id.storageLabel)
+        val detail: TextView = v.findViewById(R.id.storageDetail)
+    }
+
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
+        val v = LayoutInflater.from(parent.context).inflate(R.layout.item_storage, parent, false)
+        return VH(v)
+    }
+
+    override fun getItemCount() = items.size
+
+    override fun onBindViewHolder(holder: VH, position: Int) {
+        val a = items[position]
+        holder.label.text = "${a.label} · waste=${a.wasteScore} · ${a.trustLabel}"
+        holder.detail.text = "cache ${a.cacheMb} MB · data ${a.dataMb} MB · fg ${a.foregroundMinutes}m · bg ${a.backgroundMinutes}m — ${a.advisory}"
+    }
+}
+
+class BootAdapter(private val items: List<BootAppEntry>) :
+    RecyclerView.Adapter<BootAdapter.VH>() {
+
+    class VH(v: View) : RecyclerView.ViewHolder(v) {
+        val label: TextView = v.findViewById(R.id.storageLabel)
+        val detail: TextView = v.findViewById(R.id.storageDetail)
+    }
+
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
+        val v = LayoutInflater.from(parent.context).inflate(R.layout.item_storage, parent, false)
+        return VH(v)
+    }
+
+    override fun getItemCount() = items.size
+
+    override fun onBindViewHolder(holder: VH, position: Int) {
+        val b = items[position]
+        holder.label.text = b.label
+        holder.detail.text = "${b.packageName} · enabled=${b.enabled}"
     }
 }
 
