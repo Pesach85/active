@@ -40,7 +40,7 @@ try {
     if (-not $OutputApk) {
         $outDir = Join-Path $HubRoot 'dist\android'
         New-Item -Path $outDir -ItemType Directory -Force | Out-Null
-        $OutputApk = Join-Path $outDir "SystemOptimizerHub-transparency-$Variant.apk"
+        $OutputApk = Join-Path $outDir "SystemOptimizerHub-android-$Variant.apk"
     }
     Copy-Item -LiteralPath $apk.FullName -Destination $OutputApk -Force
     Write-Host "[ANDROID] APK: $OutputApk"

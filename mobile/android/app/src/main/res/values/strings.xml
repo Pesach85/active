@@ -1,9 +1,13 @@
 <resources>
-    <string name="app_name">Hub Transparency</string>
-    <string name="hub_url_hint">Hub transparency dashboard URL (PC LAN IP:8765 when remote)</string>
-    <string name="hub_url_placeholder">http://192.168.1.10:8765</string>
-    <string name="connect">Connect</string>
-    <string name="status_loading">Loading…</string>
-    <string name="status_connected">Connected: %1$s</string>
-    <string name="status_error">Error: %1$s</string>
+    <string name="app_name">System Optimizer Hub</string>
+    <string name="app_title">Device Maintenance</string>
+    <string name="app_subtitle">Monitors and maintains THIS Android device — RAM, storage, processes.</string>
+    <string name="refresh">Refresh analysis</string>
+    <string name="pressure_tier">Pressure: %1$s</string>
+    <string name="pressure_score">Score %1$d/100</string>
+    <string name="host_summary">RAM %1$d / %2$d MB free · Storage %3$d / %4$d MB free · Apps %5$d · Processes %6$d</string>
+    <string name="updated_at">Updated: %1$s</string>
+    <string name="section_storage">Storage hotspots</string>
+    <string name="section_processes">Running processes</string>
+    <string name="section_actions">Recommended actions</string>
 </resources>

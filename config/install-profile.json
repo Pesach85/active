@@ -26,8 +26,10 @@
     "SystemdUserUnit": "systemoptimizerhub-orchestrator.timer"
   },
   "Android": {
-    "DefaultHubUrl": "http://127.0.0.1:8765",
+    "DefaultHubUrl": "",
     "PackageId": "com.systemoptimizerhub.transparency",
-    "BuildConfig": "config/android-build.json"
+    "BuildConfig": "config/android-build.json",
+    "Engine": "DeviceMaintenanceEngine.v1",
+    "Scope": "on-device-maintenance"
   }
 }

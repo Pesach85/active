@@ -1,37 +1,31 @@
-# System Optimizer Hub — Android transparency client (MVP)
+# System Optimizer Hub — Android native maintenance client
 
-WebView shell for the Hub transparency dashboard. Does **not** run maintenance on the phone — connects to a PC/Linux host running `serve-transparency-dashboard.ps1` or future ASP.NET host.
+Monitors and maintains **this Android device** (RAM, storage, running processes) — same product mission as Windows/Linux Hub, not a remote PC viewer.
 
-## Default URL
+## Features (v0.9.0)
 
-- Emulator / USB reverse: `http://127.0.0.1:8765`
-- LAN: `http://<PC_IP>:8765` (ensure firewall allows 8765)
+- `DeviceMaintenanceEngine` — local RAM/storage/process analysis
+- Pressure tier (Low/Medium/High/Critical) + score
+- Running process list with trust/advisory labels
+- Storage hotspots on internal partition
+- Safe actions: open storage settings, app settings, usage access
 
-## Build APK
-
-Toolchain paths from **I_Tuoi_Versetti** (`config/android-build.json`):
-
-| Setting | Path |
-|---------|------|
-| SDK | `D:\Android\Sdk` |
-| JDK | `D:\JDK_17` |
+## Build & install
 
 ```powershell
-powershell -File scripts/build-android-apk.ps1 -Variant debug
-# Output: dist/android/SystemOptimizerHub-transparency-debug.apk
-powershell -File scripts/test-install-smoke.ps1 -BuildApk
+powershell -File scripts/build-android-apk.ps1
+powershell -File scripts/install-android-apk.ps1 -Launch
+powershell -File scripts/test-android-device-smoke.ps1
 ```
 
-Or open `mobile/android` in Android Studio → Build → Build APK.
+Toolchain: `config/android-build.json` (SDK `D:\Android\Sdk`, JDK `D:\JDK_17` from I_Tuoi_Versetti).
 
-## Scope (MVP)
+## Limitations (Android)
 
-- Read-only transparency UI via WebView
-- Configurable hub URL (persisted)
-- Cleartext HTTP allowed for local/LAN dev (see `network_security_config.xml`)
+- Per-app RAM without usage-access permission is limited by Android sandbox
+- Force-stop/kill other apps requires user action in Settings (no silent kill)
+- Root-only ops shown as advisory only
 
-## Future
+## Deprecated
 
-- mTLS / token auth for remote access
-- Native notifications from hub webhooks
-- Not a replacement for Windows/Linux maintenance engine (ADR-0008)
+WebView MVP pointing to PC `:8765` transparency dashboard — removed in v0.9.0 (ADR-0008 revision).

@@ -25,18 +25,18 @@ Hub needs to behave as installable Windows software (shortcuts, uninstall, sched
 - Bash PPI scripts retained; Core Linux mutator implements `renice`/`kill`
 - systemd user timer for periodic `hub analyze pressure`
 
-### Android
+### Android (revised v0.9.0 — 2026-09-02)
 
-- MVP: WebView APK (`mobile/android`) → Hub transparency dashboard URL
-- Build toolchain: `config/android-build.json` (SDK `D:\Android\Sdk`, JDK `D:\JDK_17` from I_Tuoi_Versetti)
-- `scripts/lib/android-build-config.ps1` resolves paths and writes `local.properties` (gitignored)
-- No on-device maintenance engine; read-only mobile client
-- Future: auth token, push notifications after web control plane (ADR-0006)
+- **Native maintenance APK** (`mobile/android`) — monitors THIS device (RAM, storage, processes)
+- `DeviceMaintenanceEngine.kt` — pressure tier, process trust/advisory, storage hotspots
+- **NOT** a WebView client to PC transparency dashboard (v0.8 WebView MVP was incorrect scope)
+- Build: `config/android-build.json`, `build-android-apk.ps1`
+- Safe actions via Android Settings intents; no silent cross-app kill without user
 
 ## Consequences
 
 - Developers must run `dev-sync-production.ps1` after code changes (or rely on junction + package only)
-- Android APK build uses non-standard SDK path via `android-build.json`; CI must mirror or override
+- Android per-app metrics limited by sandbox unless usage-access granted
 - Inno Setup build is optional separate step from PS install
 
 ## References
