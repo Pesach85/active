@@ -48,6 +48,7 @@ chmod +x dist/LinuxOptimizer/scripts/linux/install-linux-suite.sh
 | Em-dash in PS throw string | Sostituito con `-` ASCII in windows-app-install.ps1 |
 | Em-dash in dev-sync-production.ps1 | Stesso fix ASCII dash (parse error PS) |
 | Switch `$Desktop` vs path case-insensitive | Rinominato in `CreateDesktopShortcuts` / `desktopFolder` |
+| `test-android-device-smoke` `$Args` param | Rinominato `Invoke-AdbCommand -Command`; regex tab-separated `device` |
 
 ## Android native maintenance (v0.9.0)
 

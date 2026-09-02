@@ -35,15 +35,16 @@ function Get-AdbPath {
     return Join-Path $sdk 'platform-tools\adb.exe'
 }
 
-function Invoke-AdbArgs {
-    param([string]$Adb, [string[]]$Args, [string]$Serial = '')
+function Invoke-AdbCommand {
+    param([string]$Adb, [string[]]$Command, [string]$Serial = '')
     $all = @()
     if ($Serial) { $all += '-s', $Serial }
-    $all += $Args
+    $all += $Command
     $out = & $Adb @all 2>&1
     $text = ($out | Out-String).Trim()
     if ($LASTEXITCODE -ne 0) {
-        throw if ($text) { $text } else { "adb failed exit=$LASTEXITCODE args=$($Args -join ' ')" }
+        if ($text) { throw $text }
+        throw "adb failed exit=$LASTEXITCODE args=$($Command -join ' ')"
     }
     return $text
 }
@@ -54,10 +55,10 @@ if (-not $ApkPath) {
 }
 
 Assert-DeviceTest 'adb device connected' {
-    $null = Invoke-AdbArgs -Adb $adb -Args @('wait-for-device') -Serial $DeviceSerial
-    Start-Sleep -Seconds 1
-    $list = Invoke-AdbArgs -Adb $adb -Args @('devices') -Serial $DeviceSerial
-    if ($list -notmatch '(?m)^[^\s]+\s+device\s') { throw 'No device in state device' }
+    $state = Invoke-AdbCommand -Adb $adb -Command @('get-state') -Serial $DeviceSerial
+    if ($state -ne 'device') { throw "adb state=$state" }
+    $list = Invoke-AdbCommand -Adb $adb -Command @('devices') -Serial $DeviceSerial
+    if ($list -notmatch '(?m)^\S+\s+device\s*$') { throw 'No device in state device' }
 }
 
 Assert-DeviceTest 'native engine source present' {
@@ -72,13 +73,13 @@ if (-not $SkipInstall) {
         if (-not (Test-Path -LiteralPath $ApkPath)) {
             & (Join-Path $scriptDir 'build-android-apk.ps1') -HubRoot $HubRoot -Variant debug | Out-Host
         }
-        $out = Invoke-AdbArgs -Adb $adb -Args @('install', '-r', $ApkPath) -Serial $DeviceSerial
+        $out = Invoke-AdbCommand -Adb $adb -Command @('install', '-r', $ApkPath) -Serial $DeviceSerial
         if ($out -notmatch 'Success') { throw $out }
     }
 }
 
 Assert-DeviceTest 'package version 0.9.x' {
-    $ver = Invoke-AdbArgs -Adb $adb -Args @(
+    $ver = Invoke-AdbCommand -Adb $adb -Command @(
         'shell', 'dumpsys', 'package', 'com.systemoptimizerhub.transparency'
     ) -Serial $DeviceSerial
     if ($ver -notmatch 'versionName=0\.9') { throw 'Expected native v0.9.x on device' }
@@ -86,7 +87,7 @@ Assert-DeviceTest 'package version 0.9.x' {
 
 if (-not $SkipLaunch) {
     Assert-DeviceTest 'launch MainActivity' {
-        $out = Invoke-AdbArgs -Adb $adb -Args @(
+        $out = Invoke-AdbCommand -Adb $adb -Command @(
             'shell', 'am', 'start', '-W', '-n', 'com.systemoptimizerhub.transparency/.MainActivity'
         ) -Serial $DeviceSerial
         if ($out -notmatch 'Complete|Already') { throw $out }
@@ -94,7 +95,7 @@ if (-not $SkipLaunch) {
 
     Assert-DeviceTest 'native dashboard foreground' {
         Start-Sleep -Seconds 5
-        $dump = Invoke-AdbArgs -Adb $adb -Args @('shell', 'dumpsys', 'activity', 'activities') -Serial $DeviceSerial
+        $dump = Invoke-AdbCommand -Adb $adb -Command @('shell', 'dumpsys', 'activity', 'activities') -Serial $DeviceSerial
         if ($dump -notmatch 'topResumedActivity=.*com\.systemoptimizerhub\.transparency') {
             throw 'App not top resumed'
         }
@@ -102,14 +103,14 @@ if (-not $SkipLaunch) {
 
     Assert-DeviceTest 'UI shows device maintenance (logcat)' {
         Start-Sleep -Seconds 2
-        $log = Invoke-AdbArgs -Adb $adb -Args @('logcat', '-d', '-t', '200') -Serial $DeviceSerial
+        $log = Invoke-AdbCommand -Adb $adb -Command @('logcat', '-d', '-t', '200') -Serial $DeviceSerial
         if ($log -match 'AndroidRuntime.*FATAL EXCEPTION.*com\.systemoptimizerhub\.transparency') {
             throw 'FATAL crash in app'
         }
     }
 
     Assert-DeviceTest 'no WebView PC dashboard dependency' {
-        $log = Invoke-AdbArgs -Adb $adb -Args @('logcat', '-d', '-t', '300') -Serial $DeviceSerial
+        $log = Invoke-AdbCommand -Adb $adb -Command @('logcat', '-d', '-t', '300') -Serial $DeviceSerial
         if ($log -match 'ERR_CONNECTION|8765.*refused|net::ERR') {
             throw 'WebView connection errors — app may still depend on PC dashboard'
         }
