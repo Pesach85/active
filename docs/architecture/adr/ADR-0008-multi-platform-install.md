@@ -25,14 +25,13 @@ Hub needs to behave as installable Windows software (shortcuts, uninstall, sched
 - Bash PPI scripts retained; Core Linux mutator implements `renice`/`kill`
 - systemd user timer for periodic `hub analyze pressure`
 
-### Android (v1.0.0 — 2026-09-02)
+### Android (v1.1.0 UX — 2026-09-02)
 
-- **Native maintenance APK** (`mobile/android`) — deep on-device analysis parity with desktop PPI intent
-- Modular engine: process pressure, storage hotspots, waste analyzer, memory liberation, battery/network/boot audit, transparency JSON export
-- `process-intelligence-android.json` — trust tiers and waste thresholds
-- **NOT** a WebView client to PC transparency dashboard (v0.8 WebView MVP was incorrect scope)
+- **Native maintenance APK** — engine v1.0 (analisi on-device) + **UX v1.1** basso carico cognitivo
+- `UiPresenter.kt`: tier → copy italiano; metriche GB; max 3 azioni; dettagli collassati
+- Modular engine unchanged: process pressure, storage, waste, memory, battery/network/boot, transparency JSON
+- **NOT** WebView client to PC dashboard
 - Build: `config/android-build.json`, `build-android-apk.ps1`
-- Safe actions via Android Settings intents; own cache clear; no silent cross-app kill
 
 ## Consequences
 

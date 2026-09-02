@@ -4,4 +4,14 @@
     <color name="tier_medium">#F9A825</color>
     <color name="tier_high">#EF6C00</color>
     <color name="tier_critical">#C62828</color>
+    <color name="bg_screen">#F5F7FA</color>
+    <color name="bg_card">#FFFFFF</color>
+    <color name="card_stroke">#E3E8EF</color>
+    <color name="text_primary">#1A1F2E</color>
+    <color name="text_secondary">#5A6478</color>
+    <color name="text_muted">#8B95A8</color>
+    <color name="progress_track">#E8ECF2</color>
+    <color name="status_ok_bg">#E8F5E9</color>
+    <color name="status_warn_bg">#FFF8E1</color>
+    <color name="status_bad_bg">#FFEBEE</color>
 </resources>

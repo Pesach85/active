@@ -1,28 +1,78 @@
 <resources>
     <string name="app_name">System Optimizer Hub</string>
-    <string name="app_title">Device Maintenance</string>
-    <string name="app_subtitle">Deep on-device analysis — RAM, storage, processes, waste, battery, network.</string>
-    <string name="refresh">Refresh analysis</string>
-    <string name="analyzing">Analyzing device…</string>
-    <string name="analyzing_detail">Scanning RAM, storage, processes, and apps. This may take a few seconds.</string>
-    <string name="analyze_failed">Analysis failed — check logcat HubAndroid</string>
-    <string name="empty_section">No items in this section</string>
-    <string name="pressure_tier">Pressure: %1$s</string>
-    <string name="pressure_score">Score %1$d/100</string>
-    <string name="posture_score">Transparency posture: %1$d/100</string>
-    <string name="host_summary">RAM %1$d / %2$d MB free · Storage %3$d / %4$d MB free · Apps %5$d · Processes %6$d</string>
-    <string name="battery_network">Battery %1$d%% %2$s · %3$s · Network %4$s%5$s</string>
-    <string name="charging">charging</string>
-    <string name="not_charging">not charging</string>
-    <string name="metered"> (metered)</string>
-    <string name="updated_at">Updated: %1$s</string>
-    <string name="section_waste">Resource waste findings</string>
-    <string name="section_storage">Storage hotspots</string>
-    <string name="section_apps">Top apps (storage / usage)</string>
-    <string name="section_processes">Process pressure</string>
-    <string name="section_boot">Boot receivers audit</string>
-    <string name="section_actions">Recommended actions</string>
-    <string name="cache_cleared">Cleared %1$d MB app cache</string>
-    <string name="report_exported">Report saved: %1$s</string>
-    <string name="memory_trim_requested">Memory trim requested</string>
+    <string name="app_title">Stato del telefono</string>
+    <string name="app_subtitle">Controllo rapido di memoria, spazio e app in background.</string>
+    <string name="refresh">Aggiorna controllo</string>
+    <string name="analyzing">Sto controllando…</string>
+    <string name="analyzing_detail">Analisi in corso, attendi qualche secondo.</string>
+    <string name="analyze_failed">Controllo non riuscito. Riprova.</string>
+    <string name="empty_section">Nessun elemento</string>
+    <string name="updated_at">Ultimo controllo: %1$s</string>
+
+    <string name="status_ok_title">Tutto ok</string>
+    <string name="status_ok_sub">Il telefono non mostra segnali di stress.</string>
+    <string name="status_attention_title">Serve un po\' di attenzione</string>
+    <string name="status_attention_sub">Alcune risorse sono sotto pressione. Segui i consigli sotto.</string>
+    <string name="status_urgent_title">Intervento consigliato</string>
+    <string name="status_urgent_sub">Memoria o spazio quasi esauriti. Agisci ora per evitare rallentamenti.</string>
+    <string name="status_critical_title">Situazione critica</string>
+    <string name="status_critical_sub">Libera spazio o memoria al più presto.</string>
+
+    <string name="section_metrics">In sintesi</string>
+    <string name="section_do_now">Cosa fare ora</string>
+    <string name="section_findings">Problemi rilevati</string>
+    <string name="section_heavy_apps">App più pesanti</string>
+    <string name="no_actions_needed">Nessuna azione urgente. Puoi aggiornare il controllo quando vuoi.</string>
+    <string name="show_details">Mostra dettagli tecnici</string>
+    <string name="hide_details">Nascondi dettagli</string>
+    <string name="no_findings">Nessun problema rilevante trovato.</string>
+    <string name="no_heavy_apps">Nessuna app particolarmente pesante al momento.</string>
+
+    <string name="metric_memory">Memoria (RAM)</string>
+    <string name="metric_storage">Spazio di archiviazione</string>
+    <string name="metric_battery">Batteria</string>
+    <string name="metric_memory_value">%1$s liberi su %2$s</string>
+    <string name="metric_storage_value">%1$s liberi su %2$s</string>
+    <string name="metric_battery_value">%1$d%% · %2$s</string>
+    <string name="battery_charging">in carica</string>
+    <string name="battery_on_battery">a batteria</string>
+    <string name="battery_saving">risparmio energetico attivo</string>
+
+    <string name="action_clear_cache">Libera cache di questa app</string>
+    <string name="action_clear_cache_sub">Sicuro · libera spazio locale dell\'app Hub</string>
+    <string name="action_memory_trim">Suggerisci liberazione memoria</string>
+    <string name="action_memory_trim_sub">Chiede al sistema di recuperare memoria in cache</string>
+    <string name="action_storage">Libera spazio</string>
+    <string name="action_storage_sub">Apri impostazioni archiviazione</string>
+    <string name="action_apps">Gestisci app in background</string>
+    <string name="action_apps_sub">Apri elenco app di sistema</string>
+    <string name="action_usage">Attiva statistiche utilizzo</string>
+    <string name="action_usage_sub">Per analisi più precise delle app in background</string>
+    <string name="action_battery">Impostazioni batteria</string>
+    <string name="action_battery_sub">Risparmio energetico e limiti in background</string>
+    <string name="action_export">Esporta report</string>
+    <string name="action_export_sub">Salva un file JSON da condividere</string>
+    <string name="action_app_detail">Apri impostazioni app</string>
+    <string name="action_reboot">Riavvio consigliato</string>
+    <string name="action_reboot_sub">Quando puoi, riavvia per liberare memoria temporanea</string>
+
+    <string name="cache_cleared">Cache liberata: %1$d MB</string>
+    <string name="report_exported">Report salvato: %1$s</string>
+    <string name="memory_trim_requested">Richiesta inviata al sistema</string>
+
+    <!-- legacy / adapters -->
+    <string name="pressure_tier">Pressione: %1$s</string>
+    <string name="pressure_score">Punteggio %1$d/100</string>
+    <string name="posture_score">Trasparenza: %1$d/100</string>
+    <string name="host_summary">RAM %1$d / %2$d MB · Spazio %3$d / %4$d MB</string>
+    <string name="battery_network">Batteria %1$d%% · Rete %2$s</string>
+    <string name="charging">in carica</string>
+    <string name="not_charging">a batteria</string>
+    <string name="metered"> (a consumo)</string>
+    <string name="section_waste">Spreco risorse</string>
+    <string name="section_storage">Archiviazione</string>
+    <string name="section_apps">App</string>
+    <string name="section_processes">Processi</string>
+    <string name="section_boot">Avvio automatico</string>
+    <string name="section_actions">Azioni</string>
 </resources>
