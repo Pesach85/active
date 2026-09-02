@@ -48,6 +48,8 @@ MANIFEST.txt
 /push-*.txt
 /tmpmsg.txt
 
-# OS noise
-Thumbs.db
-.DS_Store
+# Android / mobile build artifacts
+/mobile/android/**/build/
+/mobile/android/**/.gradle/
+/dist/android/
+/dist/installer/

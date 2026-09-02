@@ -1,0 +1,189 @@
+{
+  "LoopIntervalSeconds": 60,
+  "StorageCheckEveryCycles": 12,
+  "LogDirectory": "logs",
+  "LogFileName": "resource-monitor.log",
+  "DrivesToMonitor": [
+    "C",
+    "D"
+  ],
+  "MinFreePercentWarning": 15,
+  "CpuHighPercentThreshold": 70,
+  "MemoryHighMbThreshold": 2048,
+  "ExcludedProcesses": [
+    "Idle",
+    "System",
+    "Registry",
+    "Memory Compression",
+    "MsMpEng"
+  ],
+  "TargetPriorityOnThrottle": "BelowNormal",
+  "AutoTerminate": false,
+  "MaxConsecutiveViolations": 6,
+  "Zombie": {
+    "Enabled": true,
+    "ConsecutiveUnresponsiveChecks": 4
+  },
+  "Cleanup": {
+    "TempRetentionDays": 7,
+    "LogRetentionDays": 30,
+    "DefaultMode": "Safe",
+    "DefaultAuditDepth": "Standard",
+    "DefaultAuditLevel": "FileLevel",
+    "Tier2": {
+      "Enabled": true,
+      "SimulateOnly": true,
+      "Drives": [
+        "D"
+      ],
+      "WhitelistPaths": [
+        "D:\\DataHub\\Temp",
+        "D:\\DataHub\\Cache"
+      ],
+      "MaxFilesPerTarget": 5000
+    }
+  },
+  "Whea": {
+    "Enabled": true,
+    "WindowMinutes": 10,
+    "OutputPath": "logs/whea-monitoring-continuous.json",
+    "GoThreshold": 300,
+    "HoldThreshold": 600,
+    "UseWevtutilFallback": true,
+    "VerifyEventLogServices": true
+  },
+  "Orchestrator": {
+    "Enabled": true,
+    "HeartbeatIntervalSeconds": 600,
+    "LogRotationDays": 7,
+    "HeartbeatFile": "logs/hub-orchestrator-heartbeat.json",
+    "StateFile": "logs/hub-orchestrator-state.json",
+    "RunWheaMonitor": true,
+    "RunFsIntegrityScan": true
+  },
+  "ContinuousOptimization": {
+    "Enabled": true,
+    "Profile": "auto",
+    "ContextOutputPath": "logs/optimization-context-latest.json",
+    "BuildContextEachCycle": true,
+    "RunPpiOnCycle": true
+  },
+  "LlmAdvisory": {
+    "Enabled": false,
+    "OllamaUrl": "http://127.0.0.1:11434",
+    "Model": "qwen2.5:0.5b-instruct",
+    "MaxContextTokens": 2048,
+    "KeepAliveSeconds": 0,
+    "TimeoutSeconds": 20,
+    "MinFreeRamMbForLlm": 6144,
+    "IdleCpuThresholdPercent": 45,
+    "OnlyWhenIdle": true
+  },
+  "FsIntegrity": {
+    "Enabled": true,
+    "ScanDrives": [
+      "C",
+      "D"
+    ],
+    "OutputPath": "logs/fs-integrity-latest.json",
+    "EventLookbackHours": 24
+  },
+  "Gui": {
+    "AutoAnalyzeOnStartup": false,
+    "DefaultAnalyzeDepth": "Quick",
+    "DefaultAnalyzeTop": 15,
+    "ComputeAnalyzeDurationSec": 8,
+    "ComputeAnalyzeTop": 8,
+    "QuickCleanupRetentionDays": 2,
+    "QuickCleanupMaxFilesPerTarget": 2000,
+    "DiagnosticRetentionDays": 7,
+    "ShowAdvancedTools": false,
+    "Language": "it"
+  },
+  "StartupIntegrity": {
+    "Enabled": true,
+    "LegacyHubRoots": [
+      "C:\\SystemOptimizerHub",
+      "C:\\SystemOptimizer"
+    ],
+    "OneShotTaskNames": [
+      "NVMe-WriteOffload-PostBootVerify"
+    ]
+  },
+  "ProcessPressure": {
+    "Enabled": true,
+    "DurationSec": 6,
+    "Top": 8,
+    "ScoreAutoApplyThreshold": 40,
+    "CatalogPath": "config/process-intelligence.json",
+    "OutputPath": "logs/process-pressure-latest.json",
+    "AutoApplySafeActions": false,
+    "MaxApplyLevel": "Safe",
+    "PreservePriorityKeep": true,
+    "DefenderExtreme": {
+      "Enabled": true,
+      "NeverAutoApply": true,
+      "ShowReviewAfterCompute": true,
+      "MinCompositeScoreForPrompt": 85,
+      "EvaluationOutputPath": "logs/defender-extreme-necessity-eval.json",
+      "GuiKeepExtremeWizard": true
+    },
+    "OfferSafeThrottleAfterCompute": true,
+    "IncludeClassificationHints": true
+  },
+  "Privacy": {
+    "MaxFileSizeKb": 512,
+    "MaxFindings": 500,
+    "ScanPaths": [
+      "%USERPROFILE%\\Documents",
+      "%USERPROFILE%\\Desktop",
+      "config",
+      "scripts"
+    ],
+    "ExcludeDirNames": [
+      ".git",
+      "node_modules",
+      "dist",
+      "ddwrtkey",
+      "vendor",
+      "modules",
+      "Windows"
+    ],
+    "Extensions": [
+      ".env",
+      ".ini",
+      ".cfg",
+      ".conf",
+      ".config",
+      ".json",
+      ".xml",
+      ".yaml",
+      ".yml",
+      ".ps1",
+      ".bat",
+      ".cmd",
+      ".sql",
+      ".php",
+      ".txt",
+      ".md"
+    ]
+  },
+  "Transparency": {
+    "Enabled": true,
+    "ReportOutputPath": "logs/transparency-report-latest.json",
+    "EventsPath": "logs/transparency-events.jsonl",
+    "BuildReportEachOrchestratorCycle": true,
+    "UnknownRamThresholdMb": 400,
+    "WebDashboard": {
+      "Enabled": true,
+      "BindAddress": "127.0.0.1",
+      "Port": 8765
+    },
+    "NetworkMonitor": {
+      "Enabled": true,
+      "MaxConnections": 120,
+      "SmallProcessRamMb": 120,
+      "FlagPublicOutbound": true
+    }
+  }
+}

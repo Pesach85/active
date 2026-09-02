@@ -81,13 +81,38 @@ internal sealed class LinuxProcessMutator : IProcessMutator
 {
     public Task ThrottleBelowNormalAsync(int processId, CancellationToken ct = default)
     {
-        // renice +5 — parity with apply-process-pressure-safe.sh Safe level
-        throw new PlatformNotSupportedException(
-            "Linux renice apply is Phase 2; use scripts/linux/apply-process-pressure-safe.sh until hub parity gate passes.");
+        if (processId <= 0) throw new ArgumentOutOfRangeException(nameof(processId));
+        var psi = new System.Diagnostics.ProcessStartInfo("renice", $"+5 -p {processId}")
+        {
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true
+        };
+        using var proc = System.Diagnostics.Process.Start(psi)
+            ?? throw new InvalidOperationException("Failed to start renice.");
+        proc.WaitForExit();
+        if (proc.ExitCode != 0)
+        {
+            var err = proc.StandardError.ReadToEnd();
+            throw new InvalidOperationException(string.IsNullOrWhiteSpace(err) ? "renice failed" : err.Trim());
+        }
+        return Task.CompletedTask;
     }
 
-    public Task TerminateAsync(int processId, CancellationToken ct = default) =>
-        throw new PlatformNotSupportedException("Terminate on Linux requires explicit HITL Phase 2 implementation.");
+    public Task TerminateAsync(int processId, CancellationToken ct = default)
+    {
+        if (processId <= 0) throw new ArgumentOutOfRangeException(nameof(processId));
+        var psi = new System.Diagnostics.ProcessStartInfo("kill", $"-TERM {processId}")
+        {
+            UseShellExecute = false,
+            CreateNoWindow = true
+        };
+        using var proc = System.Diagnostics.Process.Start(psi)
+            ?? throw new InvalidOperationException("Failed to start kill.");
+        proc.WaitForExit();
+        return Task.CompletedTask;
+    }
 }
 
 internal sealed class LinuxDefenderPolicyMutatorStub : IDefenderPolicyMutator

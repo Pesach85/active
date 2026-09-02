@@ -735,6 +735,15 @@ finally {
     else { $env:HUB_USE_CORE = $prevUseCore }
 }
 
+Write-Host '[SMOKE] install-platform-smoke...'
+try {
+    & (Join-Path $HubRoot 'scripts\test-install-smoke.ps1') -HubRoot $HubRoot | Out-Host
+    if ($LASTEXITCODE -ne 0) { $failures.Add('install-platform-smoke: failed') }
+    else { Write-Host '[SMOKE] install-platform-smoke OK' }
+} catch {
+    $failures.Add("install-platform-smoke: $($_.Exception.Message)")
+}
+
 if ($failures.Count -gt 0) {
     Write-Host '[SMOKE] FAILED'
     $failures | ForEach-Object { Write-Host ("  - {0}" -f $_) }

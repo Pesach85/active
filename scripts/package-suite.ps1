@@ -57,6 +57,7 @@ $items = @(
     (Join-Path $scriptDir "lib\process-knowledge.ps1"),
     (Join-Path $scriptDir "lib\process-catalog-merge.ps1"),
     (Join-Path $scriptDir "lib\process-resolution-policy.ps1"),
+    (Join-Path $scriptDir "lib\windows-app-install.ps1"),
     (Join-Path $scriptDir "lib\operator-auth.ps1"),
     (Join-Path $scriptDir "lib\startup-integrity.ps1"),
     (Join-Path $scriptDir "audit-startup-integrity.ps1"),
@@ -73,13 +74,17 @@ $items = @(
     (Join-Path $scriptDir "system-optimizer-gui.ps1"),
     (Join-Path $scriptDir "build-gui-exe.ps1"),
     (Join-Path $scriptDir "install-suite.ps1"),
+    (Join-Path $scriptDir "install-windows-app.ps1"),
+    (Join-Path $scriptDir "uninstall-windows-app.ps1"),
+    (Join-Path $scriptDir "dev-sync-production.ps1"),
     (Join-Path $scriptDir "uninstall-suite.ps1"),
     (Join-Path $scriptDir "run-gui.bat"),
     (Join-Path $scriptDir "run-install-suite.bat"),
     (Join-Path $scriptDir "run-uninstall-suite.bat"),
     (Join-Path $scriptDir "run-core-bootstrap.bat"),
     (Join-Path $scriptDir "run-disk-audit-safe.bat"),
-    (Join-Path $configDir "sys-maintenance.json")
+    (Join-Path $configDir "sys-maintenance.json"),
+    (Join-Path $configDir "install-profile.json")
 )
 
 if (-not (Test-Path -LiteralPath $OutputDir)) {
@@ -217,6 +222,13 @@ setlocal
 set HUB_DIR=%~dp0hub
 dotnet "%HUB_DIR%\SystemOptimizerHub.Cli.dll" %*
 "@ | Set-Content -LiteralPath $hubBat -Encoding ASCII
+}
+
+foreach ($bat in @('Launch-Hub.bat', 'Launch-Transparency-Web.bat')) {
+    $batSrc = Join-Path $scriptDir $bat
+    if (Test-Path -LiteralPath $batSrc) {
+        Copy-Item -LiteralPath $batSrc -Destination (Join-Path $OutputDir $bat) -Force
+    }
 }
 
 Write-Host "Package ready at: $OutputDir"
