@@ -19,5 +19,5 @@
     "JvmArgs": "-Xmx1024m -Dfile.encoding=UTF-8",
     "MaxWorkers": 2
   },
-  "OutputApkRelative": "dist\\android\\SystemOptimizerHub-transparency-debug.apk"
+  "OutputApkRelative": "dist\\android\\SystemOptimizerHub-android-debug.apk"
 }

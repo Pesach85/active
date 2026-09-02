@@ -48,6 +48,11 @@ function Invoke-AdbArgs {
     return $text
 }
 
+$adb = Get-AdbPath
+if (-not $ApkPath) {
+    $ApkPath = Join-Path $HubRoot 'dist\android\SystemOptimizerHub-android-debug.apk'
+}
+
 Assert-DeviceTest 'adb device connected' {
     $null = Invoke-AdbArgs -Adb $adb -Args @('wait-for-device') -Serial $DeviceSerial
     Start-Sleep -Seconds 1
