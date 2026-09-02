@@ -51,5 +51,6 @@ MANIFEST.txt
 # Android / mobile build artifacts
 /mobile/android/**/build/
 /mobile/android/**/.gradle/
+/mobile/android/local.properties
 /dist/android/
 /dist/installer/

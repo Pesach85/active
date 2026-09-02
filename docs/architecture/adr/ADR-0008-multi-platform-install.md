@@ -28,13 +28,15 @@ Hub needs to behave as installable Windows software (shortcuts, uninstall, sched
 ### Android
 
 - MVP: WebView APK (`mobile/android`) → Hub transparency dashboard URL
+- Build toolchain: `config/android-build.json` (SDK `D:\Android\Sdk`, JDK `D:\JDK_17` from I_Tuoi_Versetti)
+- `scripts/lib/android-build-config.ps1` resolves paths and writes `local.properties` (gitignored)
 - No on-device maintenance engine; read-only mobile client
 - Future: auth token, push notifications after web control plane (ADR-0006)
 
 ## Consequences
 
 - Developers must run `dev-sync-production.ps1` after code changes (or rely on junction + package only)
-- Android APK requires Android SDK; not built in default CI until SDK available
+- Android APK build uses non-standard SDK path via `android-build.json`; CI must mirror or override
 - Inno Setup build is optional separate step from PS install
 
 ## References

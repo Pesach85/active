@@ -231,6 +231,25 @@
         "EffortInverse": 65
       },
       "Rationale": "C# transparency report still omits live network snapshot; wire NetworkTransparencyService."
+    },
+    {
+      "Id": "phase7-multi-platform-install",
+      "Phase": 7,
+      "Title": "Multi-platform install + Android APK (WebView MVP)",
+      "Status": "done",
+      "HitlRequired": false,
+      "BlockedBy": ["phase5-network-deep-panel"],
+      "PsOrigin": "scripts/install-windows-app.ps1",
+      "CoreTarget": "Hub v0.8.0 install profile + mobile/android",
+      "Deliverable": "Windows dev-sync install, Linux user install, Android transparency APK",
+      "Scores": {
+        "ParityFeasibility": 85,
+        "RegressionRiskInverse": 88,
+        "UserValue": 90,
+        "GateReadiness": 92,
+        "EffortInverse": 70
+      },
+      "Rationale": "Shipped v0.8.0: install-profile, dev-sync junction, Linux systemd, Android WebView; SDK paths from I_Tuoi_Versetti (D:\\Android\\Sdk, D:\\JDK_17)."
     }
   ]
 }

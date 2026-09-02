@@ -1,3 +1,3 @@
-# Copy to local.properties and set sdk.dir to your Android SDK path.
-# Windows default: C:\\Users\\<you>\\AppData\\Local\\Android\\Sdk
-sdk.dir=C\:\\Users\\YourUser\\AppData\\Local\\Android\\Sdk
+# Machine-local — copy to local.properties (gitignored) or let scripts/build-android-apk.ps1 generate it.
+# Paths from I_Tuoi_Versetti toolchain (config/android-build.json is the canonical source in repo):
+sdk.dir=D\:\\Android\\Sdk
