@@ -11,9 +11,9 @@ android {
         applicationId = "com.systemoptimizerhub.transparency"
         minSdk = 26
         targetSdk = 34
-        versionCode = 3
-        versionName = "0.9.0"
-        buildConfigField("String", "ENGINE_VERSION", "\"DeviceMaintenanceEngine.v1\"")
+        versionCode = 4
+        versionName = "1.0.0"
+        buildConfigField("String", "ENGINE_VERSION", "\"DeviceMaintenanceEngine.v2\"")
     }
 
     buildTypes {

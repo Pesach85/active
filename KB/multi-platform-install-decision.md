@@ -10,7 +10,7 @@
 | Installer production | Inno Setup (`installer/SystemOptimizerHub.iss`) + PS install | ROADMAP 3.3; PS per fase dev |
 | Linux scope | User prefix + `hub` single-file + systemd user timer | No root; parity CLI; bash PPI retained |
 | Linux mutator | `renice`/`kill` via Core Linux | Rimosso stub PlatformNotSupported per throttle/terminate base |
-| Android | **Native maintenance engine v0.9** on device (RAM/storage/processes) | **Pivot 2026-09-02:** WebView→PC era errata; parity intent con Windows/Linux PPI locale |
+| Android | **Native maintenance engine v1.0** on device (parity PPI + waste + transparency) | Pivot v0.9→v1.0: moduli engine, analisi profonde, ottimizzazioni Android-specific |
 | APK build | Gradle in `mobile/android/` + `config/android-build.json` | SDK `D:\Android\Sdk`, JDK `D:\JDK_17` (da I_Tuoi_Versetti) |
 
 ## Workflow dev (Windows)
@@ -50,13 +50,48 @@ chmod +x dist/LinuxOptimizer/scripts/linux/install-linux-suite.sh
 | Switch `$Desktop` vs path case-insensitive | Rinominato in `CreateDesktopShortcuts` / `desktopFolder` |
 | `test-android-device-smoke` `$Args` param | Rinominato `Invoke-AdbCommand -Command`; regex tab-separated `device` |
 
-## Android native maintenance (v0.9.0)
+## Android native maintenance (v1.0.0)
 
-**Correzione requisito:** l'app Android NON deve monitorare il PC via WebView. Deve eseguire manutenzione sul dispositivo Android installato.
+**Correzione requisito:** l'app Android NON deve monitorare il PC via WebView. Deve eseguire manutenzione sul dispositivo Android installato con **parity analitica** rispetto al desktop (adattata al platform).
 
-Componenti:
-- `DeviceMaintenanceEngine.kt` — analyze locale
-- `MainActivity` — dashboard nativa (pressure, processi, storage, azioni safe)
+### Parity matrix (desktop → Android)
+
+| Desktop (Windows/Linux) | Android v1.0 | Note |
+|-------------------------|--------------|------|
+| Process pressure (PPI) | `ProcessPressureEngine` | Running processes, importance, trust T1/T2/T3 |
+| Storage / garbage hotspots | `StorageHotspotAnalyzer` | StatFs + `StorageStatsManager` per-app cache/data |
+| Resource waste | `WasteResourceAnalyzer` | Cache hotspots, background compute, cached process count |
+| Memory liberation | `MemoryLiberationAdvisor` | Clear own cache, memory trim hint, Settings intents |
+| Transparency report | `TransparencyReportBuilder` | JSON export `AndroidTransparencyReport.v1` |
+| Network snapshot | `NetworkSnapshotService` | Wi-Fi/cellular/VPN, metered, TrafficStats totals |
+| Battery pressure | `BatteryPressureSignal` | Level, charging, power save bonus on pressure score |
+| Boot / startup audit | `BootAppsAuditor` | BOOT_COMPLETED receivers |
+| Trust / catalog | `AppTrustClassifier` + `process-intelligence-android.json` | T1 system, T2 tunable, T3 unknown |
+| Usage / background | `UsageStatsCollector` | Optional usage access for 24h fg/bg minutes |
+
+### Android-specific (non su desktop)
+
+- Per-app cache via `StorageStatsManager` (API 26+)
+- Cached process count waste signal (Android LRU)
+- Usage access gate for background-heavy apps
+- Safe actions only: Settings intents, own cache clear, report export (no force-stop/kill)
+
+### Engine modules
+
+```
+DeviceMaintenanceEngine.kt (orchestrator)
+engine/ProcessPressureEngine.kt
+engine/StorageHotspotAnalyzer.kt
+engine/WasteResourceAnalyzer.kt
+engine/MemoryLiberationAdvisor.kt
+engine/BatteryPressureSignal.kt
+engine/NetworkSnapshotService.kt
+engine/BootAppsAuditor.kt
+engine/AppTrustClassifier.kt
+engine/UsageStatsCollector.kt
+report/TransparencyReportBuilder.kt
+assets/process-intelligence-android.json
+```
 
 ```powershell
 powershell -File scripts/build-android-apk.ps1
@@ -65,6 +100,25 @@ powershell -File scripts/test-android-device-smoke.ps1
 ```
 
 Limiti Android: kill force-stop solo via Settings utente; per-app RAM richiede usage access opzionale.
+
+### Live device smoke (v1.0.0)
+
+| Check | Esito |
+|-------|-------|
+| Device | Motorola Edge 40 (`ZY22HFWMGV`) |
+| APK v1.0.0 build | Gradle assembleDebug OK |
+| Engine modules present | v1 modules smoke |
+| Native dashboard (waste/apps/boot/battery) | v1.0 UI sections |
+
+## Android native maintenance (v0.9.0 — superseded)
+
+| Check | Esito |
+|-------|-------|
+| Device | Motorola Edge 40 (`ZY22HFWMGV`) |
+| APK v0.9.0 install + launch | ✓ |
+| Native dashboard foreground | ✓ |
+| Logcat no FATAL | ✓ |
+| No WebView/PC dependency | ✓ |
 
 ## Android build (toolchain I_Tuoi_Versetti)
 

@@ -2,24 +2,41 @@ package com.systemoptimizerhub.transparency
 
 import android.app.ActivityManager
 import android.content.Context
-import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.os.Environment
 import android.os.StatFs
-import kotlin.math.max
+import com.systemoptimizerhub.transparency.engine.AppTrustClassifier
+import com.systemoptimizerhub.transparency.engine.BatteryPressureSignal
+import com.systemoptimizerhub.transparency.engine.BootAppsAuditor
+import com.systemoptimizerhub.transparency.engine.MemoryLiberationAdvisor
+import com.systemoptimizerhub.transparency.engine.NetworkSnapshotService
+import com.systemoptimizerhub.transparency.engine.ProcessPressureEngine
+import com.systemoptimizerhub.transparency.engine.StorageHotspotAnalyzer
+import com.systemoptimizerhub.transparency.engine.UsageStatsCollector
+import com.systemoptimizerhub.transparency.engine.WasteResourceAnalyzer
+import com.systemoptimizerhub.transparency.report.TransparencyReportBuilder
 import kotlin.math.roundToInt
 
 /**
- * On-device maintenance engine: RAM, storage, running processes/apps on THIS Android device.
- * Parity intent with Windows/Linux PPI — no remote PC monitoring.
+ * On-device maintenance orchestrator — parity with desktop PPI / transparency / waste analysis.
  */
 class DeviceMaintenanceEngine(private val context: Context) {
 
     private val activityManager =
         context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
     private val packageManager = context.packageManager
+    private val trust = AppTrustClassifier(context)
+    private val usage = UsageStatsCollector(context)
+    private val processEngine = ProcessPressureEngine(context, trust)
+    private val storageAnalyzer = StorageHotspotAnalyzer(context, trust)
+    private val batterySignal = BatteryPressureSignal(context)
+    private val networkService = NetworkSnapshotService(context)
+    private val bootAuditor = BootAppsAuditor(context)
+    private val wasteAnalyzer = WasteResourceAnalyzer(trust, usage)
+    private val memoryAdvisor = MemoryLiberationAdvisor(context)
+    private val reportBuilder = TransparencyReportBuilder(context)
 
-    fun analyze(topProcessLimit: Int = 12): DeviceSnapshot {
+    fun analyze(topProcessLimit: Int = 12, exportReport: Boolean = false): DeviceSnapshot {
         val mem = ActivityManager.MemoryInfo()
         activityManager.getMemoryInfo(mem)
 
@@ -42,35 +59,42 @@ class DeviceMaintenanceEngine(private val context: Context) {
             packageManager.getInstalledApplications(PackageManager.GET_META_DATA).size
         } catch (_: Exception) { 0 }
 
-        val running = activityManager.runningAppProcesses.orEmpty()
-        val topProcesses = running
-            .sortedWith(
-                compareByDescending<ActivityManager.RunningAppProcessInfo> { it.importance }
-                    .thenBy { it.processName }
-            )
-            .take(topProcessLimit)
-            .map { p ->
-                ProcessEntry(
-                    processName = p.processName,
-                    pid = p.pid,
-                    importance = p.importance,
-                    importanceLabel = importanceLabel(p.importance),
-                    isForeground = p.importance <= ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND,
-                    trustLabel = classifyTrust(p.processName),
-                    advisory = advisoryFor(p.processName, p.importance)
-                )
-            }
+        val topProcesses = processEngine.topProcesses(topProcessLimit)
+        val runningCount = activityManager.runningAppProcesses.orEmpty().size
+        val cachedCount = processEngine.cachedProcessCount()
+        val storageHotspots = storageAnalyzer.analyze()
+        val storageApps = storageAnalyzer.topAppStorage(12)
+        val battery = batterySignal.snapshot()
+        val network = networkService.snapshot()
+        val bootApps = bootAuditor.audit()
+        val hasUsage = usage.hasUsageAccess()
 
-        val storageHotspots = buildStorageHotspots(freeStorageMb, totalStorageMb, storageFreePercent)
+        val topApps = buildTopApps(storageApps, usage.topApps(15))
+        val wasteFindings = wasteAnalyzer.analyze(
+            storageApps = storageApps,
+            runningCachedCount = cachedCount,
+            availRamMb = availRamMb,
+            storageFreePercent = storageFreePercent
+        )
+
         val (tier, score, bullets) = computePressure(
             availRamMb, totalRamMb, ramUsedPercent,
             freeStorageMb, totalStorageMb, storageFreePercent,
-            mem.lowMemory, running.size
+            mem.lowMemory, runningCount, cachedCount,
+            wasteFindings.size, battery, network
         )
-        val actions = buildActions(tier, storageFreePercent, availRamMb, totalRamMb)
 
-        return DeviceSnapshot(
+        val actions = memoryAdvisor.buildActions(
+            tier, availRamMb, totalRamMb, storageFreePercent, wasteFindings, hasUsage
+        )
+
+        val posture = computeTransparencyPosture(
+            hasUsage, wasteFindings, storageFreePercent, availRamMb, totalRamMb
+        )
+
+        var snap = DeviceSnapshot(
             generatedAtEpochMs = System.currentTimeMillis(),
+            engineVersion = BuildConfig.ENGINE_VERSION,
             totalRamMb = totalRamMb,
             availRamMb = availRamMb,
             ramUsedPercent = ramUsedPercent,
@@ -78,14 +102,73 @@ class DeviceMaintenanceEngine(private val context: Context) {
             freeStorageMb = freeStorageMb,
             storageFreePercent = storageFreePercent,
             installedAppsCount = installedApps,
-            runningProcessCount = running.size,
+            runningProcessCount = runningCount,
             pressureTier = tier,
             pressureScore = score,
             summaryBullets = bullets,
             topProcesses = topProcesses,
+            topApps = topApps,
             storageHotspots = storageHotspots,
-            recommendedActions = actions
+            wasteFindings = wasteFindings,
+            battery = battery,
+            network = network,
+            bootApps = bootApps,
+            recommendedActions = actions,
+            transparencyPostureScore = posture
         )
+
+        if (exportReport) {
+            val path = reportBuilder.export(snap)
+            snap = snap.copy(reportPath = path)
+        }
+        return snap
+    }
+
+    fun clearOwnCache(): Long = memoryAdvisor.clearOwnCache()
+
+    fun requestMemoryTrim() = memoryAdvisor.requestMemoryTrim(activityManager)
+
+    fun exportReport(): String {
+        val snap = analyze(exportReport = true)
+        return snap.reportPath ?: ""
+    }
+
+    private fun buildTopApps(
+        storage: List<com.systemoptimizerhub.transparency.engine.AppStorageRow>,
+        usageRows: List<com.systemoptimizerhub.transparency.engine.UsageAppRow>
+    ): List<AppPressureEntry> {
+        val usageByPkg = usageRows.associateBy { it.packageName }
+        return storage.map { row ->
+            val u = usageByPkg[row.packageName]
+            val wasteScore = computeAppWasteScore(row.cacheMb, u?.backgroundMinutes ?: 0)
+            AppPressureEntry(
+                packageName = row.packageName,
+                label = row.label,
+                cacheMb = row.cacheMb,
+                dataMb = row.dataMb,
+                totalMb = row.totalMb,
+                foregroundMinutes = u?.foregroundMinutes ?: 0,
+                backgroundMinutes = u?.backgroundMinutes ?: 0,
+                trustLabel = row.trustLabel,
+                wasteScore = wasteScore,
+                advisory = appAdvisory(row.trustLabel, row.cacheMb, wasteScore)
+            )
+        }
+    }
+
+    private fun computeAppWasteScore(cacheMb: Long, bgMinutes: Long): Int {
+        var s = 0
+        if (cacheMb >= trust.wasteThresholdCacheMb()) s += 30
+        if (cacheMb >= trust.wasteThresholdCacheMb() * 2) s += 20
+        if (bgMinutes >= trust.wasteBackgroundMinutes()) s += 25
+        return s.coerceIn(0, 100)
+    }
+
+    private fun appAdvisory(trustLabel: String, cacheMb: Long, wasteScore: Int): String = when {
+        trustLabel.startsWith("T1") -> "System/vital — do not remove"
+        wasteScore >= 50 -> "High waste signal — review cache and background usage"
+        cacheMb >= trust.wasteThresholdCacheMb() -> "Large cache — clear via Settings"
+        else -> "Within normal range"
     }
 
     private fun computePressure(
@@ -96,7 +179,11 @@ class DeviceMaintenanceEngine(private val context: Context) {
         totalStorageMb: Long,
         storageFreePercent: Int,
         lowMemory: Boolean,
-        runningCount: Int
+        runningCount: Int,
+        cachedCount: Int,
+        wasteCount: Int,
+        battery: BatterySnapshot,
+        network: NetworkSnapshot
     ): Triple<PressureTier, Int, List<String>> {
         var score = 0
         val bullets = mutableListOf<String>()
@@ -131,6 +218,15 @@ class DeviceMaintenanceEngine(private val context: Context) {
             score += 8
             bullets.add("High running process count ($runningCount)")
         }
+        if (cachedCount >= 40) {
+            score += 6
+            bullets.add("Many cached processes ($cachedCount)")
+        }
+        if (wasteCount >= 3) {
+            score += 8
+            bullets.add("$wasteCount resource waste findings")
+        }
+        score += batterySignal.pressureBonus(battery)
 
         val tier = when {
             score >= 60 -> PressureTier.Critical
@@ -138,124 +234,26 @@ class DeviceMaintenanceEngine(private val context: Context) {
             score >= 18 -> PressureTier.Medium
             else -> PressureTier.Low
         }
-        if (bullets.isEmpty()) {
-            bullets.add("Device pressure within normal range")
-        }
+        if (bullets.isEmpty()) bullets.add("Device pressure within normal range")
         bullets.add(0, "Host RAM ${availRamMb}/${totalRamMb} MB · Storage ${freeStorageMb}/${totalStorageMb} MB")
+        bullets.add("Battery ${battery.levelPercent}% · Network ${network.activeType}")
         return Triple(tier, score.coerceIn(0, 100), bullets)
     }
 
-    private fun buildStorageHotspots(
-        freeMb: Long,
-        totalMb: Long,
-        freePercent: Int
-    ): List<StorageHotspot> {
-        val list = mutableListOf<StorageHotspot>()
-        list.add(
-            StorageHotspot(
-                label = "Internal data partition",
-                detail = "${freeMb} MB free of ${totalMb} MB (${freePercent}%)",
-                severity = when {
-                    freePercent <= 5 -> "critical"
-                    freePercent <= 10 -> "high"
-                    freePercent <= 20 -> "medium"
-                    else -> "low"
-                }
-            )
-        )
-        val cacheSize = estimateCacheBytes()
-        if (cacheSize > 0) {
-            list.add(
-                StorageHotspot(
-                    label = "App cache (this app)",
-                    detail = "${cacheSize / MB} MB in cache dir",
-                    severity = if (cacheSize > 256 * MB) "medium" else "low"
-                )
-            )
-        }
-        return list
-    }
-
-    private fun estimateCacheBytes(): Long {
-        return try {
-            context.cacheDir?.walkTopDown()?.filter { it.isFile }?.map { it.length() }?.sum() ?: 0L
-        } catch (_: Exception) { 0L }
-    }
-
-    private fun buildActions(
-        tier: PressureTier,
+    private fun computeTransparencyPosture(
+        hasUsage: Boolean,
+        waste: List<WasteFinding>,
         storageFreePercent: Int,
         availRamMb: Long,
         totalRamMb: Long
-    ): List<MaintenanceAction> {
-        val actions = mutableListOf<MaintenanceAction>()
-        if (storageFreePercent <= 15) {
-            actions.add(
-                MaintenanceAction(
-                    title = "Free storage",
-                    detail = "Open system storage settings to remove files and clear app caches.",
-                    kind = MaintenanceActionKind.OpenStorageSettings
-                )
-            )
-        }
-        if (tier >= PressureTier.Medium || availRamMb < totalRamMb / 4) {
-            actions.add(
-                MaintenanceAction(
-                    title = "Review background apps",
-                    detail = "Open app settings to restrict background activity or force-stop non-essential apps.",
-                    kind = MaintenanceActionKind.OpenAppSettings
-                )
-            )
-        }
-        actions.add(
-            MaintenanceAction(
-                title = "Enable usage access (optional)",
-                detail = "Grants richer per-app storage/usage stats for deeper analysis.",
-                kind = MaintenanceActionKind.OpenUsageAccessSettings
-            )
-        )
-        if (tier >= PressureTier.High) {
-            actions.add(
-                MaintenanceAction(
-                    title = "Reboot advisory",
-                    detail = "High pressure detected. Reboot clears transient RAM pressure when safe.",
-                    kind = MaintenanceActionKind.AdvisoryOnly
-                )
-            )
-        }
-        return actions
-    }
-
-    private fun importanceLabel(importance: Int): String = when (importance) {
-        ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND -> "Foreground"
-        ActivityManager.RunningAppProcessInfo.IMPORTANCE_VISIBLE -> "Visible"
-        ActivityManager.RunningAppProcessInfo.IMPORTANCE_SERVICE -> "Service"
-        ActivityManager.RunningAppProcessInfo.IMPORTANCE_CACHED -> "Cached"
-        ActivityManager.RunningAppProcessInfo.IMPORTANCE_GONE -> "Gone"
-        else -> "Other ($importance)"
-    }
-
-    private fun classifyTrust(processName: String): String {
-        val systemPrefixes = listOf(
-            "system", "com.android.", "android.", "com.google.android.gms",
-            "com.motorola.", "com.qualcomm.", "vendor."
-        )
-        if (systemPrefixes.any { processName.startsWith(it, ignoreCase = true) }) return "T1-System"
-        if (processName.contains("systemui", ignoreCase = true)) return "T1-System"
-        return "T3-Unknown"
-    }
-
-    private fun advisoryFor(processName: String, importance: Int): String {
-        if (importance <= ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND) {
-            return "Foreground — do not stop while in use"
-        }
-        if (classifyTrust(processName).startsWith("T1")) {
-            return "System process — keep"
-        }
-        if (importance >= ActivityManager.RunningAppProcessInfo.IMPORTANCE_CACHED) {
-            return "Cached — safe to trim via system memory manager"
-        }
-        return "Review in app settings before force-stop"
+    ): Int {
+        var score = 70
+        if (hasUsage) score += 15 else score -= 10
+        val highWaste = waste.count { it.severity == "high" }
+        score -= highWaste * 5
+        if (storageFreePercent <= 10) score -= 10
+        if (availRamMb < totalRamMb / 4) score -= 10
+        return score.coerceIn(0, 100)
     }
 
     companion object {
