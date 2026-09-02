@@ -1,6 +1,8 @@
 [CmdletBinding()]
 param(
-    [string]$OutputDir
+    [string]$OutputDir,
+    [ValidateSet('linux-x64', 'linux-arm64')]
+    [string]$Runtime = 'linux-x64'
 )
 
 Set-StrictMode -Version Latest
@@ -10,59 +12,64 @@ $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $hubRoot = Split-Path -Parent $scriptDir
 $configDir = Join-Path $hubRoot 'config'
 $linuxDir = Join-Path $scriptDir 'linux'
+$cliProject = Join-Path $hubRoot 'src\SystemOptimizerHub.Cli\SystemOptimizerHub.Cli.csproj'
 
 if (-not $OutputDir -or $OutputDir.Trim() -eq '') {
     $OutputDir = Join-Path $hubRoot 'dist\LinuxOptimizer'
 }
 
-$targetScripts = Join-Path $OutputDir 'scripts'
+$targetScripts = Join-Path $OutputDir 'scripts\linux'
 $targetConfig = Join-Path $OutputDir 'config'
+$targetBin = Join-Path $OutputDir 'bin'
 New-Item -Path $targetScripts -ItemType Directory -Force | Out-Null
-New-Item -Path (Join-Path $targetScripts 'linux') -ItemType Directory -Force | Out-Null
 New-Item -Path $targetConfig -ItemType Directory -Force | Out-Null
+New-Item -Path $targetBin -ItemType Directory -Force | Out-Null
 
-$items = @(
-    (Join-Path $linuxDir 'analyze-process-pressure.sh'),
-    (Join-Path $linuxDir 'apply-process-pressure-safe.sh'),
-    (Join-Path $linuxDir 'VERSION'),
-    (Join-Path $configDir 'process-intelligence.json')
-)
+Get-ChildItem -LiteralPath $linuxDir -File | ForEach-Object {
+    Copy-Item -LiteralPath $_.FullName -Destination $targetScripts -Force
+}
 
-foreach ($item in $items) {
-    if (-not (Test-Path -LiteralPath $item)) {
-        Write-Warning "Missing: $item"
-        continue
-    }
-    if ($item -match '[\\/]config[\\/]') {
-        Copy-Item -LiteralPath $item -Destination $targetConfig -Force
-    } else {
-        Copy-Item -LiteralPath $item -Destination (Join-Path $targetScripts 'linux') -Force
+$configs = @('process-intelligence.json', 'install-profile.json', 'sys-maintenance.json')
+foreach ($cfg in $configs) {
+    $src = Join-Path $configDir $cfg
+    if (Test-Path -LiteralPath $src) {
+        Copy-Item -LiteralPath $src -Destination $targetConfig -Force
     }
 }
 
+if (Test-Path -LiteralPath $cliProject) {
+    Write-Host "Publishing hub CLI ($Runtime)..."
+    dotnet publish $cliProject -c Release -r $Runtime --self-contained true `
+        -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true `
+        -o $targetBin -v q --nologo
+    if ($LASTEXITCODE -ne 0) { throw 'dotnet publish linux hub failed' }
+    $published = Join-Path $targetBin 'SystemOptimizerHub.Cli'
+    if (Test-Path -LiteralPath $published) {
+        Move-Item -LiteralPath $published -Destination (Join-Path $targetBin 'hub') -Force
+    }
+}
+
+$version = Get-Content -LiteralPath (Join-Path $linuxDir 'VERSION') -Raw
 $readme = @"
-Linux Optimizer — Process Pressure Intelligence (v0.2.0)
+Linux Optimizer Hub ($($version.Trim()))
 
-Hub Core migration preview: shared catalog with Windows; bash PPI until hub CLI parity (ADR-0007).
+Install (user scope, no root):
+  chmod +x scripts/linux/install-linux-suite.sh
+  ./scripts/linux/install-linux-suite.sh
 
-Analyze top CPU/RAM/IO processes (deterministic two-snapshot scoring):
+Uninstall:
+  ./scripts/linux/uninstall-linux-suite.sh
 
-  chmod +x scripts/linux/analyze-process-pressure.sh
+CLI (after install):
+  hub version
+  hub analyze pressure --duration 6 --top 8
+  hub network deep-scan --catalog config/process-intelligence.json
+
+PPI bash (offline):
   ./scripts/linux/analyze-process-pressure.sh 6 8 /tmp/process-pressure.json
-
-Arguments: DURATION_SEC TOP OUTPUT_JSON [CATALOG_PATH]
-
-Catalog: config/process-intelligence.json (shared knowledge base with Windows build).
-
-Safe apply on Linux (renice, reversible):
-
-  chmod +x scripts/linux/apply-process-pressure-safe.sh
   ./scripts/linux/apply-process-pressure-safe.sh /tmp/process-pressure.json /tmp/apply.json
 
-Cross-platform CLI (preview, requires .NET 9):
-
-  dotnet run --project /path/to/active/src/SystemOptimizerHub.Cli -- catalog classify --name chrome
-  dotnet publish src/SystemOptimizerHub.Cli -c Release -r linux-x64 --self-contained -p:PublishSingleFile=true
+Systemd user timer: systemoptimizerhub-orchestrator.timer (optional, install script enables)
 "@
 
 Set-Content -LiteralPath (Join-Path $OutputDir 'README.txt') -Value $readme -Encoding UTF8

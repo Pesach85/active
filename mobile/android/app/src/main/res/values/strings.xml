@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">Hub Transparency</string>
+    <string name="hub_url_hint">Hub transparency dashboard URL (PC LAN IP:8765 when remote)</string>
+    <string name="hub_url_placeholder">http://192.168.1.10:8765</string>
+    <string name="connect">Connect</string>
+    <string name="status_loading">Loading…</string>
+    <string name="status_connected">Connected: %1$s</string>
+    <string name="status_error">Error: %1$s</string>
+</resources>

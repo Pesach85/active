@@ -1,22 +1,19 @@
-﻿Linux Optimizer â€” Process Pressure Intelligence (v0.2.0)
+﻿Linux Optimizer Hub (0.8.0)
 
-Hub Core migration preview: shared catalog with Windows; bash PPI until hub CLI parity (ADR-0007).
+Install (user scope, no root):
+  chmod +x scripts/linux/install-linux-suite.sh
+  ./scripts/linux/install-linux-suite.sh
 
-Analyze top CPU/RAM/IO processes (deterministic two-snapshot scoring):
+Uninstall:
+  ./scripts/linux/uninstall-linux-suite.sh
 
-  chmod +x scripts/linux/analyze-process-pressure.sh
+CLI (after install):
+  hub version
+  hub analyze pressure --duration 6 --top 8
+  hub network deep-scan --catalog config/process-intelligence.json
+
+PPI bash (offline):
   ./scripts/linux/analyze-process-pressure.sh 6 8 /tmp/process-pressure.json
-
-Arguments: DURATION_SEC TOP OUTPUT_JSON [CATALOG_PATH]
-
-Catalog: config/process-intelligence.json (shared knowledge base with Windows build).
-
-Safe apply on Linux (renice, reversible):
-
-  chmod +x scripts/linux/apply-process-pressure-safe.sh
   ./scripts/linux/apply-process-pressure-safe.sh /tmp/process-pressure.json /tmp/apply.json
 
-Cross-platform CLI (preview, requires .NET 9):
-
-  dotnet run --project /path/to/active/src/SystemOptimizerHub.Cli -- catalog classify --name chrome
-  dotnet publish src/SystemOptimizerHub.Cli -c Release -r linux-x64 --self-contained -p:PublishSingleFile=true
+Systemd user timer: systemoptimizerhub-orchestrator.timer (optional, install script enables)

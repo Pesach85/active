@@ -1,0 +1,32 @@
+{
+  "SchemaVersion": "InstallProfile.v1",
+  "ProductName": "System Optimizer Hub",
+  "ProductId": "SystemOptimizerHub",
+  "Windows": {
+    "DefaultInstallRoot": "%LOCALAPPDATA%\\Programs\\SystemOptimizerHub",
+    "AppSubdir": "app",
+    "StartMenuFolder": "System Optimizer Hub",
+    "Shortcuts": {
+      "Gui": { "Name": "System Optimizer Hub", "Target": "Launch-Hub.bat", "Description": "Hub maintenance dashboard" },
+      "TransparencyWeb": { "Name": "Hub Transparency Web", "Target": "Launch-Transparency-Web.bat", "Description": "Local transparency dashboard" },
+      "HubCli": { "Name": "Hub CLI", "Target": "hub.cmd", "Description": "System Optimizer Hub command line" }
+    },
+    "DevSyncDefault": true,
+    "DevSyncSourceRelative": "dist\\WindowsOptimizer",
+    "ScheduledTasks": [
+      "SystemResourceMonitor",
+      "StorageCleanupSafe",
+      "SystemOptimizerHub-Orchestrator"
+    ]
+  },
+  "Linux": {
+    "DefaultPrefix": "${HOME}/.local/opt/systemoptimizerhub",
+    "BinLink": "${HOME}/.local/bin/hub",
+    "DesktopFile": "systemoptimizerhub.desktop",
+    "SystemdUserUnit": "systemoptimizerhub-orchestrator.timer"
+  },
+  "Android": {
+    "DefaultHubUrl": "http://127.0.0.1:8765",
+    "PackageId": "com.systemoptimizerhub.transparency"
+  }
+}

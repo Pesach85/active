@@ -33,7 +33,9 @@ function Test-IsRuntimeArtifact {
     if ($p -match '^\.head-journal-snippet\.txt$') { return $true }
     if ($p -match '^\.journal-insert-.+\.md$') { return $true }
     if ($p -match '^(commit|push)-.+\.txt$') { return $true }
-    if ($p -match '^tmpmsg\.txt$') { return $true }
+    if ($p -match '^mobile/android/.+/build/') { return $true }
+    if ($p -match '^mobile/android/.+/\.gradle/') { return $true }
+    if ($p -match '^dist/android/') { return $true }
 
     return $false
 }

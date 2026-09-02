@@ -1,23 +1,22 @@
 ﻿[CmdletBinding()]
 param(
-    [string]$InstallRoot = "C:\\SystemOptimizer",
-    [switch]$RemoveInstallRoot
+    [string]$InstallRoot = "",
+    [switch]$RemoveInstallRoot,
+    [switch]$UnregisterTasks
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
-$taskNames = @("SystemResourceMonitor", "StorageCleanupSafe", "SystemOptimizerHub-Orchestrator", "NVMe-WriteOffload-PostBootVerify")
-foreach ($task in $taskNames) {
-    try {
-        Unregister-ScheduledTask -TaskName $task -Confirm:$false -ErrorAction Stop
-        Write-Host "Removed task: $task"
-    } catch {
-        Write-Host "Task not removed ($task): $($_.Exception.Message)"
-    }
-}
+$scriptDir = $PSScriptRoot
+$hubRoot = Split-Path $scriptDir -Parent
 
-if ($RemoveInstallRoot -and (Test-Path -LiteralPath $InstallRoot)) {
-    Remove-Item -LiteralPath $InstallRoot -Recurse -Force
-    Write-Host "Removed install root: $InstallRoot"
+$uninstallArgs = @{
+    HubRoot = $hubRoot
+    RemoveDesktopShortcuts = $true
+    UnregisterTasks = $true
 }
+if ($InstallRoot) { $uninstallArgs['InstallRoot'] = $InstallRoot }
+if ($RemoveInstallRoot) { $uninstallArgs['RemoveApp'] = $true }
+
+& (Join-Path $scriptDir 'uninstall-windows-app.ps1') @uninstallArgs
