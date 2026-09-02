@@ -10,7 +10,7 @@
 | Installer production | Inno Setup (`installer/SystemOptimizerHub.iss`) + PS install | ROADMAP 3.3; PS per fase dev |
 | Linux scope | User prefix + `hub` single-file + systemd user timer | No root; parity CLI; bash PPI retained |
 | Linux mutator | `renice`/`kill` via Core Linux | Rimosso stub PlatformNotSupported per throttle/terminate base |
-| Android | **WebView MVP** verso transparency :8765 | Nessun engine manutenzione su device; ADR-0008 |
+| Android | **Native maintenance engine v0.9** on device (RAM/storage/processes) | **Pivot 2026-09-02:** WebView→PC era errata; parity intent con Windows/Linux PPI locale |
 | APK build | Gradle in `mobile/android/` + `config/android-build.json` | SDK `D:\Android\Sdk`, JDK `D:\JDK_17` (da I_Tuoi_Versetti) |
 
 ## Workflow dev (Windows)
@@ -46,7 +46,24 @@ chmod +x dist/LinuxOptimizer/scripts/linux/install-linux-suite.sh
 | Gradle wrapper jar non in repo | Aggiunto gradlew + wrapper jar da Gradle 8.7 |
 | `package-linux-suite.ps1` line continuation | Rimossi blank line tra backtick (parse `-p:`) |
 | Em-dash in PS throw string | Sostituito con `-` ASCII in windows-app-install.ps1 |
+| Em-dash in dev-sync-production.ps1 | Stesso fix ASCII dash (parse error PS) |
 | Switch `$Desktop` vs path case-insensitive | Rinominato in `CreateDesktopShortcuts` / `desktopFolder` |
+
+## Android native maintenance (v0.9.0)
+
+**Correzione requisito:** l'app Android NON deve monitorare il PC via WebView. Deve eseguire manutenzione sul dispositivo Android installato.
+
+Componenti:
+- `DeviceMaintenanceEngine.kt` — analyze locale
+- `MainActivity` — dashboard nativa (pressure, processi, storage, azioni safe)
+
+```powershell
+powershell -File scripts/build-android-apk.ps1
+powershell -File scripts/install-android-apk.ps1 -Launch
+powershell -File scripts/test-android-device-smoke.ps1
+```
+
+Limiti Android: kill force-stop solo via Settings utente; per-app RAM richiede usage access opzionale.
 
 ## Android build (toolchain I_Tuoi_Versetti)
 
@@ -58,7 +75,8 @@ powershell -File scripts/test-install-smoke.ps1 -BuildApk
 
 ## Quality gate
 
-- `scripts/test-install-smoke.ps1`
+- `scripts/test-install-smoke.ps1` (+ `-DeviceSmoke` when adb device)
+- `scripts/test-android-device-smoke.ps1` (native on-device — no PC :8765)
 - `dotnet test` (Linux mutator)
-- `test-hub-smoke.ps1` (existing)
+- `test-hub-smoke.ps1` (auto DeviceSmoke if adb connected)
 - `package-suite.ps1` + `package-linux-suite.ps1`

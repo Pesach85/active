@@ -1,7 +1,8 @@
 [CmdletBinding()]
 param(
     [string]$HubRoot = '',
-    [switch]$BuildApk
+    [switch]$BuildApk,
+    [switch]$DeviceSmoke
 )
 
 Set-StrictMode -Version Latest
@@ -52,8 +53,8 @@ Assert-Test 'linux install scripts' {
 Assert-Test 'android project skeleton' {
     $manifest = Join-Path $HubRoot 'mobile\android\app\src\main\AndroidManifest.xml'
     if (-not (Test-Path -LiteralPath $manifest)) { throw 'AndroidManifest missing' }
-    $gradle = Join-Path $HubRoot 'mobile\android\app\build.gradle.kts'
-    if (-not (Test-Path -LiteralPath $gradle)) { throw 'build.gradle.kts missing' }
+    $engine = Join-Path $HubRoot 'mobile\android\app\src\main\java\com\systemoptimizerhub\transparency\DeviceMaintenanceEngine.kt'
+    if (-not (Test-Path -LiteralPath $engine)) { throw 'DeviceMaintenanceEngine.kt missing' }
 }
 
 Assert-Test 'android-build config (I_Tuoi_Versetti paths)' {
@@ -83,8 +84,15 @@ if ($BuildApk) {
     Assert-Test 'android apk build' {
         & (Join-Path $scriptDir 'build-android-apk.ps1') -HubRoot $HubRoot -Variant debug | Out-Host
         if ($LASTEXITCODE -ne 0) { throw "build-android-apk exit=$LASTEXITCODE" }
-        $apk = Join-Path $HubRoot 'dist\android\SystemOptimizerHub-transparency-debug.apk'
+        $apk = Join-Path $HubRoot 'dist\android\SystemOptimizerHub-android-debug.apk'
         if (-not (Test-Path -LiteralPath $apk)) { throw 'APK output missing' }
+    }
+}
+
+if ($DeviceSmoke) {
+    Assert-Test 'android device smoke' {
+        & (Join-Path $scriptDir 'test-android-device-smoke.ps1') -HubRoot $HubRoot | Out-Host
+        if ($LASTEXITCODE -ne 0) { throw "test-android-device-smoke exit=$LASTEXITCODE" }
     }
 }
 

@@ -1,0 +1,23 @@
+{
+  "SchemaVersion": "AndroidBuildConfig.v1",
+  "Description": "Android SDK/JDK paths aligned with I_Tuoi_Versetti local toolchain (non-standard install roots).",
+  "SourceProject": "D:\\I_Tuoi_Versetti",
+  "SdkDir": "D:\\Android\\Sdk",
+  "JavaHome": "D:\\JDK_17",
+  "SdkDirAlternates": [
+    "D:\\Android\\android-sdk",
+    "%LOCALAPPDATA%\\Android\\Sdk"
+  ],
+  "JavaHomeCandidates": [
+    "D:\\JDK_17",
+    "D:\\Android\\Android Studio\\jbr",
+    "D:\\Android\\android-studio\\jbr",
+    "C:\\Program Files\\Android\\Android Studio\\jbr"
+  ],
+  "Gradle": {
+    "Daemon": false,
+    "JvmArgs": "-Xmx1024m -Dfile.encoding=UTF-8",
+    "MaxWorkers": 2
+  },
+  "OutputApkRelative": "dist\\android\\SystemOptimizerHub-transparency-debug.apk"
+}
