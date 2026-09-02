@@ -4,15 +4,18 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
+import android.view.LayoutInflater
 import android.view.View
-import android.widget.Button
+import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
-import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.button.MaterialButton
+import com.google.android.material.card.MaterialCardView
+import com.google.android.material.progressindicator.LinearProgressIndicator
+import com.systemoptimizerhub.transparency.ui.UiPresenter
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -22,52 +25,64 @@ import java.util.concurrent.atomic.AtomicInteger
 class MainActivity : AppCompatActivity() {
 
     private lateinit var engine: DeviceMaintenanceEngine
-    private lateinit var tierText: TextView
-    private lateinit var scoreText: TextView
-    private lateinit var postureText: TextView
-    private lateinit var summaryText: TextView
-    private lateinit var hostText: TextView
-    private lateinit var batteryNetworkText: TextView
+    private lateinit var statusCard: MaterialCardView
+    private lateinit var statusHeadline: TextView
+    private lateinit var statusSubtitle: TextView
     private lateinit var updatedText: TextView
     private lateinit var progressBar: ProgressBar
-    private lateinit var refreshBtn: Button
-    private lateinit var wasteList: RecyclerView
-    private lateinit var processList: RecyclerView
-    private lateinit var actionList: RecyclerView
-    private lateinit var storageList: RecyclerView
-    private lateinit var appList: RecyclerView
-    private lateinit var bootList: RecyclerView
+    private lateinit var refreshBtn: MaterialButton
+    private lateinit var toggleDetailsBtn: MaterialButton
+    private lateinit var detailsPanel: LinearLayout
+    private lateinit var findingsText: TextView
+    private lateinit var appsText: TextView
+    private lateinit var noActionsHint: TextView
+    private lateinit var primaryActionsContainer: LinearLayout
+    private lateinit var secondaryActionsContainer: LinearLayout
+
+    private lateinit var metricMemory: MetricViews
+    private lateinit var metricStorage: MetricViews
+    private lateinit var metricBattery: MetricViews
 
     private val analyzeExecutor = Executors.newSingleThreadExecutor()
     private val analyzeGeneration = AtomicInteger(0)
+    private var detailsVisible = false
+    private var lastSnapshot: DeviceSnapshot? = null
+
+    private data class MetricViews(
+        val label: TextView,
+        val value: TextView,
+        val bar: LinearProgressIndicator
+    )
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
         engine = DeviceMaintenanceEngine(applicationContext)
-        tierText = findViewById(R.id.tierText)
-        scoreText = findViewById(R.id.scoreText)
-        postureText = findViewById(R.id.postureText)
-        summaryText = findViewById(R.id.summaryText)
-        hostText = findViewById(R.id.hostText)
-        batteryNetworkText = findViewById(R.id.batteryNetworkText)
+        statusCard = findViewById(R.id.statusCard)
+        statusHeadline = findViewById(R.id.statusHeadline)
+        statusSubtitle = findViewById(R.id.statusSubtitle)
         updatedText = findViewById(R.id.updatedText)
         progressBar = findViewById(R.id.progressBar)
         refreshBtn = findViewById(R.id.refreshBtn)
-        wasteList = findViewById(R.id.wasteList)
-        processList = findViewById(R.id.processList)
-        actionList = findViewById(R.id.actionList)
-        storageList = findViewById(R.id.storageList)
-        appList = findViewById(R.id.appList)
-        bootList = findViewById(R.id.bootList)
+        toggleDetailsBtn = findViewById(R.id.toggleDetailsBtn)
+        detailsPanel = findViewById(R.id.detailsPanel)
+        findingsText = findViewById(R.id.findingsText)
+        appsText = findViewById(R.id.appsText)
+        noActionsHint = findViewById(R.id.noActionsHint)
+        primaryActionsContainer = findViewById(R.id.primaryActionsContainer)
+        secondaryActionsContainer = findViewById(R.id.secondaryActionsContainer)
 
-        listOf(wasteList, processList, actionList, storageList, appList, bootList).forEach {
-            it.layoutManager = LinearLayoutManager(this)
-            it.isNestedScrollingEnabled = false
-        }
+        metricMemory = bindMetric(R.id.metricMemory)
+        metricStorage = bindMetric(R.id.metricStorage)
+        metricBattery = bindMetric(R.id.metricBattery)
+
+        metricMemory.label.text = getString(R.string.metric_memory)
+        metricStorage.label.text = getString(R.string.metric_storage)
+        metricBattery.label.text = getString(R.string.metric_battery)
 
         refreshBtn.setOnClickListener { refresh() }
+        toggleDetailsBtn.setOnClickListener { toggleDetails() }
     }
 
     override fun onResume() {
@@ -80,13 +95,21 @@ class MainActivity : AppCompatActivity() {
         super.onDestroy()
     }
 
+    private fun bindMetric(rootId: Int): MetricViews {
+        val root = findViewById<View>(rootId)
+        return MetricViews(
+            label = root.findViewById(R.id.metricLabel),
+            value = root.findViewById(R.id.metricValue),
+            bar = root.findViewById(R.id.metricBar)
+        )
+    }
+
     private fun refresh() {
         val gen = analyzeGeneration.incrementAndGet()
         progressBar.visibility = View.VISIBLE
         refreshBtn.isEnabled = false
-        tierText.text = getString(R.string.analyzing)
-        scoreText.text = ""
-        summaryText.text = getString(R.string.analyzing_detail)
+        statusHeadline.text = getString(R.string.analyzing)
+        statusSubtitle.text = getString(R.string.analyzing_detail)
 
         analyzeExecutor.execute {
             val snap = try {
@@ -103,9 +126,11 @@ class MainActivity : AppCompatActivity() {
                 progressBar.visibility = View.GONE
                 refreshBtn.isEnabled = true
                 if (snap != null) {
+                    lastSnapshot = snap
                     render(snap)
                 } else {
-                    tierText.text = getString(R.string.analyze_failed)
+                    statusHeadline.text = getString(R.string.analyze_failed)
+                    statusSubtitle.text = getString(R.string.analyzing_detail)
                     Toast.makeText(this, R.string.analyze_failed, Toast.LENGTH_LONG).show()
                 }
             }
@@ -113,151 +138,118 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun render(snap: DeviceSnapshot) {
-        tierText.text = getString(R.string.pressure_tier, snap.pressureTier.name)
-        scoreText.text = getString(R.string.pressure_score, snap.pressureScore)
-        postureText.text = getString(R.string.posture_score, snap.transparencyPostureScore)
-        val tierColor = when (snap.pressureTier) {
-            PressureTier.Low -> R.color.tier_low
-            PressureTier.Medium -> R.color.tier_medium
-            PressureTier.High -> R.color.tier_high
-            PressureTier.Critical -> R.color.tier_critical
-        }
-        tierText.setTextColor(ContextCompat.getColor(this, tierColor))
+        val status = UiPresenter.status(this, snap.pressureTier)
+        statusCard.setCardBackgroundColor(ContextCompat.getColor(this, status.cardBgRes))
+        statusHeadline.text = status.title
+        statusSubtitle.text = status.subtitle
 
-        hostText.text = getString(
-            R.string.host_summary,
-            snap.availRamMb,
-            snap.totalRamMb,
-            snap.freeStorageMb,
-            snap.totalStorageMb,
-            snap.installedAppsCount,
-            snap.runningProcessCount
-        )
-
-        val charging = if (snap.battery.isCharging) getString(R.string.charging) else getString(R.string.not_charging)
-        val metered = if (snap.network.isMetered) getString(R.string.metered) else ""
-        batteryNetworkText.text = getString(
-            R.string.battery_network,
-            snap.battery.levelPercent,
-            charging,
-            snap.battery.healthHint,
-            snap.network.activeType,
-            metered
-        )
-
-        summaryText.text = snap.summaryBullets.joinToString("\n") { "• $it" }
         updatedText.text = getString(
             R.string.updated_at,
-            SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date(snap.generatedAtEpochMs))
+            SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(Date(snap.generatedAtEpochMs))
         )
 
-        bindList(
-            wasteList,
-            WasteAdapter(
-                snap.wasteFindings.ifEmpty {
-                    listOf(WasteFinding("Info", "low", getString(R.string.empty_section), ""))
-                }
-            )
+        renderMetric(
+            metricMemory,
+            getString(
+                R.string.metric_memory_value,
+                UiPresenter.formatSize(this, snap.availRamMb),
+                UiPresenter.formatSize(this, snap.totalRamMb)
+            ),
+            UiPresenter.memoryPercentFree(snap),
+            UiPresenter.barColorForPercent(UiPresenter.memoryPercentFree(snap))
         )
-        bindList(
-            processList,
-            ProcessAdapter(
-                snap.topProcesses.ifEmpty {
-                    listOf(
-                        ProcessEntry(
-                            processName = getString(R.string.empty_section),
-                            pid = 0,
-                            importanceLabel = "-",
-                            importance = 0,
-                            isForeground = false,
-                            trustLabel = "-",
-                            dominantPressure = "-",
-                            score = 0,
-                            advisory = "-"
-                        )
-                    )
-                }
-            )
+
+        renderMetric(
+            metricStorage,
+            getString(
+                R.string.metric_storage_value,
+                UiPresenter.formatSize(this, snap.freeStorageMb),
+                UiPresenter.formatSize(this, snap.totalStorageMb)
+            ),
+            UiPresenter.storagePercentFree(snap),
+            UiPresenter.barColorForPercent(UiPresenter.storagePercentFree(snap))
         )
-        bindList(
-            storageList,
-            StorageAdapter(
-                snap.storageHotspots.ifEmpty {
-                    listOf(StorageHotspot(getString(R.string.empty_section), "", "low"))
-                }
-            )
+
+        val batteryState = when {
+            snap.battery.powerSaveMode -> getString(R.string.battery_saving)
+            snap.battery.isCharging -> getString(R.string.battery_charging)
+            else -> getString(R.string.battery_on_battery)
+        }
+        renderMetric(
+            metricBattery,
+            getString(R.string.metric_battery_value, snap.battery.levelPercent, batteryState),
+            snap.battery.levelPercent,
+            UiPresenter.barColorForPercent(snap.battery.levelPercent)
         )
-        bindList(
-            appList,
-            AppAdapter(
-                snap.topApps.ifEmpty {
-                    listOf(
-                        AppPressureEntry(
-                            packageName = "",
-                            label = getString(R.string.empty_section),
-                            cacheMb = 0,
-                            dataMb = 0,
-                            totalMb = 0,
-                            foregroundMinutes = 0,
-                            backgroundMinutes = 0,
-                            trustLabel = "-",
-                            wasteScore = 0,
-                            advisory = "-"
-                        )
-                    )
-                }
-            )
-        )
-        bindList(
-            bootList,
-            BootAdapter(
-                snap.bootApps.ifEmpty {
-                    listOf(BootAppEntry("", getString(R.string.empty_section), true))
-                }
-            )
-        )
-        bindList(actionList, ActionAdapter(snap.recommendedActions) { action -> onAction(action) })
+
+        val primary = if (snap.pressureTier == PressureTier.Low &&
+            snap.wasteFindings.none { it.severity == "high" || it.severity == "critical" }
+        ) {
+            emptyList()
+        } else {
+            UiPresenter.primaryActions(snap.recommendedActions)
+        }
+        val secondary = UiPresenter.secondaryActions(snap.recommendedActions, primary)
+
+        primaryActionsContainer.removeAllViews()
+        if (primary.isEmpty()) {
+            noActionsHint.visibility = View.VISIBLE
+        } else {
+            noActionsHint.visibility = View.GONE
+            primary.forEach { addActionCard(primaryActionsContainer, it, status.accentColorRes) }
+        }
+
+        findingsText.text = UiPresenter.findingsText(this, snap.wasteFindings)
+        appsText.text = UiPresenter.heavyAppsText(this, snap)
+
+        secondaryActionsContainer.removeAllViews()
+        secondary.forEach { addActionCard(secondaryActionsContainer, it, R.color.text_secondary) }
+
+        toggleDetailsBtn.visibility = View.VISIBLE
+        if (!detailsVisible) {
+            detailsPanel.visibility = View.GONE
+            toggleDetailsBtn.text = getString(R.string.show_details)
+        }
     }
 
-    private fun bindList(recyclerView: RecyclerView, adapter: RecyclerView.Adapter<*>) {
-        recyclerView.adapter = adapter
-        recyclerView.post { expandRecyclerView(recyclerView) }
+    private fun renderMetric(views: MetricViews, valueText: String, freePercent: Int, colorRes: Int) {
+        views.value.text = valueText
+        views.bar.max = 100
+        views.bar.progress = freePercent
+        views.bar.setIndicatorColor(ContextCompat.getColor(this, colorRes))
     }
 
-    private fun expandRecyclerView(recyclerView: RecyclerView) {
-        val adapter = recyclerView.adapter ?: return
-        if (adapter.itemCount == 0) {
-            recyclerView.layoutParams.height = 0
-            recyclerView.requestLayout()
-            return
+    private fun addActionCard(container: LinearLayout, action: MaintenanceAction, strokeColorRes: Int) {
+        val card = LayoutInflater.from(this).inflate(R.layout.item_primary_action, container, false) as MaterialCardView
+        val (title, detail) = UiPresenter.friendlyAction(this, action)
+        card.findViewById<TextView>(R.id.actionTitle).text = title
+        card.findViewById<TextView>(R.id.actionDetail).text = detail
+        card.strokeColor = ContextCompat.getColor(this, strokeColorRes)
+        if (action.kind == MaintenanceActionKind.AdvisoryOnly) {
+            card.setOnClickListener(null)
+            card.isClickable = false
+        } else {
+            card.setOnClickListener { onAction(action) }
         }
-        var totalHeight = 0
-        val widthSpec = View.MeasureSpec.makeMeasureSpec(recyclerView.width, View.MeasureSpec.EXACTLY)
-        val heightSpec = View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
-        for (i in 0 until adapter.itemCount) {
-            val holder = adapter.createViewHolder(recyclerView, adapter.getItemViewType(i))
-            adapter.onBindViewHolder(holder, i)
-            holder.itemView.measure(widthSpec, heightSpec)
-            totalHeight += holder.itemView.measuredHeight
-        }
-        recyclerView.layoutParams.height = totalHeight
-        recyclerView.requestLayout()
+        container.addView(card)
+    }
+
+    private fun toggleDetails() {
+        detailsVisible = !detailsVisible
+        detailsPanel.visibility = if (detailsVisible) View.VISIBLE else View.GONE
+        toggleDetailsBtn.text = getString(if (detailsVisible) R.string.hide_details else R.string.show_details)
     }
 
     private fun onAction(action: MaintenanceAction) {
         when (action.kind) {
-            MaintenanceActionKind.OpenStorageSettings -> {
+            MaintenanceActionKind.OpenStorageSettings ->
                 startActivity(Intent(Settings.ACTION_INTERNAL_STORAGE_SETTINGS))
-            }
-            MaintenanceActionKind.OpenAppSettings -> {
+            MaintenanceActionKind.OpenAppSettings ->
                 startActivity(Intent(Settings.ACTION_APPLICATION_SETTINGS))
-            }
-            MaintenanceActionKind.OpenUsageAccessSettings -> {
+            MaintenanceActionKind.OpenUsageAccessSettings ->
                 startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
-            }
-            MaintenanceActionKind.OpenBatterySettings -> {
+            MaintenanceActionKind.OpenBatterySettings ->
                 startActivity(Intent(Settings.ACTION_BATTERY_SAVER_SETTINGS))
-            }
             MaintenanceActionKind.OpenAppDetail -> {
                 val pkg = action.packageName ?: return
                 startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
@@ -278,7 +270,7 @@ class MainActivity : AppCompatActivity() {
                 val path = engine.exportReport()
                 Toast.makeText(this, getString(R.string.report_exported, path), Toast.LENGTH_LONG).show()
             }
-            MaintenanceActionKind.AdvisoryOnly -> { /* display only */ }
+            MaintenanceActionKind.AdvisoryOnly -> { }
         }
     }
 }

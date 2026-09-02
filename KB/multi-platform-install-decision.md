@@ -102,6 +102,28 @@ powershell -File scripts/test-android-device-smoke.ps1
 
 Limiti Android: kill force-stop solo via Settings utente; per-app RAM richiede usage access opzionale.
 
+### Android UX v1.1.0 (basso carico cognitivo)
+
+**Decisione:** separare **engine analitico** (v1.0) da **presentazione utente** (`ui/UiPresenter.kt` + layout card).
+
+| Layer | File | Ruolo |
+|-------|------|-------|
+| Stato | `MainActivity` + card colorata | Messaggio umano da `PressureTier` |
+| Metriche | `view_metric_row.xml` | RAM / storage / batteria con barre |
+| Azioni | `item_primary_action.xml` | Max 3 CTA; resto in pannello collassato |
+| Copy | `strings.xml` (IT) | No jargon PPI/tier in prima schermata |
+
+- **Stato in linguaggio semplice** — "Tutto ok" / "Serve attenzione" / "Intervento consigliato"
+- **3 metriche visive** — Memoria, spazio, batteria con barre e GB
+- **Max 3 azioni prioritarie** — solo se tier > Low o waste high/critical
+- **Dettagli tecnici collassati** — findings, app pesanti, azioni secondarie
+- **Deploy:** `versionName 1.1.0` — Motorola Edge 40 install live 2026-09-02
+
+```powershell
+powershell -File scripts/build-android-apk.ps1
+powershell -File scripts/install-android-apk.ps1 -Launch
+```
+
 ### Live device smoke (v1.0.0)
 
 | Check | Esito |
