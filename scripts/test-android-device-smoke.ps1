@@ -49,6 +49,23 @@ function Invoke-AdbCommand {
     return $text
 }
 
+function Ensure-DeviceAwake {
+    param([string]$Adb, [string]$Serial = '')
+    Invoke-AdbCommand -Adb $Adb -Command @('shell', 'input', 'keyevent', 'KEYCODE_WAKEUP') -Serial $Serial | Out-Null
+    Start-Sleep -Milliseconds 400
+    Invoke-AdbCommand -Adb $Adb -Command @('shell', 'wm', 'dismiss-keyguard') -Serial $Serial | Out-Null
+    Start-Sleep -Milliseconds 300
+}
+
+function Test-AppInForeground {
+    param([string]$Dump)
+    return (
+        $Dump -match 'topResumedActivity=.*com\.systemoptimizerhub\.transparency' -or
+        $Dump -match 'ResumedActivity:.*com\.systemoptimizerhub\.transparency' -or
+        $Dump -match 'mFocusedApp=.*com\.systemoptimizerhub\.transparency'
+    )
+}
+
 $adb = Get-AdbPath
 if (-not $ApkPath) {
     $ApkPath = Join-Path $HubRoot 'dist\android\SystemOptimizerHub-android-debug.apk'
@@ -97,18 +114,26 @@ Assert-DeviceTest 'package version 1.0.x' {
 }
 
 if (-not $SkipLaunch) {
+    Ensure-DeviceAwake -Adb $adb -Serial $DeviceSerial
+
     Assert-DeviceTest 'launch MainActivity' {
         $out = Invoke-AdbCommand -Adb $adb -Command @(
-            'shell', 'am', 'start', '-W', '-n', 'com.systemoptimizerhub.transparency/.MainActivity'
+            'shell', 'am', 'start', '-W', '-S', '-n', 'com.systemoptimizerhub.transparency/.MainActivity'
         ) -Serial $DeviceSerial
-        if ($out -notmatch 'Complete|Already') { throw $out }
+        if ($out -notmatch 'Complete') { throw $out }
     }
 
     Assert-DeviceTest 'native dashboard foreground' {
-        Start-Sleep -Seconds 5
+        Start-Sleep -Seconds 6
         $dump = Invoke-AdbCommand -Adb $adb -Command @('shell', 'dumpsys', 'activity', 'activities') -Serial $DeviceSerial
-        if ($dump -notmatch 'topResumedActivity=.*com\.systemoptimizerhub\.transparency') {
-            throw 'App not top resumed'
+        if (-not (Test-AppInForeground -Dump $dump)) {
+            Ensure-DeviceAwake -Adb $adb -Serial $DeviceSerial
+            Invoke-AdbCommand -Adb $adb -Command @(
+                'shell', 'am', 'start', '-W', '-n', 'com.systemoptimizerhub.transparency/.MainActivity'
+            ) -Serial $DeviceSerial | Out-Null
+            Start-Sleep -Seconds 4
+            $dump = Invoke-AdbCommand -Adb $adb -Command @('shell', 'dumpsys', 'activity', 'activities') -Serial $DeviceSerial
+            if (-not (Test-AppInForeground -Dump $dump)) { throw 'App not foreground (ResumedActivity/mFocusedApp)' }
         }
     }
 

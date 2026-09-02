@@ -49,6 +49,7 @@ chmod +x dist/LinuxOptimizer/scripts/linux/install-linux-suite.sh
 | Em-dash in dev-sync-production.ps1 | Stesso fix ASCII dash (parse error PS) |
 | Switch `$Desktop` vs path case-insensitive | Rinominato in `CreateDesktopShortcuts` / `desktopFolder` |
 | `test-android-device-smoke` `$Args` param | Rinominato `Invoke-AdbCommand -Command`; regex tab-separated `device` |
+| Smoke foreground false negative Motorola | Wake screen + `ResumedActivity:` regex + cold start `-S` |
 
 ## Android native maintenance (v1.0.0)
 
@@ -106,9 +107,19 @@ Limiti Android: kill force-stop solo via Settings utente; per-app RAM richiede u
 | Check | Esito |
 |-------|-------|
 | Device | Motorola Edge 40 (`ZY22HFWMGV`) |
-| APK v1.0.0 build | Gradle assembleDebug OK |
-| Engine modules present | v1 modules smoke |
-| Native dashboard (waste/apps/boot/battery) | v1.0 UI sections |
+| APK v1.0.0 install + cold start | ✓ |
+| Foreground (ResumedActivity) | ✓ (dopo fix wake + regex) |
+| Logcat no FATAL | ✓ |
+| No WebView/PC dependency | ✓ |
+| Engine analyze background thread | ✓ (fix ANR risk) |
+
+### Problemi risolti (live smoke 2026-09-02 19:05)
+
+| Problema | Causa | Fix |
+|----------|-------|-----|
+| `native dashboard foreground FAIL` | Schermo spento/lock → launcher in `ResumedActivity`; regex cercava solo `topResumedActivity=` (assente su Motorola/Android 14) | `Ensure-DeviceAwake` (WAKEUP + dismiss-keyguard), cold start `-S`, regex multi-campo (`ResumedActivity:`, `mFocusedApp=`, `topResumedActivity=`), retry launch |
+| Doppio refresh onCreate+onResume | `refresh()` chiamato due volte al boot | Solo `onResume` avvia refresh |
+| Analyze su UI thread | `StorageStatsManager` + process scan lenti → rischio jank/ANR | `engine.analyze()` in worker thread, `runOnUiThread` per render |
 
 ## Android native maintenance (v0.9.0 — superseded)
 
