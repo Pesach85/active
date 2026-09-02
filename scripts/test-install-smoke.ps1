@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param(
-    [string]$HubRoot = ''
+    [string]$HubRoot = '',
+    [switch]$BuildApk
 )
 
 Set-StrictMode -Version Latest
@@ -55,6 +56,17 @@ Assert-Test 'android project skeleton' {
     if (-not (Test-Path -LiteralPath $gradle)) { throw 'build.gradle.kts missing' }
 }
 
+Assert-Test 'android-build config (I_Tuoi_Versetti paths)' {
+    $cfgPath = Join-Path $HubRoot 'config\android-build.json'
+    if (-not (Test-Path -LiteralPath $cfgPath)) { throw 'android-build.json missing' }
+    . (Join-Path $scriptDir 'lib\android-build-config.ps1')
+    $cfg = Get-AndroidBuildConfig -HubRoot $HubRoot
+    $sdk = Resolve-AndroidSdkDir -Config $cfg
+    if (-not $sdk) { throw "SDK not found (expected $($cfg.SdkDir))" }
+    $jdk = Resolve-AndroidJavaHome -Config $cfg
+    if (-not $jdk) { throw "JDK not found (expected $($cfg.JavaHome))" }
+}
+
 Assert-Test 'package-suite includes install-profile' {
     $content = Get-Content -LiteralPath (Join-Path $scriptDir 'package-suite.ps1') -Raw
     if ($content -notmatch 'install-profile.json') { throw 'package-suite missing install-profile' }
@@ -65,6 +77,15 @@ Assert-Test 'dev-sync dry package' {
     & (Join-Path $scriptDir 'package-suite.ps1') -OutputDir (Join-Path $HubRoot 'dist\WindowsOptimizer') | Out-Null
     $launch = Join-Path $HubRoot 'dist\WindowsOptimizer\Launch-Hub.bat'
     if (-not (Test-Path -LiteralPath $launch)) { throw 'Launch-Hub.bat not in dist' }
+}
+
+if ($BuildApk) {
+    Assert-Test 'android apk build' {
+        & (Join-Path $scriptDir 'build-android-apk.ps1') -HubRoot $HubRoot -Variant debug | Out-Host
+        if ($LASTEXITCODE -ne 0) { throw "build-android-apk exit=$LASTEXITCODE" }
+        $apk = Join-Path $HubRoot 'dist\android\SystemOptimizerHub-transparency-debug.apk'
+        if (-not (Test-Path -LiteralPath $apk)) { throw 'APK output missing' }
+    }
 }
 
 if ($failures.Count -gt 0) {

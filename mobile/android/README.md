@@ -9,11 +9,17 @@ WebView shell for the Hub transparency dashboard. Does **not** run maintenance o
 
 ## Build APK
 
-Requirements: JDK 17, Android SDK, Gradle wrapper (`gradlew.bat`).
+Toolchain paths from **I_Tuoi_Versetti** (`config/android-build.json`):
+
+| Setting | Path |
+|---------|------|
+| SDK | `D:\Android\Sdk` |
+| JDK | `D:\JDK_17` |
 
 ```powershell
 powershell -File scripts/build-android-apk.ps1 -Variant debug
 # Output: dist/android/SystemOptimizerHub-transparency-debug.apk
+powershell -File scripts/test-install-smoke.ps1 -BuildApk
 ```
 
 Or open `mobile/android` in Android Studio → Build → Build APK.

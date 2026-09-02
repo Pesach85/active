@@ -11,7 +11,7 @@
 | Linux scope | User prefix + `hub` single-file + systemd user timer | No root; parity CLI; bash PPI retained |
 | Linux mutator | `renice`/`kill` via Core Linux | Rimosso stub PlatformNotSupported per throttle/terminate base |
 | Android | **WebView MVP** verso transparency :8765 | Nessun engine manutenzione su device; ADR-0008 |
-| APK build | Gradle in `mobile/android/` | Richiede JDK17 + Android SDK; script `build-android-apk.ps1` |
+| APK build | Gradle in `mobile/android/` + `config/android-build.json` | SDK `D:\Android\Sdk`, JDK `D:\JDK_17` (da I_Tuoi_Versetti) |
 
 ## Workflow dev (Windows)
 
@@ -42,11 +42,19 @@ chmod +x dist/LinuxOptimizer/scripts/linux/install-linux-suite.sh
 | `uninstall-suite` path legacy `C:\SystemOptimizer` | Allineato a manifest + `install-profile.json` |
 | `run-gui.bat` path errato in dist | `Launch-Hub.bat` in root dist con HUBROOT=%~dp0 |
 | Taskbar pin programmatico fragile | `-PinToTaskbar` best-effort + messaggio manuale |
-| Android senza SDK in CI locale | Smoke valida skeleton; APK build opzionale con SDK |
+| Android senza SDK in CI locale | `config/android-build.json` risolve path non standard (I_Tuoi_Versetti) |
 | Gradle wrapper jar non in repo | Aggiunto gradlew + wrapper jar da Gradle 8.7 |
 | `package-linux-suite.ps1` line continuation | Rimossi blank line tra backtick (parse `-p:`) |
 | Em-dash in PS throw string | Sostituito con `-` ASCII in windows-app-install.ps1 |
 | Switch `$Desktop` vs path case-insensitive | Rinominato in `CreateDesktopShortcuts` / `desktopFolder` |
+
+## Android build (toolchain I_Tuoi_Versetti)
+
+```powershell
+# config/android-build.json — SdkDir D:\Android\Sdk, JavaHome D:\JDK_17
+powershell -File scripts/build-android-apk.ps1
+powershell -File scripts/test-install-smoke.ps1 -BuildApk
+```
 
 ## Quality gate
 

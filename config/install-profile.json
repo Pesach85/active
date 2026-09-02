@@ -27,6 +27,7 @@
   },
   "Android": {
     "DefaultHubUrl": "http://127.0.0.1:8765",
-    "PackageId": "com.systemoptimizerhub.transparency"
+    "PackageId": "com.systemoptimizerhub.transparency",
+    "BuildConfig": "config/android-build.json"
   }
 }
