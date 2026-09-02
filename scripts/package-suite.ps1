@@ -77,6 +77,10 @@ $items = @(
     (Join-Path $scriptDir "install-windows-app.ps1"),
     (Join-Path $scriptDir "uninstall-windows-app.ps1"),
     (Join-Path $scriptDir "dev-sync-production.ps1"),
+    (Join-Path $scriptDir "build-android-apk.ps1"),
+    (Join-Path $scriptDir "install-android-apk.ps1"),
+    (Join-Path $scriptDir "test-android-device-smoke.ps1"),
+    (Join-Path $scriptDir "lib\android-build-config.ps1"),
     (Join-Path $scriptDir "uninstall-suite.ps1"),
     (Join-Path $scriptDir "run-gui.bat"),
     (Join-Path $scriptDir "run-install-suite.bat"),
@@ -84,7 +88,8 @@ $items = @(
     (Join-Path $scriptDir "run-core-bootstrap.bat"),
     (Join-Path $scriptDir "run-disk-audit-safe.bat"),
     (Join-Path $configDir "sys-maintenance.json"),
-    (Join-Path $configDir "install-profile.json")
+    (Join-Path $configDir "install-profile.json"),
+    (Join-Path $configDir "android-build.json")
 )
 
 if (-not (Test-Path -LiteralPath $OutputDir)) {

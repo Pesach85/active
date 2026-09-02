@@ -1,83 +1,113 @@
 package com.systemoptimizerhub.transparency
 
-import android.annotation.SuppressLint
-import android.content.Context
+import android.content.Intent
 import android.os.Bundle
-import android.view.inputmethod.EditorInfo
-import android.webkit.WebResourceError
-import android.webkit.WebResourceRequest
-import android.webkit.WebView
-import android.webkit.WebViewClient
+import android.provider.Settings
+import android.view.View
 import android.widget.Button
-import android.widget.EditText
+import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class MainActivity : AppCompatActivity() {
 
-    private lateinit var webView: WebView
-    private lateinit var urlInput: EditText
-    private lateinit var statusText: TextView
+    private lateinit var engine: DeviceMaintenanceEngine
+    private lateinit var tierText: TextView
+    private lateinit var scoreText: TextView
+    private lateinit var summaryText: TextView
+    private lateinit var hostText: TextView
+    private lateinit var updatedText: TextView
+    private lateinit var progressBar: ProgressBar
+    private lateinit var processList: RecyclerView
+    private lateinit var actionList: RecyclerView
+    private lateinit var storageList: RecyclerView
 
-    @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        webView = findViewById(R.id.webView)
-        urlInput = findViewById(R.id.urlInput)
-        statusText = findViewById(R.id.statusText)
-        val connectBtn = findViewById<Button>(R.id.connectBtn)
+        engine = DeviceMaintenanceEngine(applicationContext)
+        tierText = findViewById(R.id.tierText)
+        scoreText = findViewById(R.id.scoreText)
+        summaryText = findViewById(R.id.summaryText)
+        hostText = findViewById(R.id.hostText)
+        updatedText = findViewById(R.id.updatedText)
+        progressBar = findViewById(R.id.progressBar)
+        processList = findViewById(R.id.processList)
+        actionList = findViewById(R.id.actionList)
+        storageList = findViewById(R.id.storageList)
 
-        val prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        val savedUrl = prefs.getString(KEY_URL, BuildConfig.DEFAULT_HUB_URL) ?: BuildConfig.DEFAULT_HUB_URL
-        urlInput.setText(savedUrl)
+        processList.layoutManager = LinearLayoutManager(this)
+        actionList.layoutManager = LinearLayoutManager(this)
+        storageList.layoutManager = LinearLayoutManager(this)
 
-        webView.settings.javaScriptEnabled = true
-        webView.settings.domStorageEnabled = true
-        webView.webViewClient = object : WebViewClient() {
-            override fun onPageFinished(view: WebView?, url: String?) {
-                statusText.text = getString(R.string.status_connected, url ?: "")
+        findViewById<Button>(R.id.refreshBtn).setOnClickListener { refresh() }
+        refresh()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        refresh()
+    }
+
+    private fun refresh() {
+        progressBar.visibility = View.VISIBLE
+        findViewById<View>(R.id.contentScroll).post {
+            val snap = engine.analyze()
+            render(snap)
+            progressBar.visibility = View.GONE
+        }
+    }
+
+    private fun render(snap: DeviceSnapshot) {
+        tierText.text = getString(R.string.pressure_tier, snap.pressureTier.name)
+        scoreText.text = getString(R.string.pressure_score, snap.pressureScore)
+        val tierColor = when (snap.pressureTier) {
+            PressureTier.Low -> R.color.tier_low
+            PressureTier.Medium -> R.color.tier_medium
+            PressureTier.High -> R.color.tier_high
+            PressureTier.Critical -> R.color.tier_critical
+        }
+        tierText.setTextColor(ContextCompat.getColor(this, tierColor))
+
+        hostText.text = getString(
+            R.string.host_summary,
+            snap.availRamMb,
+            snap.totalRamMb,
+            snap.freeStorageMb,
+            snap.totalStorageMb,
+            snap.installedAppsCount,
+            snap.runningProcessCount
+        )
+        summaryText.text = snap.summaryBullets.joinToString("\n") { "• $it" }
+        updatedText.text = getString(
+            R.string.updated_at,
+            SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date(snap.generatedAtEpochMs))
+        )
+
+        processList.adapter = ProcessAdapter(snap.topProcesses)
+        storageList.adapter = StorageAdapter(snap.storageHotspots)
+        actionList.adapter = ActionAdapter(snap.recommendedActions) { action -> onAction(action) }
+    }
+
+    private fun onAction(action: MaintenanceAction) {
+        when (action.kind) {
+            MaintenanceActionKind.OpenStorageSettings -> {
+                startActivity(Intent(Settings.ACTION_INTERNAL_STORAGE_SETTINGS))
             }
-
-            override fun onReceivedError(
-                view: WebView?,
-                request: WebResourceRequest?,
-                error: WebResourceError?
-            ) {
-                if (request?.isForMainFrame == true) {
-                    statusText.text = getString(R.string.status_error, error?.description ?: "unknown")
-                }
+            MaintenanceActionKind.OpenAppSettings -> {
+                startActivity(Intent(Settings.ACTION_APPLICATION_SETTINGS))
             }
+            MaintenanceActionKind.OpenUsageAccessSettings -> {
+                startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
+            }
+            MaintenanceActionKind.AdvisoryOnly -> { /* display only */ }
         }
-
-        connectBtn.setOnClickListener { loadHubUrl() }
-        urlInput.setOnEditorActionListener { _, actionId, _ ->
-            if (actionId == EditorInfo.IME_ACTION_GO) {
-                loadHubUrl()
-                true
-            } else false
-        }
-
-        loadHubUrl()
-    }
-
-    private fun loadHubUrl() {
-        var url = urlInput.text.toString().trim()
-        if (!url.startsWith("http://") && !url.startsWith("https://")) {
-            url = "http://$url"
-        }
-        getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(KEY_URL, url).apply()
-        statusText.text = getString(R.string.status_loading)
-        webView.loadUrl(url)
-    }
-
-    override fun onBackPressed() {
-        if (webView.canGoBack()) webView.goBack() else super.onBackPressed()
-    }
-
-    companion object {
-        private const val PREFS = "hub_transparency"
-        private const val KEY_URL = "hub_url"
     }
 }

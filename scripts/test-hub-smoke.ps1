@@ -737,7 +737,23 @@ finally {
 
 Write-Host '[SMOKE] install-platform-smoke...'
 try {
-    & (Join-Path $HubRoot 'scripts\test-install-smoke.ps1') -HubRoot $HubRoot | Out-Host
+    $installArgs = @{ HubRoot = $HubRoot }
+    $adbProbe = Join-Path $HubRoot 'config\android-build.json'
+    if (Test-Path -LiteralPath $adbProbe) {
+        . (Join-Path $HubRoot 'scripts\lib\android-build-config.ps1')
+        try {
+            $cfg = Get-AndroidBuildConfig -HubRoot $HubRoot
+            $sdk = Resolve-AndroidSdkDir -Config $cfg
+            if ($sdk) {
+                $adb = Join-Path $sdk 'platform-tools\adb.exe'
+                if (Test-Path -LiteralPath $adb) {
+                    $dev = & $adb devices 2>&1 | Out-String
+                    if ($dev -match '\tdevice') { $installArgs['DeviceSmoke'] = $true }
+                }
+            }
+        } catch { }
+    }
+    & (Join-Path $HubRoot 'scripts\test-install-smoke.ps1') @installArgs | Out-Host
     if ($LASTEXITCODE -ne 0) { $failures.Add('install-platform-smoke: failed') }
     else { Write-Host '[SMOKE] install-platform-smoke OK' }
 } catch {

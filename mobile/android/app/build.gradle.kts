@@ -11,9 +11,9 @@ android {
         applicationId = "com.systemoptimizerhub.transparency"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
-        versionName = "0.8.0"
-        buildConfigField("String", "DEFAULT_HUB_URL", "\"http://127.0.0.1:8765\"")
+        versionCode = 3
+        versionName = "0.9.0"
+        buildConfigField("String", "ENGINE_VERSION", "\"DeviceMaintenanceEngine.v1\"")
     }
 
     buildTypes {
@@ -43,6 +43,7 @@ android {
 
 dependencies {
     implementation("androidx.appcompat:appcompat:1.7.0")
+    implementation("androidx.activity:activity-ktx:1.9.0")
+    implementation("androidx.recyclerview:recyclerview:1.3.2")
     implementation("com.google.android.material:material:1.12.0")
-    implementation("androidx.webkit:webkit:1.11.0")
 }

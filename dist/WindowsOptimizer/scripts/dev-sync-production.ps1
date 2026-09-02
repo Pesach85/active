@@ -17,7 +17,7 @@ $installRoot = Expand-InstallProfilePath -Template $profile.Windows.DefaultInsta
 $manifest = Read-HubInstallManifest -InstallRoot $installRoot
 
 if (-not $manifest) {
-    Write-Warning "No install manifest at $installRoot â€” run install-windows-app.ps1 first."
+    Write-Warning "No install manifest at $installRoot - run install-windows-app.ps1 first."
 }
 
 $distSource = Join-Path $HubRoot ([string]$profile.Windows.DevSyncSourceRelative)
