@@ -62,8 +62,9 @@ class DeviceMaintenanceEngine(private val context: Context) {
         val topProcesses = processEngine.topProcesses(topProcessLimit)
         val runningCount = activityManager.runningAppProcesses.orEmpty().size
         val cachedCount = processEngine.cachedProcessCount()
-        val storageHotspots = storageAnalyzer.analyze()
-        val storageApps = storageAnalyzer.topAppStorage(12)
+        val priorityPackages = buildStoragePriorityPackages()
+        val storageHotspots = storageAnalyzer.analyze(priorityPackages)
+        val storageApps = storageAnalyzer.topAppStorage(12, priorityPackages)
         val battery = batterySignal.snapshot()
         val network = networkService.snapshot()
         val bootApps = bootAuditor.audit()
@@ -238,6 +239,15 @@ class DeviceMaintenanceEngine(private val context: Context) {
         bullets.add(0, "Host RAM ${availRamMb}/${totalRamMb} MB · Storage ${freeStorageMb}/${totalStorageMb} MB")
         bullets.add("Battery ${battery.levelPercent}% · Network ${network.activeType}")
         return Triple(tier, score.coerceIn(0, 100), bullets)
+    }
+
+    private fun buildStoragePriorityPackages(): List<String> {
+        val pkgs = LinkedHashSet<String>()
+        activityManager.runningAppProcesses.orEmpty().forEach { proc ->
+            pkgs.add(proc.processName.substringBefore(':'))
+        }
+        usage.topApps(15).forEach { pkgs.add(it.packageName) }
+        return pkgs.toList()
     }
 
     private fun computeTransparencyPosture(

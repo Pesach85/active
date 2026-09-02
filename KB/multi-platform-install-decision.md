@@ -120,6 +120,7 @@ Limiti Android: kill force-stop solo via Settings utente; per-app RAM richiede u
 | `native dashboard foreground FAIL` | Schermo spento/lock → launcher in `ResumedActivity`; regex cercava solo `topResumedActivity=` (assente su Motorola/Android 14) | `Ensure-DeviceAwake` (WAKEUP + dismiss-keyguard), cold start `-S`, regex multi-campo (`ResumedActivity:`, `mFocusedApp=`, `topResumedActivity=`), retry launch |
 | Doppio refresh onCreate+onResume | `refresh()` chiamato due volte al boot | Solo `onResume` avvia refresh |
 | Analyze su UI thread | `StorageStatsManager` + process scan lenti → rischio jank/ANR | `engine.analyze()` in worker thread, `runOnUiThread` per render |
+| Refresh senza risultati visibili | **`SecurityException`** su `ConnectivityManager.getActiveNetwork()` — mancava `ACCESS_NETWORK_STATE` + scan storage su tutte le app + RecyclerView altezza 0 | Permesso manifest; fallback rete; cap candidati storage 48; `expandRecyclerView()`; stato "Analyzing…" |
 
 ## Android native maintenance (v0.9.0 — superseded)
 
