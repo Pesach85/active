@@ -60,7 +60,6 @@ class MainActivity : AppCompatActivity() {
         }
 
         findViewById<Button>(R.id.refreshBtn).setOnClickListener { refresh() }
-        refresh()
     }
 
     override fun onResume() {
@@ -70,11 +69,18 @@ class MainActivity : AppCompatActivity() {
 
     private fun refresh() {
         progressBar.visibility = View.VISIBLE
-        findViewById<View>(R.id.contentScroll).post {
-            val snap = engine.analyze()
-            render(snap)
-            progressBar.visibility = View.GONE
-        }
+        Thread {
+            val snap = try {
+                engine.analyze()
+            } catch (ex: Exception) {
+                android.util.Log.e("HubAndroid", "analyze failed", ex)
+                null
+            }
+            runOnUiThread {
+                if (snap != null) render(snap)
+                progressBar.visibility = View.GONE
+            }
+        }.start()
     }
 
     private fun render(snap: DeviceSnapshot) {
