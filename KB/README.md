@@ -11,7 +11,8 @@ Knowledge base operativa giornaliera. La conoscenza strutturata permanente vive 
 | `architecture.md` | Architettura tecnica script/GUI/pattern stabilità |
 | `hub-hitl-paths-decision.md` | **Phase 3 HITL:** resolve apply, defender apply, HUB_USE_CORE — pro/contro e matrice decisionale |
 | `network-deep-scan-design.md` | **Phase 5:** multi-layer network deep scan (cross-diff, UDP, DNS, Tor heuristics, memory forensics) |
-| `multi-platform-install-decision.md` | **Install:** Windows dev-sync, Linux user install, Android WebView MVP |
+| `multi-platform-install-decision.md` | **Install:** Windows dev-sync, Linux user install, Android native UX |
+| `cursor-skills-adoption.md` | **Skills Cursor:** orchestrazione + catalogo skill adottate (fable/chrisboden) |
 | `../docs/checklists/hub-quality-gate-validation.md` | **Checklist deterministica** quality gate completo |
 | `codebase-health.md` | Snapshot salute codice + voti per area |
 | `bugs-fixed.md` | Incident risolti e check anti-regressione |
