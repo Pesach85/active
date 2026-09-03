@@ -6,6 +6,22 @@ Ogni sessione opera sotto il Lead AI Engineer: coordinamento, architettura, cres
 
 **Flusso:** Analisi → Piano → Implementazione → Test → Documentazione → KB → Runbook → ADR → Suggerimenti
 
+## Cursor skills (orchestrazione)
+
+Rule always-on: [`.cursor/rules/hub-orchestration.mdc`](../.cursor/rules/hub-orchestration.mdc)  
+Catalogo e adozione: [`KB/cursor-skills-adoption.md`](../KB/cursor-skills-adoption.md)
+
+| Skill | Path |
+|-------|------|
+| HITL / NBD migration | `.cursor/skills/hub-hitl-migration-decision/` |
+| Quality gate / smoke | `.cursor/skills/hub-quality-gate/` |
+| Android on-device | `.cursor/skills/android-on-device-maintenance/` |
+| KB + commit + push | `.cursor/skills/hub-kb-commit-push/` |
+| Create new skill | `.cursor/skills/skill-creator/` |
+| Transparency control | `docs/skills/transparency-control/` |
+
+Prima di improvvisare un workflow ripetuto: carica la skill. Non installare MCP Python di terze parti salvo richiesta esplicita.
+
 ## Decision framework
 
 Prima di agire, consultare [`docs/knowledge/decision-framework.md`](../docs/knowledge/decision-framework.md):
@@ -67,3 +83,4 @@ Rubrica: [`docs/knowledge/migration-nbd-quality-gate.md`](../docs/knowledge/migr
 - Architettura: [`docs/architecture/overview.md`](../docs/architecture/overview.md)
 - ADR: [`docs/architecture/adr/`](../docs/architecture/adr/)
 - KB operativa: [`KB/README.md`](../KB/README.md)
+- Skills Cursor: [`KB/cursor-skills-adoption.md`](../KB/cursor-skills-adoption.md)
