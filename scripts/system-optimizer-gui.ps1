@@ -255,7 +255,7 @@ $script:privacyFindings     = @()
 $script:showAdvancedTools   = $false
 
 
-if (-not $script:appVersion) { $script:appVersion = "3.2.0" }
+if (-not $script:appVersion) { $script:appVersion = "3.3.0" }
 if (-not $clrBg) { throw "GUI theme not loaded. Expected scripts/gui/theme.ps1." }
 if (-not (Get-Command Wait-ForOutputFile -ErrorAction SilentlyContinue)) { throw "GUI worker-helpers not loaded. Expected scripts/gui/worker-helpers.ps1." }
 
@@ -505,12 +505,14 @@ $lblAdvancedActions.AutoSize  = $true
 $lblAdvancedActions.Location  = New-Object System.Drawing.Point(12, 8)
 $lblAdvancedActions.BackColor = [System.Drawing.Color]::Transparent
 
+# Primary row: VMware Health is first-class (was hidden under More tools + stale EXE)
 $btnHealthAudit.Location   = New-Object System.Drawing.Point(12,  30)
 $btnAnalyze.Location       = New-Object System.Drawing.Point(168, 30)
-$btnQuickClean.Location    = New-Object System.Drawing.Point(312, 30)
-$btnPrivacyHome.Location   = New-Object System.Drawing.Point(452, 30)
-$btnMoreTools.Location     = New-Object System.Drawing.Point(608, 30)
-$btnCancelAnalyze.Location = New-Object System.Drawing.Point(744, 30)
+$btnQuickClean.Location    = New-Object System.Drawing.Point(320, 30)
+$btnPrivacyHome.Location   = New-Object System.Drawing.Point(460, 30)
+$btnVmwareHealth.Location  = New-Object System.Drawing.Point(616, 30)
+$btnMoreTools.Location     = New-Object System.Drawing.Point(762, 30)
+$btnCancelAnalyze.Location = New-Object System.Drawing.Point(898, 30)
 
 $pnlAdvancedTools = New-Object System.Windows.Forms.Panel
 $pnlAdvancedTools.Dock      = "Top"
@@ -529,7 +531,6 @@ $btnApplyThrottle.Location = New-Object System.Drawing.Point(136, 74)
 $btnDefenderReview.Location = New-Object System.Drawing.Point(260, 74)
 $btnAudit.Location         = New-Object System.Drawing.Point(500, 74)
 $btnExecute.Location       = New-Object System.Drawing.Point(628, 74)
-$btnVmwareHealth.Location  = New-Object System.Drawing.Point(756, 74)
 
 $lblCleanupMode = New-Object System.Windows.Forms.Label
 $lblCleanupMode.Text      = "MODE"
@@ -554,7 +555,7 @@ $pnlAdvancedTools.Controls.AddRange(@(
     $lblAdvancedActions,
     $btnHealthApply, $btnPkgFix, $btnNvmePlan, $btnDeepScanJump, $btnPartitionPlan, $btnDiagnostics,
     $btnCompute, $btnApplyThrottle, $btnDefenderReview,
-    $lblCleanupMode, $cmbCleanupMode, $btnAudit, $btnExecute, $btnVmwareHealth
+    $lblCleanupMode, $cmbCleanupMode, $btnAudit, $btnExecute
 ))
 
 $btnCancelAnalyze.Enabled  = $false
@@ -664,7 +665,7 @@ $pnlActionsBorder.BackColor = $clrBorderC
 
 $pnlActions.Controls.AddRange(@(
     $lblPrimaryActions,
-    $btnHealthAudit, $btnAnalyze, $btnQuickClean, $btnPrivacyHome, $btnMoreTools, $btnCancelAnalyze,
+    $btnHealthAudit, $btnAnalyze, $btnQuickClean, $btnPrivacyHome, $btnVmwareHealth, $btnMoreTools, $btnCancelAnalyze,
     $pnlActionsBorder
 ))
 
@@ -1047,6 +1048,9 @@ $btnDeepExport.Location = New-Object System.Drawing.Point(612, 19)
 $btnDeepExport.Enabled  = $false
 $btnDeepExport.ForeColor = $clrMuted
 
+$btnVmwareHealthDeep = New-Btn "VMware Health" $clrTeal 138 38
+$btnVmwareHealthDeep.Location = New-Object System.Drawing.Point(740, 19)
+
 $lblDeepScanDesc = New-Object System.Windows.Forms.Label
 $lblDeepScanDesc.Text      = "Full system performance audit — hardware, OS settings, drivers, services.  Select a finding, choose a solution, then click Apply."
 $lblDeepScanDesc.Font      = $fntSmall
@@ -1063,7 +1067,7 @@ $pnlDeepScanHeaderBorder.BackColor = $clrBorderC
 $pnlDeepScanHeader.Controls.AddRange(@(
     $btnDeepScanRun, $btnDeepScanCancel,
     $lblDeepFixLabel, $cmbDeepFixLevel,
-    $lblDeepFilterLabel, $cmbDeepFilter, $btnDeepExport,
+    $lblDeepFilterLabel, $cmbDeepFilter, $btnDeepExport, $btnVmwareHealthDeep,
     $lblDeepScanDesc, $pnlDeepScanHeaderBorder
 ))
 
@@ -1365,6 +1369,7 @@ function Apply-GuiLanguage {
     $btnDeepScanJump.Text = Get-I18n 'buttons.health_tab'
     $btnPartitionPlan.Text = Get-I18n 'buttons.partition_plan'
     $btnVmwareHealth.Text = Get-I18n 'buttons.vmware_health'
+    $btnVmwareHealthDeep.Text = Get-I18n 'buttons.vmware_health'
     $btnCompute.Text = Get-I18n 'buttons.compute'
     $btnApplyThrottle.Text = Get-I18n 'buttons.apply_throttle'
     $btnDefenderReview.Text = Get-I18n 'buttons.defender_review'
@@ -1416,6 +1421,7 @@ function Initialize-GuiCommandHelp {
         $btnNvmePlan      = 'nvme_plan'
         $btnPartitionPlan = 'partition_plan'
         $btnVmwareHealth  = 'vmware_health'
+        $btnVmwareHealthDeep = 'vmware_health'
         $btnPkgFix        = 'pkg_fix'
         $btnDeepScanRun   = 'run_deep_scan'
         $btnInstallTasks  = 'install_core'
@@ -1878,6 +1884,7 @@ function Set-AnalysisUiState {
     $btnNvmePlan.Enabled = -not $IsBusy
     $btnPartitionPlan.Enabled = -not $IsBusy
     $btnVmwareHealth.Enabled = -not $IsBusy
+    $btnVmwareHealthDeep.Enabled = -not $IsBusy
     $cmbDepth.Enabled = -not $IsBusy
     $cmbAuditLevel.Enabled = -not $IsBusy
     $cmbCleanupMode.Enabled = -not $IsBusy
@@ -4536,7 +4543,7 @@ $btnPartitionPlan.Add_Click({
         }
     }
 })
-$btnVmwareHealth.Add_Click({
+$invokeVmwareHealthClick = {
     $msg = "VMware Health:`nYes = Audit only (inventory + diagnose, no changes).`nNo = Audit + safe Apply (stale locks when powered off; disable 3D after .vmx backup when MKS crash).`nCancel = abort.`n`nNever deletes .vmdk/snapshots. Running VMs are not force-powered-off."
     $choice = [System.Windows.Forms.MessageBox]::Show($msg, "VMware Health", "YesNoCancel", "Question")
     if ($choice -eq "Yes") {
@@ -4549,7 +4556,9 @@ $btnVmwareHealth.Add_Click({
             Run-VmwareHealth -Apply
         }
     }
-})
+}
+$btnVmwareHealth.Add_Click($invokeVmwareHealthClick)
+$btnVmwareHealthDeep.Add_Click($invokeVmwareHealthClick)
 $btnReloadTasks.Add_Click({ Reload-Tasks })
 $btnInstallTasks.Add_Click({ Run-CoreInstall })
 $btnLoadLogs.Add_Click({

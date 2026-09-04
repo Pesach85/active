@@ -57,7 +57,7 @@
     "top": "TOP",
     "max_fix": "FIX MAX",
     "show": "MOSTRA",
-    "explorer_hint": "Doppio clic per aprire. PROFONDITÀ = quanti file campionare. PULIZIA (Altri strumenti) = Safe/Radical solo per Storage Clean.",
+    "explorer_hint": "Doppio clic per aprire. PROFONDITÀ = quanti file campionare. PULIZIA (Altri strumenti) = Safe/Radical solo per Storage Clean. Salute VMware è sulla riga Home e nel tab Salute.",
     "privacy_desc": "Scansione read-only di credenziali in chiaro. I valori sono redatti nei report.",
     "deep_scan_desc": "Scansione salute sistema — rivedi i finding, scegli una soluzione, poi Applica. Nessun fix automatico.",
     "config_hint": "Soglie Monitor/WHEA/Orchestrator: modifica JSON o Salva per persistere la sezione GUI.",

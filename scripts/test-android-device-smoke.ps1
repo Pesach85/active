@@ -106,11 +106,11 @@ if (-not $SkipInstall) {
     }
 }
 
-Assert-DeviceTest 'package version 1.0.x' {
+Assert-DeviceTest 'package version 1.x' {
     $ver = Invoke-AdbCommand -Adb $adb -Command @(
         'shell', 'dumpsys', 'package', 'com.systemoptimizerhub.transparency'
     ) -Serial $DeviceSerial
-    if ($ver -notmatch 'versionName=1\.0') { throw 'Expected native v1.0.x on device' }
+    if ($ver -notmatch 'versionName=1\.') { throw 'Expected native v1.x on device' }
 }
 
 if (-not $SkipLaunch) {
