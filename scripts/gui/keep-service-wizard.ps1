@@ -382,7 +382,7 @@ function Show-KeepServiceExtremeWizard {
                     $argList += @("-$key", [string]$val)
                 }
             }
-            $p = Start-Process -FilePath $PsHost -ArgumentList $argList -Wait -PassThru -WindowStyle Hidden
+            $p = Start-HubPowerShellProcess -FilePath $PsHost -ArgumentList $argList -Wait -PassThru
             $exitCode = $p.ExitCode
         } else {
             $elev = Invoke-KeepExtremeApplyElevated -PsHost $PsHost -ApplyScript $applyScript -ApplyParams $params -BootstrapLog $bootstrapLog
@@ -446,7 +446,7 @@ function Start-KeepExtremeWizardFlow {
     $args = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $EvaluateScript, '-OutputJson', $evalOut)
     if ($inputArg) { $args += @('-InputJson', $inputArg) }
 
-    $p = Start-Process -FilePath $PsHost -ArgumentList $args -Wait -PassThru -WindowStyle Hidden
+    $p = Start-HubPowerShellProcess -FilePath $PsHost -ArgumentList $args -Wait -PassThru
     if ($p.ExitCode -ne 0) {
         Write-KeepWizardStatus -OnStatus $OnStatus -Message ("KEEP evaluation failed exit=$($p.ExitCode)")
         return @{ Ok = $false; Reason = 'EvalFailed' }

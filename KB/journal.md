@@ -2702,3 +2702,15 @@ Inventario, recover TEMP su D:, staging remount Safe (pagefile/TEMP fisici + pen
 
 ### Esito
 Recover fatto. Remount staged: serve reboot HITL. C:\DataHub resta directory-trappola fino al boot.
+
+## 2026-09-04 — Start-Process path with spaces (CSV not found)
+
+### Obiettivo
+GUI: `Analyzer completed but output CSV was not found` + `-File 'C:\Users\Pasquale'` (username con spazio).
+
+### Causa
+`Start-Process -ArgumentList string[]` join senza quote → spezza `C:\Users\Pasquale Lombardi\...`.
+
+### Fix
+`ConvertTo-StartProcessArgumentList` + `Start-HubPowerShellProcess` in `gui/worker-helpers.ps1`; usato da async-worker e GUI workers. Smoke `start-process-spaced-path`.
+

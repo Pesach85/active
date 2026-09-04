@@ -222,6 +222,35 @@ Write-Output "OK"
     $failures.Add(("async-worker-registry exception: {0}" -f $_.Exception.Message))
 }
 
+# Start-Process ArgumentList must quote paths with spaces (user profile install).
+Write-Host '[SMOKE] start-process-spaced-path...'
+try {
+    . (Join-Path $scriptDir 'gui\worker-helpers.ps1')
+    $spaceDir = Join-Path $logs 'smoke spaced path'
+    New-Item -ItemType Directory -Path $spaceDir -Force | Out-Null
+    $spaceScript = Join-Path $spaceDir 'echo-ok.ps1'
+    @'
+param([string]$OutputJson)
+@{ SchemaVersion = 'SpacedPathSmoke.v1'; Ok = $true } | ConvertTo-Json | Set-Content -LiteralPath $OutputJson -Encoding utf8
+'@ | Set-Content -LiteralPath $spaceScript -Encoding utf8
+    $spaceOut = Join-Path $spaceDir 'out.json'
+    $spaceErr = Join-Path $logs 'smoke-spaced-path.err.log'
+    Remove-IfExists -Path $spaceOut
+    Remove-IfExists -Path $spaceErr
+    $argLine = ConvertTo-StartProcessArgumentList -Arguments @(
+        '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $spaceScript, '-OutputJson', $spaceOut
+    )
+    $pSpace = Start-Process -FilePath $pwsh -ArgumentList $argLine -Wait -PassThru -WindowStyle Hidden -RedirectStandardError $spaceErr
+    if ($pSpace.ExitCode -ne 0 -or -not (Test-Path -LiteralPath $spaceOut)) {
+        $errTail = if (Test-Path $spaceErr) { Get-Content $spaceErr -Raw } else { '' }
+        $failures.Add(("start-process-spaced-path failed exit={0} err={1}" -f $pSpace.ExitCode, $errTail.Trim()))
+    } else {
+        Write-Host '[SMOKE] start-process-spaced-path OK'
+    }
+} catch {
+    $failures.Add(("start-process-spaced-path exception: {0}" -f $_.Exception.Message))
+}
+
 # Transparency tab StrictMode / unset $tab regression (Bug 31 / EXE Refresh on Shown)
 Write-Host '[SMOKE] transparency-panel-registry...'
 try {

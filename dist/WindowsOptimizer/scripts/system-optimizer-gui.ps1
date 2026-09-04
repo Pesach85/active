@@ -2683,7 +2683,7 @@ function Run-HealthAudit {
                 "-OutputJson", $script:healthAuditJson
             )
             $script:healthAuditStartedAt = Get-Date
-            $script:healthAuditProcess = Start-Process -FilePath $script:psHost -ArgumentList $args -WindowStyle Hidden -RedirectStandardOutput $script:healthAuditStdOut -RedirectStandardError $script:healthAuditStdErr -PassThru
+            $script:healthAuditProcess = Start-HubPowerShellProcess -FilePath $script:psHost -ArgumentList $args -RedirectStandardOutput $script:healthAuditStdOut -RedirectStandardError $script:healthAuditStdErr -PassThru
             $started = ($null -ne $script:healthAuditProcess)
         }
 
@@ -2749,7 +2749,7 @@ function Run-HealthApply {
         $script:healthAuditApplyPackagesOnly = $false
         $script:healthAuditApplyFindingIds = @()
         $script:healthApplyInProgress = $true
-        $script:healthAuditProcess = Start-Process -FilePath $script:psHost -ArgumentList $args -WindowStyle Hidden -RedirectStandardOutput $script:healthAuditStdOut -RedirectStandardError $script:healthAuditStdErr -PassThru
+        $script:healthAuditProcess = Start-HubPowerShellProcess -FilePath $script:psHost -ArgumentList $args -RedirectStandardOutput $script:healthAuditStdOut -RedirectStandardError $script:healthAuditStdErr -PassThru
         $progressAnalysis.Value = 1
         Set-AnalysisUiState -IsBusy:$true -StateText ("Applying {0} fixes..." -f $MaxLevel)
         $healthApplyTimer.Start()
@@ -3036,7 +3036,7 @@ function Run-VmwareHealth {
             "-File", $script:vmwareHealthScript
         ) + $extra
 
-        $script:vmwareHealthProcess = Start-Process -FilePath $script:psHost -ArgumentList $args -WindowStyle Hidden -RedirectStandardOutput $script:vmwareHealthStdOut -RedirectStandardError $script:vmwareHealthStdErr -PassThru
+        $script:vmwareHealthProcess = Start-HubPowerShellProcess -FilePath $script:psHost -ArgumentList $args -RedirectStandardOutput $script:vmwareHealthStdOut -RedirectStandardError $script:vmwareHealthStdErr -PassThru
         $progressAnalysis.Value = 1
         $label = if ($Apply) { 'VMware Health+Apply' } else { 'VMware Health' }
         Set-AnalysisUiState -IsBusy:$true -StateText ("{0} starting (target {1}s)..." -f $label, $script:vmwareHealthTimeoutSec)
@@ -3076,7 +3076,7 @@ function Run-NvmeAdvisor {
 
         $script:nvmeAdvisorStartedAt = Get-Date
         $script:nvmeAdvisorSoftTimeoutWarned = $false
-        $script:nvmeAdvisorProcess = Start-Process -FilePath $script:psHost -ArgumentList $args -WindowStyle Hidden -RedirectStandardOutput $script:nvmeAdvisorStdOut -RedirectStandardError $script:nvmeAdvisorStdErr -PassThru
+        $script:nvmeAdvisorProcess = Start-HubPowerShellProcess -FilePath $script:psHost -ArgumentList $args -RedirectStandardOutput $script:nvmeAdvisorStdOut -RedirectStandardError $script:nvmeAdvisorStdErr -PassThru
         $progressAnalysis.Value = 1
         Set-AnalysisUiState -IsBusy:$true -StateText ("NVMe Plan starting (target {0}s)..." -f $script:nvmeAdvisorTimeoutSec)
         $nvmeAdvisorTimer.Start()
@@ -3236,7 +3236,7 @@ function Run-CoreInstall {
         )
 
         $script:coreInstallStartedAt = Get-Date
-        $script:coreInstallProcess = Start-Process -FilePath $script:psHost -ArgumentList $args -WindowStyle Hidden -RedirectStandardOutput $script:coreInstallStdOut -RedirectStandardError $script:coreInstallStdErr -PassThru
+        $script:coreInstallProcess = Start-HubPowerShellProcess -FilePath $script:psHost -ArgumentList $args -RedirectStandardOutput $script:coreInstallStdOut -RedirectStandardError $script:coreInstallStdErr -PassThru
         $progressAnalysis.Value = 1
         Set-AnalysisUiState -IsBusy:$true -StateText ("Core Install starting (target {0}s)..." -f $script:coreInstallTimeoutSec)
         $coreInstallTimer.Start()
@@ -3351,7 +3351,7 @@ function Run-PartitionLegacy {
         $script:partitionLegacyStartedAt = Get-Date
         $script:partitionLegacySoftTimeoutWarned = $false
         $script:partitionLegacyApplyRequested = [bool]$ApplyIfLegacy
-        $script:partitionLegacyProcess = Start-Process -FilePath $script:psHost -ArgumentList $args -WindowStyle Hidden -RedirectStandardOutput $script:partitionLegacyStdOut -RedirectStandardError $script:partitionLegacyStdErr -PassThru
+        $script:partitionLegacyProcess = Start-HubPowerShellProcess -FilePath $script:psHost -ArgumentList $args -RedirectStandardOutput $script:partitionLegacyStdOut -RedirectStandardError $script:partitionLegacyStdErr -PassThru
         $progressAnalysis.Value = 1
         $state = if ($ApplyIfLegacy) { "Partition Plan apply starting" } else { "Partition Plan audit starting" }
         Set-AnalysisUiState -IsBusy:$true -StateText ("{0} (target {1}s)..." -f $state, $script:partitionLegacyTimeoutSec)
@@ -3725,11 +3725,7 @@ function Run-PrivacyScan {
             )
             $script:privacyStartedAt = Get-Date
             $script:privacySoftTimeoutWarned = $false
-            $script:privacyProcess = Start-Process -FilePath $script:psHost -ArgumentList $args `
-                -WindowStyle Hidden `
-                -RedirectStandardOutput $script:privacyStdOut `
-                -RedirectStandardError $script:privacyStdErr `
-                -PassThru
+            $script:privacyProcess = Start-HubPowerShellProcess -FilePath $script:psHost -ArgumentList $args -RedirectStandardOutput $script:privacyStdOut -RedirectStandardError $script:privacyStdErr -PassThru
             $started = ($null -ne $script:privacyProcess)
         }
 
@@ -3870,11 +3866,7 @@ function Run-DeepScan {
         )
         $script:deepScanStartedAt        = Get-Date
         $script:deepScanSoftTimeoutWarned = $false
-        $script:deepScanProcess = Start-Process -FilePath $script:psHost -ArgumentList $args `
-            -WindowStyle Hidden `
-            -RedirectStandardOutput $script:deepScanStdOut `
-            -RedirectStandardError  $script:deepScanStdErr `
-            -PassThru
+        $script:deepScanProcess = Start-HubPowerShellProcess -FilePath $script:psHost -ArgumentList $args -RedirectStandardOutput $script:deepScanStdOut -RedirectStandardError $script:deepScanStdErr -PassThru
 
         $progressDeepScan.Style                 = "Marquee"
         $progressDeepScan.MarqueeAnimationSpeed = 28
@@ -3927,11 +3919,7 @@ function Apply-DeepFix {
         $script:deepScanApplyStartedAt = Get-Date
         $script:deepScanApplyFindingId = $FindingId
         $script:deepScanApplyLevel     = $SolutionLevel
-        $script:deepScanApplyProcess = Start-Process -FilePath $script:psHost -ArgumentList $args `
-            -WindowStyle Hidden `
-            -RedirectStandardOutput $script:deepScanStdOut `
-            -RedirectStandardError  $script:deepScanStdErr `
-            -PassThru
+        $script:deepScanApplyProcess = Start-HubPowerShellProcess -FilePath $script:psHost -ArgumentList $args -RedirectStandardOutput $script:deepScanStdOut -RedirectStandardError $script:deepScanStdErr -PassThru
 
         $btnDeepApply.Enabled   = $false
         $btnDeepApply.ForeColor = $clrMuted
@@ -4060,7 +4048,7 @@ function Run-GarbageAnalysis {
                 "-OutputJson", $occupancyJson
             )
             $script:analysisStartedAt = Get-Date
-            $script:analysisProcess = Start-Process -FilePath $script:psHost -ArgumentList $args -WindowStyle Hidden -RedirectStandardOutput $script:analysisStdOut -RedirectStandardError $script:analysisStdErr -PassThru
+            $script:analysisProcess = Start-HubPowerShellProcess -FilePath $script:psHost -ArgumentList $args -RedirectStandardOutput $script:analysisStdOut -RedirectStandardError $script:analysisStdErr -PassThru
             $started = ($null -ne $script:analysisProcess)
         }
 
@@ -4128,7 +4116,7 @@ function Run-Cleanup {
         $script:cleanupTimeoutSec = Get-CleanupTimeoutSec -Depth $depth -ExecuteNow:$ExecuteNow
         $script:cleanupSoftTimeoutWarned = $false
         $script:cleanupRunAnalyzeAfter = $RunAnalyzeAfter
-        $script:cleanupProcess = Start-Process -FilePath $script:psHost -ArgumentList $args -WindowStyle Hidden -RedirectStandardOutput $script:cleanupStdOut -RedirectStandardError $script:cleanupStdErr -PassThru
+        $script:cleanupProcess = Start-HubPowerShellProcess -FilePath $script:psHost -ArgumentList $args -RedirectStandardOutput $script:cleanupStdOut -RedirectStandardError $script:cleanupStdErr -PassThru
         $progressAnalysis.Value = 1
         Set-AnalysisUiState -IsBusy:$true -StateText ("Cleanup starting (target {0}s)..." -f $script:cleanupTimeoutSec)
         $cleanupTimer.Start()
@@ -4178,7 +4166,7 @@ function Run-ApplySafeThrottle {
             '-OutputJson', $applyOut,
             '-MaxLevel', 'Safe'
         )
-        $p = Start-Process -FilePath $script:psHost -ArgumentList $args -Wait -PassThru -WindowStyle Hidden
+        $p = Start-HubPowerShellProcess -FilePath $script:psHost -ArgumentList $args -Wait -PassThru
         if ($p.ExitCode -ne 0) {
             Append-Status ("Safe throttle apply failed exit {0}" -f $p.ExitCode)
             return
@@ -4213,7 +4201,7 @@ function Run-DefenderExtremeReview {
         $inputArg = if (Test-Path -LiteralPath $script:computeJson) { $script:computeJson } else { '' }
         $args = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $script:evaluateDefenderScript, '-OutputJson', $evalOut)
         if ($inputArg) { $args += @('-InputJson', $inputArg) }
-        $p = Start-Process -FilePath $script:psHost -ArgumentList $args -Wait -PassThru -WindowStyle Hidden
+        $p = Start-HubPowerShellProcess -FilePath $script:psHost -ArgumentList $args -Wait -PassThru
         if ($p.ExitCode -ne 0) { Append-Status ("Defender evaluation failed exit {0}" -f $p.ExitCode); return }
         $ev = Get-Content -LiteralPath $evalOut -Raw | ConvertFrom-Json
         Append-Status ("Defender review: tier={0} composite={1}" -f $ev.RecommendedTier, $ev.CompositeScore)
@@ -4270,7 +4258,7 @@ function Run-ComputeAnalysis {
 
         $script:computeStartedAt = Get-Date
         $script:computeSoftTimeoutWarned = $false
-        $script:computeProcess = Start-Process -FilePath $script:psHost -ArgumentList $args -WindowStyle Hidden -RedirectStandardOutput $script:computeStdOut -RedirectStandardError $script:computeStdErr -PassThru
+        $script:computeProcess = Start-HubPowerShellProcess -FilePath $script:psHost -ArgumentList $args -RedirectStandardOutput $script:computeStdOut -RedirectStandardError $script:computeStdErr -PassThru
         $progressAnalysis.Value = 1
         Set-AnalysisUiState -IsBusy:$true -StateText "Compute analysis starting (target 45s)..."
         $computeTimer.Start()
@@ -4314,7 +4302,7 @@ function Run-QuickCleanup {
 
         $script:quickCleanupStartedAt = Get-Date
         $script:quickCleanupSoftTimeoutWarned = $false
-        $script:quickCleanupProcess = Start-Process -FilePath $script:psHost -ArgumentList $args -WindowStyle Hidden -RedirectStandardOutput $script:quickCleanupStdOut -RedirectStandardError $script:quickCleanupStdErr -PassThru
+        $script:quickCleanupProcess = Start-HubPowerShellProcess -FilePath $script:psHost -ArgumentList $args -RedirectStandardOutput $script:quickCleanupStdOut -RedirectStandardError $script:quickCleanupStdErr -PassThru
         $progressAnalysis.Value = 1
         Set-AnalysisUiState -IsBusy:$true -StateText "Quick cleanup starting (target 120s)..."
         $quickCleanupTimer.Start()

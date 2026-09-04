@@ -332,10 +332,10 @@ function New-TransparencyTab {
             $p
         }
 
-        $proc = Start-Process -FilePath $pwshExe -ArgumentList @(
+        $proc = Start-HubPowerShellProcess -FilePath $pwshExe -ArgumentList @(
             '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $st.BuildScript,
             '-ConfigPath', $st.ConfigPath, '-OutputJson', $st.ReportPath
-        ) -Wait -PassThru -WindowStyle Hidden
+        ) -Wait -PassThru
 
         if ($proc.ExitCode -ne 0) { return $null }
         if (-not (Test-Path -LiteralPath $st.ReportPath)) { return $null }
@@ -356,7 +356,7 @@ function New-TransparencyTab {
 
         if (Test-Path -LiteralPath $st.EnsureWebScript) {
             $ensureArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $st.EnsureWebScript, '-ConfigPath', $st.ConfigPath, '-Quiet')
-            $ensureProc = Start-Process -FilePath $pwshExe -ArgumentList $ensureArgs -Wait -PassThru -WindowStyle Hidden
+            $ensureProc = Start-HubPowerShellProcess -FilePath $pwshExe -ArgumentList $ensureArgs -Wait -PassThru
             if ($ensureProc.ExitCode -eq 0 -and (& $st.WaitTcp -Port 8765 -TimeoutSec 3)) { return $true }
         }
 
@@ -366,10 +366,10 @@ function New-TransparencyTab {
 
         if (Test-Path -LiteralPath $st.WebLogPath) { Remove-Item -LiteralPath $st.WebLogPath -Force -ErrorAction SilentlyContinue }
 
-        $st.WebProcess = Start-Process -FilePath $pwshExe -ArgumentList @(
+        $st.WebProcess = Start-HubPowerShellProcess -FilePath $pwshExe -ArgumentList @(
             '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $st.ServeScript,
             '-ConfigPath', $st.ConfigPath
-        ) -PassThru -WindowStyle Hidden -RedirectStandardOutput $st.WebLogPath -RedirectStandardError $st.WebErrLogPath
+        ) -PassThru -RedirectStandardOutput $st.WebLogPath -RedirectStandardError $st.WebErrLogPath
 
         if (& $st.WaitTcp -Port 8765 -TimeoutSec 25) { return $true }
 
