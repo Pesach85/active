@@ -14,6 +14,7 @@ Knowledge base operativa giornaliera. La conoscenza strutturata permanente vive 
 | `multi-platform-install-decision.md` | **Install:** Windows dev-sync, Linux user install, Android native UX |
 | `cursor-skills-adoption.md` | **Skills Cursor:** orchestrazione + catalogo skill adottate (fable/chrisboden) |
 | `disk-occupancy-decision.md` | **Storage:** classificazione granulare unità, BitLevel onesto, SafeDelete vs HITL |
+| `vmware-health-mks-decision.md` | **VMware:** inventory/diagnose MKS mksSandbox; safe 3D-off + stale locks; HITL for disk/power |
 | `datahub-mount-recovery-20260904.md` | **DataHub:** mount C:\DataHub → D: rotto il 2026-09-04; recover + remount staged reboot |
 | `../docs/checklists/hub-quality-gate-validation.md` | **Checklist deterministica** quality gate completo |
 | `codebase-health.md` | Snapshot salute codice + voti per area |

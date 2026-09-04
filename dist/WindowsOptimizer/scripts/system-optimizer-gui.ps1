@@ -1,4 +1,4 @@
-﻿Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
 function Resolve-BaseDirectory {
@@ -90,7 +90,7 @@ function Resolve-PowerShellHost {
         if ($fi -and $fi.Length -gt 0) {
             return $candidate
         }
-        # 0-byte AppExecution alias detected â€” find real pwsh.exe
+        # 0-byte AppExecution alias detected — find real pwsh.exe
         $searchPaths = @(
             "$env:ProgramFiles\PowerShell\*\pwsh.exe",
             "$env:ProgramFiles\WindowsApps\Microsoft.PowerShell_*\pwsh.exe"
@@ -120,7 +120,8 @@ function Invoke-ChildPowerShell {
 
 $script:cleanupScript = Join-Path $script:scriptRoot "cleanup-storage-safe.ps1"
 $script:quickCleanupScript = Join-Path $script:scriptRoot "quick-cleanup-safe.ps1"
-$script:analyzerScript = Join-Path $script:scriptRoot "analyze-garbage-hotspots.ps1"
+$script:analyzerScript = Join-Path $script:scriptRoot "analyze-disk-occupancy.ps1"
+$script:legacyGarbageScript = Join-Path $script:scriptRoot "analyze-garbage-hotspots.ps1"
 $script:computeAnalyzerScript = Join-Path $script:scriptRoot "analyze-process-pressure.ps1"
 $script:applyPressureScript = Join-Path $script:scriptRoot "apply-process-pressure-safe.ps1"
 $script:evaluateDefenderScript = Join-Path $script:scriptRoot "evaluate-defender-extreme-necessity.ps1"
@@ -178,6 +179,7 @@ $script:cfgTier2SimulateOnly = $true
 $script:diagnosticsDir = Join-Path $script:hubRoot "logs\diagnostics"
 $script:healthAuditScript  = Join-Path $script:scriptRoot "system-health-audit.ps1"
 $script:nvmeAdvisorScript  = Join-Path $script:scriptRoot "analyze-nvme-readonly-plan.ps1"
+$script:vmwareHealthScript = Join-Path $script:scriptRoot "analyze-vmware-health.ps1"
 $script:partitionLegacyScript = Join-Path $script:scriptRoot "analyze-recovery-partition-legacy.ps1"
 $script:applyFixesScript   = Join-Path $script:scriptRoot "apply-safe-fixes.ps1"
 $script:healthAuditProcess = $null
@@ -201,6 +203,14 @@ $script:nvmeAdvisorStdErr  = Join-Path $script:hubRoot "logs\nvme-advisor-live.e
 $script:nvmeAdvisorStartedAt = $null
 $script:nvmeAdvisorTimeoutSec = 75
 $script:nvmeAdvisorSoftTimeoutWarned = $false
+$script:vmwareHealthProcess = $null
+$script:vmwareHealthJson    = Join-Path $script:hubRoot "logs\vmware-health-live.json"
+$script:vmwareHealthStdOut  = Join-Path $script:hubRoot "logs\vmware-health-live.out.log"
+$script:vmwareHealthStdErr  = Join-Path $script:hubRoot "logs\vmware-health-live.err.log"
+$script:vmwareHealthStartedAt = $null
+$script:vmwareHealthTimeoutSec = 180
+$script:vmwareHealthSoftTimeoutWarned = $false
+$script:vmwareHealthApplyRequested = $false
 $script:partitionLegacyProcess = $null
 $script:partitionLegacyJson    = Join-Path $script:hubRoot "logs\partition-legacy-live.json"
 $script:partitionLegacyStdOut  = Join-Path $script:hubRoot "logs\partition-legacy-live.out.log"
@@ -215,7 +225,7 @@ $script:coreInstallTimeoutSec = 300
 $script:coreInstallStdOut = Join-Path $script:hubRoot "logs\core-install-live.out.log"
 $script:coreInstallStdErr = Join-Path $script:hubRoot "logs\core-install-live.err.log"
 
-# â”€â”€â”€ Deep Scan state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ─── Deep Scan state ──────────────────────────────────────────────────────────
 $script:deepScanProcess          = $null
 $script:deepScanJson             = Join-Path $script:hubRoot "logs\deepscan-live.json"
 $script:deepScanApplyJson        = Join-Path $script:hubRoot "logs\deepscan-apply-live.json"
@@ -232,7 +242,7 @@ $script:deepScanApplyLevel       = "Safe"
 $script:deepScanFilter           = "All"
 $script:deepScanLastSummary      = $null
 
-# â”€â”€â”€ Privacy Scan state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ─── Privacy Scan state ───────────────────────────────────────────────────────
 $script:privacyScanScript   = Join-Path $script:scriptRoot "privacy-scan-secrets.ps1"
 $script:privacyProcess      = $null
 $script:privacyJson         = Join-Path $script:hubRoot "logs\privacy-scan-live.json"
@@ -249,9 +259,9 @@ if (-not $script:appVersion) { $script:appVersion = "3.2.0" }
 if (-not $clrBg) { throw "GUI theme not loaded. Expected scripts/gui/theme.ps1." }
 if (-not (Get-Command Wait-ForOutputFile -ErrorAction SilentlyContinue)) { throw "GUI worker-helpers not loaded. Expected scripts/gui/worker-helpers.ps1." }
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ═══════════════════════════════════════════════════════════════════════════════
 #  Main Form
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ═══════════════════════════════════════════════════════════════════════════════
 $form = New-Object System.Windows.Forms.Form
 $form.Text          = "System Optimizer Hub"
 $form.Size          = New-Object System.Drawing.Size(1440, 900)
@@ -260,7 +270,7 @@ $form.StartPosition = "CenterScreen"
 $form.BackColor     = $clrBg
 $form.Font          = $fntUI
 
-# â”€â”€ Header bar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Header bar ────────────────────────────────────────────────────────────────
 $pnlHeader = New-Object System.Windows.Forms.Panel
 $pnlHeader.Dock = "Top"
 $pnlHeader.Height = 76
@@ -307,7 +317,7 @@ $pnlDriveC.BackColor = $clrRaised
 $pnlDriveC.Anchor    = [System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Right
 
 $lblDriveC = New-Object System.Windows.Forms.Label
-$lblDriveC.Text      = "C:  â€”"
+$lblDriveC.Text      = "C:  —"
 $lblDriveC.Font      = $fntH2
 $lblDriveC.ForeColor = $clrText
 $lblDriveC.BackColor = [System.Drawing.Color]::Transparent
@@ -331,7 +341,7 @@ $pnlDriveD.BackColor = $clrRaised
 $pnlDriveD.Anchor    = [System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Right
 
 $lblDriveD = New-Object System.Windows.Forms.Label
-$lblDriveD.Text      = "D:  â€”"
+$lblDriveD.Text      = "D:  —"
 $lblDriveD.Font      = $fntH2
 $lblDriveD.ForeColor = $clrText
 $lblDriveD.BackColor = [System.Drawing.Color]::Transparent
@@ -355,7 +365,7 @@ $pnlHeaderLine.BackColor = $clrAccent
 
 $pnlHeader.Controls.AddRange(@($pnlHeaderAccent, $lblAppTitle, $lblAppSubtitle, $lblHubPath, $pnlDriveC, $pnlDriveD, $pnlHeaderLine))
 
-# â”€â”€ Status bar (bottom) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Status bar (bottom) ───────────────────────────────────────────────────────
 $pnlStatusBar = New-Object System.Windows.Forms.Panel
 $pnlStatusBar.Dock      = "Bottom"
 $pnlStatusBar.Height    = 32
@@ -375,7 +385,7 @@ $lblStatusLeft.Location  = New-Object System.Drawing.Point(10, 7)
 $lblStatusLeft.BackColor = [System.Drawing.Color]::Transparent
 
 $lblStatusRight = New-Object System.Windows.Forms.Label
-$lblStatusRight.Text      = "PSHost: â€”"
+$lblStatusRight.Text      = "PSHost: —"
 $lblStatusRight.Font      = $fntSmall
 $lblStatusRight.ForeColor = $clrMuted
 $lblStatusRight.Width     = 520
@@ -387,7 +397,7 @@ $lblStatusRight.Anchor    = [System.Windows.Forms.AnchorStyles]::Top -bor [Syste
 
 $pnlStatusBar.Controls.AddRange(@($pnlStatusBarLine, $lblStatusLeft, $lblStatusRight))
 
-# â”€â”€ TabControl â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── TabControl ────────────────────────────────────────────────────────────────
 $tabs = New-Object System.Windows.Forms.TabControl
 $tabs.Dock      = "Fill"
 $tabs.DrawMode  = "OwnerDrawFixed"
@@ -449,11 +459,11 @@ $tabPrivacy.Text                 = "Privacy"
 $tabPrivacy.BackColor            = $clrBg
 $tabPrivacy.UseVisualStyleBackColor = $false
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ═══════════════════════════════════════════════════════════════════════════════
 #  Dashboard Tab
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ═══════════════════════════════════════════════════════════════════════════════
 
-# Action panel â€” v3: primary actions row only
+# Action panel — v3: primary actions row only
 $pnlActions = New-Object System.Windows.Forms.Panel
 $pnlActions.Dock      = "Top"
 $pnlActions.Height    = 80
@@ -470,6 +480,7 @@ $btnPkgFix        = New-Btn "Pkg Prereq Fix" $clrTeal    148 38
 $btnNvmePlan      = New-Btn "NVMe Plan"       $clrAmber   138 38
 $btnDeepScanJump  = New-Btn "Health Tab"     $clrPurple  118 38
 $btnPartitionPlan = New-Btn "Partition Plan"  $clrCyan    148 38
+$btnVmwareHealth  = New-Btn "VMware Health"   $clrTeal    138 38
 $btnCompute       = New-Btn "Compute"         $clrPurple  118 38
 $btnApplyThrottle = New-Btn "Safe Throttle"   $clrGreen   118 38
 $btnDefenderReview = New-Btn "Defender"      $clrAmber   108 38
@@ -516,38 +527,76 @@ $btnDiagnostics.Location   = New-Object System.Drawing.Point(792, 30)
 $btnCompute.Location       = New-Object System.Drawing.Point(12, 74)
 $btnApplyThrottle.Location = New-Object System.Drawing.Point(136, 74)
 $btnDefenderReview.Location = New-Object System.Drawing.Point(260, 74)
-$btnAudit.Location         = New-Object System.Drawing.Point(376, 74)
-$btnExecute.Location       = New-Object System.Drawing.Point(504, 74)
+$btnAudit.Location         = New-Object System.Drawing.Point(500, 74)
+$btnExecute.Location       = New-Object System.Drawing.Point(628, 74)
+$btnVmwareHealth.Location  = New-Object System.Drawing.Point(756, 74)
+
+$lblCleanupMode = New-Object System.Windows.Forms.Label
+$lblCleanupMode.Text      = "MODE"
+$lblCleanupMode.Font      = $fntSmall
+$lblCleanupMode.ForeColor = $clrMuted
+$lblCleanupMode.AutoSize  = $true
+$lblCleanupMode.Location  = New-Object System.Drawing.Point(376, 58)
+$lblCleanupMode.BackColor = [System.Drawing.Color]::Transparent
+
+$cmbCleanupMode = New-Object System.Windows.Forms.ComboBox
+$cmbCleanupMode.DropDownStyle = "DropDownList"
+$cmbCleanupMode.Items.AddRange(@("Safe", "Radical"))
+$cmbCleanupMode.SelectedItem = "Safe"
+$cmbCleanupMode.Width = 100
+$cmbCleanupMode.Location = New-Object System.Drawing.Point(376, 76)
+$cmbCleanupMode.BackColor = $clrRaised
+$cmbCleanupMode.ForeColor = $clrText
+$cmbCleanupMode.Font = $fntUI
+$cmbCleanupMode.FlatStyle = "Flat"
 
 $pnlAdvancedTools.Controls.AddRange(@(
     $lblAdvancedActions,
     $btnHealthApply, $btnPkgFix, $btnNvmePlan, $btnDeepScanJump, $btnPartitionPlan, $btnDiagnostics,
-    $btnCompute, $btnApplyThrottle, $btnDefenderReview, $btnAudit, $btnExecute
+    $btnCompute, $btnApplyThrottle, $btnDefenderReview,
+    $lblCleanupMode, $cmbCleanupMode, $btnAudit, $btnExecute, $btnVmwareHealth
 ))
 
 $btnCancelAnalyze.Enabled  = $false
 $btnCancelAnalyze.ForeColor = $clrMuted
 
-# Scan options row â€” separate panel to avoid overlap with primary buttons
+# Scan options row — separate panel to avoid overlap with primary buttons
 $pnlScanOptions = New-Object System.Windows.Forms.Panel
 $pnlScanOptions.Dock      = "Top"
 $pnlScanOptions.Height    = 58
 $pnlScanOptions.BackColor = $clrSurface
+
+$lblDrivePick = New-Object System.Windows.Forms.Label
+$lblDrivePick.Text      = "DRIVE"
+$lblDrivePick.Font      = $fntSmall
+$lblDrivePick.ForeColor = $clrMuted
+$lblDrivePick.AutoSize  = $true
+$lblDrivePick.Location  = New-Object System.Drawing.Point(12, 6)
+$lblDrivePick.BackColor = [System.Drawing.Color]::Transparent
+
+$cmbDrive = New-Object System.Windows.Forms.ComboBox
+$cmbDrive.DropDownStyle = "DropDownList"
+$cmbDrive.Width = 72
+$cmbDrive.Location = New-Object System.Drawing.Point(12, 24)
+$cmbDrive.BackColor = $clrRaised
+$cmbDrive.ForeColor = $clrText
+$cmbDrive.Font = $fntUI
+$cmbDrive.FlatStyle = "Flat"
 
 $lblDepth = New-Object System.Windows.Forms.Label
 $lblDepth.Text      = "SCAN"
 $lblDepth.Font      = $fntSmall
 $lblDepth.ForeColor = $clrMuted
 $lblDepth.AutoSize  = $true
-$lblDepth.Location  = New-Object System.Drawing.Point(12, 6)
+$lblDepth.Location  = New-Object System.Drawing.Point(96, 6)
 $lblDepth.BackColor = [System.Drawing.Color]::Transparent
 
 $cmbDepth = New-Object System.Windows.Forms.ComboBox
 $cmbDepth.DropDownStyle = "DropDownList"
 $cmbDepth.Items.AddRange(@("Quick", "Standard", "Deep"))
 $cmbDepth.SelectedItem = "Standard"
-$cmbDepth.Width = 108
-$cmbDepth.Location = New-Object System.Drawing.Point(12, 24)
+$cmbDepth.Width = 100
+$cmbDepth.Location = New-Object System.Drawing.Point(96, 24)
 $cmbDepth.BackColor = $clrRaised
 $cmbDepth.ForeColor = $clrText
 $cmbDepth.Font = $fntUI
@@ -558,64 +607,26 @@ $lblAuditLevel.Text      = "DETAIL"
 $lblAuditLevel.Font      = $fntSmall
 $lblAuditLevel.ForeColor = $clrMuted
 $lblAuditLevel.AutoSize  = $true
-$lblAuditLevel.Location  = New-Object System.Drawing.Point(132, 6)
+$lblAuditLevel.Location  = New-Object System.Drawing.Point(208, 6)
 $lblAuditLevel.BackColor = [System.Drawing.Color]::Transparent
 
 $cmbAuditLevel = New-Object System.Windows.Forms.ComboBox
 $cmbAuditLevel.DropDownStyle = "DropDownList"
 $cmbAuditLevel.Items.AddRange(@("FileLevel", "BitLevel"))
-$cmbAuditLevel.SelectedItem = "FileLevel"
-$cmbAuditLevel.Width = 108
-$cmbAuditLevel.Location = New-Object System.Drawing.Point(132, 24)
+$cmbAuditLevel.SelectedItem = "BitLevel"
+$cmbAuditLevel.Width = 100
+$cmbAuditLevel.Location = New-Object System.Drawing.Point(208, 24)
 $cmbAuditLevel.BackColor = $clrRaised
 $cmbAuditLevel.ForeColor = $clrText
 $cmbAuditLevel.Font = $fntUI
 $cmbAuditLevel.FlatStyle = "Flat"
-
-$lblCleanupMode = New-Object System.Windows.Forms.Label
-$lblCleanupMode.Text      = "MODE"
-$lblCleanupMode.Font      = $fntSmall
-$lblCleanupMode.ForeColor = $clrMuted
-$lblCleanupMode.AutoSize  = $true
-$lblCleanupMode.Location  = New-Object System.Drawing.Point(252, 6)
-$lblCleanupMode.BackColor = [System.Drawing.Color]::Transparent
-
-$cmbCleanupMode = New-Object System.Windows.Forms.ComboBox
-$cmbCleanupMode.DropDownStyle = "DropDownList"
-$cmbCleanupMode.Items.AddRange(@("Safe", "Radical"))
-$cmbCleanupMode.SelectedItem = "Safe"
-$cmbCleanupMode.Width = 92
-$cmbCleanupMode.Location = New-Object System.Drawing.Point(252, 24)
-$cmbCleanupMode.BackColor = $clrRaised
-$cmbCleanupMode.ForeColor = $clrText
-$cmbCleanupMode.Font = $fntUI
-$cmbCleanupMode.FlatStyle = "Flat"
-
-$lblFixLevel = New-Object System.Windows.Forms.Label
-$lblFixLevel.Text      = "MAX FIX"
-$lblFixLevel.Font      = $fntSmall
-$lblFixLevel.ForeColor = $clrMuted
-$lblFixLevel.AutoSize  = $true
-$lblFixLevel.Location  = New-Object System.Drawing.Point(356, 6)
-$lblFixLevel.BackColor = [System.Drawing.Color]::Transparent
-
-$cmbFixLevel = New-Object System.Windows.Forms.ComboBox
-$cmbFixLevel.DropDownStyle = "DropDownList"
-$cmbFixLevel.Items.AddRange(@("Safe", "Moderate", "Aggressive"))
-$cmbFixLevel.SelectedItem = "Safe"
-$cmbFixLevel.Width = 108
-$cmbFixLevel.Location = New-Object System.Drawing.Point(356, 24)
-$cmbFixLevel.BackColor = $clrRaised
-$cmbFixLevel.ForeColor = $clrText
-$cmbFixLevel.Font = $fntUI
-$cmbFixLevel.FlatStyle = "Flat"
 
 $lblTop = New-Object System.Windows.Forms.Label
 $lblTop.Text      = "TOP"
 $lblTop.Font      = $fntSmall
 $lblTop.ForeColor = $clrMuted
 $lblTop.AutoSize  = $true
-$lblTop.Location  = New-Object System.Drawing.Point(476, 6)
+$lblTop.Location  = New-Object System.Drawing.Point(320, 6)
 $lblTop.BackColor = [System.Drawing.Color]::Transparent
 
 $numTop = New-Object System.Windows.Forms.NumericUpDown
@@ -623,7 +634,7 @@ $numTop.Minimum  = 5
 $numTop.Maximum  = 100
 $numTop.Value    = 25
 $numTop.Width    = 58
-$numTop.Location = New-Object System.Drawing.Point(476, 24)
+$numTop.Location = New-Object System.Drawing.Point(320, 24)
 $numTop.BackColor = $clrRaised
 $numTop.ForeColor = $clrText
 $numTop.Font = $fntUI
@@ -633,7 +644,7 @@ $lblExplorerHint.Text      = "Double-click a row to open the path"
 $lblExplorerHint.Font      = $fntSmall
 $lblExplorerHint.ForeColor = $clrMuted
 $lblExplorerHint.AutoSize  = $true
-$lblExplorerHint.Location  = New-Object System.Drawing.Point(548, 28)
+$lblExplorerHint.Location  = New-Object System.Drawing.Point(392, 28)
 $lblExplorerHint.BackColor = [System.Drawing.Color]::Transparent
 
 $pnlScanOptionsBorder = New-Object System.Windows.Forms.Panel
@@ -642,8 +653,7 @@ $pnlScanOptionsBorder.Height    = 1
 $pnlScanOptionsBorder.BackColor = $clrBorderC
 
 $pnlScanOptions.Controls.AddRange(@(
-    $lblDepth, $cmbDepth, $lblAuditLevel, $cmbAuditLevel,
-    $lblCleanupMode, $cmbCleanupMode, $lblFixLevel, $cmbFixLevel,
+    $lblDrivePick, $cmbDrive, $lblDepth, $cmbDepth, $lblAuditLevel, $cmbAuditLevel,
     $lblTop, $numTop, $lblExplorerHint, $pnlScanOptionsBorder
 ))
 
@@ -696,7 +706,7 @@ $listExplorer.ForeColor     = $clrText
 $listExplorer.Font          = $fntUI
 $listExplorer.BorderStyle   = "None"
 $listExplorer.Columns.Add("Score",     68)  | Out-Null
-$listExplorer.Columns.Add("Risk",      76)  | Out-Null
+    $listExplorer.Columns.Add("Class",     100) | Out-Null
 $listExplorer.Columns.Add("Drive",     54)  | Out-Null
 $listExplorer.Columns.Add("Path",      384) | Out-Null
 $listExplorer.Columns.Add("Category",  100) | Out-Null
@@ -768,9 +778,9 @@ $tabDashboard.Controls.Add($pnlScanOptions)
 $tabDashboard.Controls.Add($pnlAdvancedTools)
 $tabDashboard.Controls.Add($pnlActions)
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ═══════════════════════════════════════════════════════════════════════════════
 #  Tasks Tab
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ═══════════════════════════════════════════════════════════════════════════════
 $listTasks = New-Object System.Windows.Forms.ListView
 $listTasks.View          = "Details"
 $listTasks.FullRowSelect = $true
@@ -801,9 +811,9 @@ $pnlTasksHeader.Controls.AddRange(@($btnReloadTasks, $btnInstallTasks, $pnlTasks
 $tabTasks.Controls.Add($listTasks)
 $tabTasks.Controls.Add($pnlTasksHeader)
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ═══════════════════════════════════════════════════════════════════════════════
 #  Logs Tab
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ═══════════════════════════════════════════════════════════════════════════════
 $txtLogs = New-Object System.Windows.Forms.TextBox
 $txtLogs.Multiline   = $true
 $txtLogs.ScrollBars  = "Vertical"
@@ -835,6 +845,7 @@ $cmbLogSource.Items.AddRange(@(
     "Quick Cleanup (log)", "Storage Cleanup (log)",
     "Health Audit (stdout)", "Health Audit (stderr)",
     "NVMe Plan (stdout)", "NVMe Plan (stderr)",
+    "VMware Health (stdout)", "VMware Health (stderr)",
     "Partition Plan (stdout)", "Partition Plan (stderr)",
     "Core Install (stdout)", "Core Install (stderr)"
 ))
@@ -850,9 +861,9 @@ $pnlLogsHeader.Controls.AddRange(@($cmbLogSource, $btnLoadLogs, $pnlLogsBorderB)
 $tabLogs.Controls.Add($txtLogs)
 $tabLogs.Controls.Add($pnlLogsHeader)
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ═══════════════════════════════════════════════════════════════════════════════
 #  Config Tab
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ═══════════════════════════════════════════════════════════════════════════════
 $pnlConfigBody = New-Object System.Windows.Forms.Panel
 $pnlConfigBody.Dock      = "Fill"
 $pnlConfigBody.BackColor = $clrBg
@@ -975,11 +986,11 @@ $pnlConfigBody.Controls.AddRange(@(
 ))
 $tabConfig.Controls.Add($pnlConfigBody)
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ═══════════════════════════════════════════════════════════════════════════════
 #  Deep Scan Tab
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ═══════════════════════════════════════════════════════════════════════════════
 
-# â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Header ────────────────────────────────────────────────────────────────────
 $pnlDeepScanHeader = New-Object System.Windows.Forms.Panel
 $pnlDeepScanHeader.Dock      = "Top"
 $pnlDeepScanHeader.Height    = 72
@@ -1037,7 +1048,7 @@ $btnDeepExport.Enabled  = $false
 $btnDeepExport.ForeColor = $clrMuted
 
 $lblDeepScanDesc = New-Object System.Windows.Forms.Label
-$lblDeepScanDesc.Text      = "Full system performance audit â€” hardware, OS settings, drivers, services.  Select a finding, choose a solution, then click Apply."
+$lblDeepScanDesc.Text      = "Full system performance audit — hardware, OS settings, drivers, services.  Select a finding, choose a solution, then click Apply."
 $lblDeepScanDesc.Font      = $fntSmall
 $lblDeepScanDesc.ForeColor = $clrMuted
 $lblDeepScanDesc.AutoSize  = $true
@@ -1056,7 +1067,7 @@ $pnlDeepScanHeader.Controls.AddRange(@(
     $lblDeepScanDesc, $pnlDeepScanHeaderBorder
 ))
 
-# â”€â”€ Progress band â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Progress band ─────────────────────────────────────────────────────────────
 $pnlDeepScanProgress = New-Object System.Windows.Forms.Panel
 $pnlDeepScanProgress.Dock      = "Top"
 $pnlDeepScanProgress.Height    = 44
@@ -1082,7 +1093,7 @@ $lblDeepScanState.BackColor = [System.Drawing.Color]::Transparent
 
 $pnlDeepScanProgress.Controls.AddRange(@($progressDeepScan, $lblDeepScanState))
 
-# â”€â”€ Findings ListView â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Findings ListView ─────────────────────────────────────────────────────────
 $listDeepFindings = New-Object System.Windows.Forms.ListView
 $listDeepFindings.View          = "Details"
 $listDeepFindings.FullRowSelect = $true
@@ -1100,7 +1111,7 @@ $listDeepFindings.Columns.Add("Title",    330) | Out-Null
 $listDeepFindings.Columns.Add("Current",  160) | Out-Null
 $listDeepFindings.Columns.Add("Target",   160) | Out-Null
 
-# â”€â”€ Right detail pane â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Right detail pane ─────────────────────────────────────────────────────────
 $txtDeepFindingDetail = New-Object System.Windows.Forms.TextBox
 $txtDeepFindingDetail.Multiline   = $true
 $txtDeepFindingDetail.ScrollBars  = "Vertical"
@@ -1154,8 +1165,8 @@ $pnlDeepSolWrapper = New-Object System.Windows.Forms.Panel
 $pnlDeepSolWrapper.Dock      = "Fill"
 $pnlDeepSolWrapper.BackColor = $clrBg
 $pnlDeepSolWrapper.SuspendLayout()
-$pnlDeepSolWrapper.Controls.Add($listDeepSolutions)  # index 0 â†’ Fill  â†’ last
-$pnlDeepSolWrapper.Controls.Add($pnlDeepApply)        # index 1 â†’ Bottom â†’ first
+$pnlDeepSolWrapper.Controls.Add($listDeepSolutions)  # index 0 → Fill  → last
+$pnlDeepSolWrapper.Controls.Add($pnlDeepApply)        # index 1 → Bottom → first
 $pnlDeepSolWrapper.ResumeLayout($false)
 
 # Inner split: finding detail (top) / solutions+apply (bottom)
@@ -1184,14 +1195,14 @@ $splitDeepMain.Panel2.Controls.Add($splitDeepDetail)
 
 # Dock z-order: Fill first (index 0), then Top panels (higher indices)
 $tabDeepScan.SuspendLayout()
-$tabDeepScan.Controls.Add($splitDeepMain)           # index 0 â†’ Fill   â†’ docked last
-$tabDeepScan.Controls.Add($pnlDeepScanProgress)     # index 1 â†’ Top    â†’ docked second
-$tabDeepScan.Controls.Add($pnlDeepScanHeader)       # index 2 â†’ Top    â†’ docked first
+$tabDeepScan.Controls.Add($splitDeepMain)           # index 0 → Fill   → docked last
+$tabDeepScan.Controls.Add($pnlDeepScanProgress)     # index 1 → Top    → docked second
+$tabDeepScan.Controls.Add($pnlDeepScanHeader)       # index 2 → Top    → docked first
 $tabDeepScan.ResumeLayout($false)
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ═══════════════════════════════════════════════════════════════════════════════
 #  Privacy Tab
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ═══════════════════════════════════════════════════════════════════════════════
 
 $pnlPrivacyHeader = New-Object System.Windows.Forms.Panel
 $pnlPrivacyHeader.Dock      = "Top"
@@ -1287,9 +1298,9 @@ $tabPrivacy.Controls.Add($pnlPrivacyProgress)
 $tabPrivacy.Controls.Add($pnlPrivacyHeader)
 $tabPrivacy.ResumeLayout($false)
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ═══════════════════════════════════════════════════════════════════════════════
 #  Control & Transparency Tab
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ═══════════════════════════════════════════════════════════════════════════════
 $script:transparencyUi = $null
 if (Get-Command New-TransparencyTab -ErrorAction SilentlyContinue) {
     $hubPathsForTransparency = Get-HubPaths -HubRoot $script:hubRoot
@@ -1307,15 +1318,15 @@ if (Get-Command New-TransparencyTab -ErrorAction SilentlyContinue) {
     $tabTransparency.BackColor = $clrBg
 }
 
-# â”€â”€ Assemble â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Assemble ──────────────────────────────────────────────────────────────────
 $tabs.TabPages.AddRange(@($tabDashboard, $tabDeepScan, $tabPrivacy, $tabTransparency, $tabTasks, $tabLogs, $tabConfig))
 
 # Dock layout processes children from highest index first. Edge-docked controls
 # (Top/Bottom) must have HIGHER indices so they claim space BEFORE Fill.
 $form.SuspendLayout()
-$form.Controls.Add($tabs)          # index 0 â†’ Dock=Fill  â†’ docked last  â†’ remaining space
-$form.Controls.Add($pnlStatusBar)  # index 1 â†’ Dock=Bottom â†’ docked second
-$form.Controls.Add($pnlHeader)     # index 2 â†’ Dock=Top    â†’ docked first â†’ 64px from top
+$form.Controls.Add($tabs)          # index 0 → Dock=Fill  → docked last  → remaining space
+$form.Controls.Add($pnlStatusBar)  # index 1 → Dock=Bottom → docked second
+$form.Controls.Add($pnlHeader)     # index 2 → Dock=Top    → docked first → 64px from top
 $form.ResumeLayout($false)
 
 $tabs.Add_SelectedIndexChanged({
@@ -1353,6 +1364,7 @@ function Apply-GuiLanguage {
     $btnNvmePlan.Text = Get-I18n 'buttons.nvme_plan'
     $btnDeepScanJump.Text = Get-I18n 'buttons.health_tab'
     $btnPartitionPlan.Text = Get-I18n 'buttons.partition_plan'
+    $btnVmwareHealth.Text = Get-I18n 'buttons.vmware_health'
     $btnCompute.Text = Get-I18n 'buttons.compute'
     $btnApplyThrottle.Text = Get-I18n 'buttons.apply_throttle'
     $btnDefenderReview.Text = Get-I18n 'buttons.defender_review'
@@ -1371,10 +1383,10 @@ function Apply-GuiLanguage {
     $btnSaveConfig.Text = Get-I18n 'buttons.save_settings'
     $btnReloadConfig.Text = Get-I18n 'buttons.reload'
     $lblDepth.Text = Get-I18n 'labels.scan_depth'
+    $lblDrivePick.Text = Get-I18n 'labels.drive'
     $lblAuditLevel.Text = Get-I18n 'labels.detail'
     $lblCleanupMode.Text = Get-I18n 'labels.mode'
     $lblTop.Text = Get-I18n 'labels.top'
-    $lblFixLevel.Text = Get-I18n 'labels.max_fix'
     $lblDeepFixLabel.Text = Get-I18n 'labels.max_fix'
     $lblDeepFilterLabel.Text = Get-I18n 'labels.show'
     $lblExplorerHint.Text = Get-I18n 'labels.explorer_hint'
@@ -1403,6 +1415,7 @@ function Initialize-GuiCommandHelp {
         $btnDefenderReview = 'defender_review'
         $btnNvmePlan      = 'nvme_plan'
         $btnPartitionPlan = 'partition_plan'
+        $btnVmwareHealth  = 'vmware_health'
         $btnPkgFix        = 'pkg_fix'
         $btnDeepScanRun   = 'run_deep_scan'
         $btnInstallTasks  = 'install_core'
@@ -1702,20 +1715,31 @@ function Open-DiagnosticsBundle {
 }
 
 function Refresh-Drives {
-    $drives = Get-PSDrive -PSProvider FileSystem | Where-Object { $_.Name -in @("C", "D") }
+    $drives = @(Get-PSDrive -PSProvider FileSystem | Where-Object { $_.Name -match '^[A-Z]$' -and $null -ne $_.Used })
     $parts = @()
+    $selected = $null
+    if ($cmbDrive.SelectedItem) { $selected = [string]$cmbDrive.SelectedItem }
+    $cmbDrive.Items.Clear()
     foreach ($d in $drives) {
+        [void]$cmbDrive.Items.Add($d.Name)
         $total   = $d.Free + $d.Used
         $usedPct = if ($total -gt 0) { [int](($d.Used / $total) * 100) } else { 0 }
         $freeGB  = [math]::Round($d.Free / 1GB, 1)
-        if ($d.Name -eq "C") {
+        if ($d.Name -eq "C" -and $lblDriveC) {
             $lblDriveC.Text = "C:  $freeGB GB free"
             $pbDriveC.Value = [Math]::Min(100, $usedPct)
-        } elseif ($d.Name -eq "D") {
+        } elseif ($d.Name -eq "D" -and $lblDriveD) {
             $lblDriveD.Text = "D:  $freeGB GB free"
             $pbDriveD.Value = [Math]::Min(100, $usedPct)
         }
         $parts += "$($d.Name): $freeGB GB free ($usedPct%)"
+    }
+    if ($selected -and $cmbDrive.Items.Contains($selected)) {
+        $cmbDrive.SelectedItem = $selected
+    } elseif ($cmbDrive.Items.Contains("C")) {
+        $cmbDrive.SelectedItem = "C"
+    } elseif ($cmbDrive.Items.Count -gt 0) {
+        $cmbDrive.SelectedIndex = 0
     }
     $lblStatusRight.Text = ("PSHost: {0}  |  {1}" -f (Split-Path -Leaf $script:psHost), (Get-Date -Format "HH:mm:ss"))
     if ($parts) { Append-Status ($parts -join "  |  ") }
@@ -1759,6 +1783,14 @@ function Populate-Explorer {
         [void]$item.SubItems.Add([string]$row.FilesScanned)
 
         switch ([string]$row.Recommendation) {
+            "SafeDelete" {
+                $item.BackColor = $clrRowHigh
+                $item.ForeColor = $clrTxtHigh
+            }
+            "PersonalHitl" {
+                $item.BackColor = $clrRowAmber
+                $item.ForeColor = $clrTxtAmber
+            }
             "High" {
                 $item.BackColor = $clrRowHigh
                 $item.ForeColor = $clrTxtHigh
@@ -1815,6 +1847,7 @@ function Test-AnyOperationRunning {
     if ($script:quickCleanupProcess -and (-not $script:quickCleanupProcess.HasExited)) { $busy = $true }
     if ($script:healthAuditProcess -and (-not $script:healthAuditProcess.HasExited)) { $busy = $true }
     if ($script:nvmeAdvisorProcess -and (-not $script:nvmeAdvisorProcess.HasExited)) { $busy = $true }
+    if ($script:vmwareHealthProcess -and (-not $script:vmwareHealthProcess.HasExited)) { $busy = $true }
     if ($script:partitionLegacyProcess -and (-not $script:partitionLegacyProcess.HasExited)) { $busy = $true }
     if ($script:coreInstallProcess -and (-not $script:coreInstallProcess.HasExited)) { $busy = $true }
     if ($script:deepScanProcess -and (-not $script:deepScanProcess.HasExited)) { $busy = $true }
@@ -1844,10 +1877,11 @@ function Set-AnalysisUiState {
     $btnPkgFix.Enabled = -not $IsBusy
     $btnNvmePlan.Enabled = -not $IsBusy
     $btnPartitionPlan.Enabled = -not $IsBusy
+    $btnVmwareHealth.Enabled = -not $IsBusy
     $cmbDepth.Enabled = -not $IsBusy
     $cmbAuditLevel.Enabled = -not $IsBusy
     $cmbCleanupMode.Enabled = -not $IsBusy
-    $cmbFixLevel.Enabled = -not $IsBusy
+    if ($cmbDrive) { $cmbDrive.Enabled = -not $IsBusy }
     $numTop.Enabled = -not $IsBusy
     $btnCancelAnalyze.Enabled   = $IsBusy
     $btnCancelAnalyze.ForeColor = if ($IsBusy) { $clrRed } else { $clrMuted }
@@ -2191,7 +2225,7 @@ function Poll-GarbageAnalysis {
         return
     }
 
-    if (Wait-ForOutputFile -Path $script:analysisCsv -TimeoutMs 4000) {
+    if (Wait-ForOutputFile -Path $script:analysisCsv -TimeoutMs 8000) {
         $rows = Import-Csv -LiteralPath $script:analysisCsv -ErrorAction SilentlyContinue
         if ($rows) {
             Populate-Explorer -Rows @($rows)
@@ -2205,9 +2239,27 @@ function Poll-GarbageAnalysis {
             $lblAnalysisState.Text = ("Analyzer completed in {0}s with no rows." -f $durationSec)
         }
     } else {
-        Populate-Explorer -Rows @()
-        Append-Status ("Analyzer completed in {0}s but output CSV was not found." -f $durationSec)
-        $lblAnalysisState.Text = ("Analyzer completed in {0}s but output CSV missing." -f $durationSec)
+        # Fallback: rebuild explorer from JSON if CSV missing (race / empty export).
+        $occupancyJson = Join-Path $script:hubRoot "logs\disk-occupancy-latest.json"
+        $recovered = $false
+        if (Test-Path -LiteralPath $occupancyJson) {
+            try {
+                $j = Get-Content -LiteralPath $occupancyJson -Raw -ErrorAction Stop | ConvertFrom-Json
+                $rows = @($j.Explorer)
+                if ($rows.Count -gt 0) {
+                    Populate-Explorer -Rows $rows
+                    Append-Status ("Explorer recovered from JSON ({0} rows) after CSV miss in {1}s." -f $rows.Count, $durationSec)
+                    $lblAnalysisState.Text = ("Analyzer completed in {0}s (JSON fallback)." -f $durationSec)
+                    $recovered = $true
+                }
+            } catch { }
+        }
+        if (-not $recovered) {
+            Populate-Explorer -Rows @()
+            $errTail = Get-WorkerErrorTail -ErrorPath $script:analysisStdErr
+            Append-Status ("Analyzer completed in {0}s but output CSV was not found. {1}" -f $durationSec, $errTail)
+            $lblAnalysisState.Text = ("Analyzer completed in {0}s but output CSV missing." -f $durationSec)
+        }
     }
 
     $script:analysisProcess = $null
@@ -2359,7 +2411,7 @@ function Poll-ComputeAnalysis {
 
             $defRow = $topRows | Where-Object { [string]$_.ProcessName -eq 'MsMpEng' } | Select-Object -First 1
             if ($defRow -and $script:showDefenderReviewAfterCompute -and [double]$defRow.Score -ge $script:defenderMinScoreForPrompt) {
-                Append-Status ("Defender MsMpEng elevated: Score={0} CPU={1}% IO={2}MB/s â€” use Defender button for deterministic tier review." -f `
+                Append-Status ("Defender MsMpEng elevated: Score={0} CPU={1}% IO={2}MB/s — use Defender button for deterministic tier review." -f `
                     [decimal]$defRow.Score, [decimal]$defRow.CpuPercent, [decimal]$defRow.IoMBps)
             }
         } catch {
@@ -2531,7 +2583,7 @@ function Poll-HealthAudit {
 
             foreach ($f in $auditResult.Findings) {
                 $solLevels = ($f.Solutions | ForEach-Object { $_.Level }) -join '/'
-                Append-Status ("  [{0}] {1} â€” {2}  (Fixes: {3})" -f [string]$f.Severity, [string]$f.Id, [string]$f.Title, $solLevels)
+                Append-Status ("  [{0}] {1} — {2}  (Fixes: {3})" -f [string]$f.Severity, [string]$f.Id, [string]$f.Title, $solLevels)
             }
             if ($optimizedCount -gt 0) {
                 Append-Status ("  Already optimized: {0}" -f (Format-AlreadyOptimizedLog -Items $auditResult.AlreadyOptimized))
@@ -2597,7 +2649,7 @@ function Run-HealthAudit {
         $script:healthAuditApplyPackagesOnly = [bool]$ApplyPackagesOnly
         $script:healthAuditApplyFindingIds = @()
         $script:healthApplyInProgress = $false
-        $script:healthAuditMaxLevel = if ($ApplyPackagesOnly) { 'Safe' } else { [string]$cmbFixLevel.SelectedItem }
+        $script:healthAuditMaxLevel = if ($ApplyPackagesOnly) { 'Safe' } else { [string]$cmbDeepFixLevel.SelectedItem }
 
         $started = $false
         if (Get-Command Start-HubAsyncWorker -ErrorAction SilentlyContinue) {
@@ -2740,9 +2792,9 @@ function Poll-HealthApply {
             Show-Toast -Title "Fixes Applied" -Body ("Applied={0} Failed={1} ({2}s)" -f $applied, $failed, $durationSec) -Level $(if ($failed -gt 0) { "Warning" } else { "Success" })
             foreach ($r in $applyResult.Results) {
                 if ($r.Status -eq 'Applied') {
-                    Append-Status ("  APPLIED [{0}] {1} â€” {2}" -f $r.Level, $r.FindingId, $r.Label)
+                    Append-Status ("  APPLIED [{0}] {1} — {2}" -f $r.Level, $r.FindingId, $r.Label)
                 } elseif ($r.Status -eq 'Failed') {
-                    Append-Status ("  FAILED [{0}] {1} â€” {2}: {3}" -f $r.Level, $r.FindingId, $r.Label, $r.Error)
+                    Append-Status ("  FAILED [{0}] {1} — {2}: {3}" -f $r.Level, $r.FindingId, $r.Label, $r.Error)
                 }
             }
         } catch {
@@ -2850,6 +2902,147 @@ function Poll-NvmeAdvisor {
     $script:nvmeAdvisorStartedAt = $null
     $script:nvmeAdvisorSoftTimeoutWarned = $false
     Set-AnalysisUiState -IsBusy:$false -StateText $lblAnalysisState.Text
+}
+
+function Update-VmwareHealthProgress {
+    if (-not $script:vmwareHealthStartedAt) { return }
+    $elapsedSec = [math]::Round(((Get-Date) - $script:vmwareHealthStartedAt).TotalSeconds, 0)
+    $timeoutSec = [math]::Max(1, $script:vmwareHealthTimeoutSec)
+    $pct = [math]::Min(95, [int](($elapsedSec / $timeoutSec) * 100))
+    if ($pct -lt $progressAnalysis.Minimum) { $pct = $progressAnalysis.Minimum }
+    if ($pct -gt $progressAnalysis.Maximum) { $pct = $progressAnalysis.Maximum }
+    $progressAnalysis.Value = $pct
+    $script:spinIdx = ($script:spinIdx + 1) % $script:spinFrames.Count
+    $modeLabel = if ($script:vmwareHealthApplyRequested) { 'VMware Health+Apply' } else { 'VMware Health' }
+    $lblAnalysisState.Text = ("{0}{1}  {2}s / {3}s" -f $modeLabel, $script:spinFrames[$script:spinIdx], $elapsedSec, $timeoutSec)
+    if (($elapsedSec -gt $timeoutSec) -and (-not $script:vmwareHealthSoftTimeoutWarned)) {
+        $script:vmwareHealthSoftTimeoutWarned = $true
+        Append-Status ("VMware Health exceeded expected time ({0}s). No forced stop; cancel manually if needed." -f $timeoutSec)
+    }
+}
+
+function Stop-VmwareHealth {
+    param([string]$Reason)
+    if ($script:vmwareHealthProcess -and (-not $script:vmwareHealthProcess.HasExited)) {
+        try {
+            Stop-Process -Id $script:vmwareHealthProcess.Id -Force -ErrorAction Stop
+            Append-Status ("VMware Health stopped. Reason: {0}" -f $Reason)
+        } catch {
+            Append-Status ("Unable to stop VMware Health cleanly: {0}" -f $_.Exception.Message)
+        }
+    }
+    $vmwareHealthTimer.Stop()
+    $script:vmwareHealthProcess = $null
+    $script:vmwareHealthStartedAt = $null
+    $script:vmwareHealthSoftTimeoutWarned = $false
+    $script:vmwareHealthApplyRequested = $false
+    Set-AnalysisUiState -IsBusy:$false -StateText "VMware Health idle"
+}
+
+function Poll-VmwareHealth {
+    if (-not $script:vmwareHealthProcess) { return }
+    if (-not $script:vmwareHealthProcess.HasExited) {
+        Update-VmwareHealthProgress
+        return
+    }
+
+    $vmwareHealthTimer.Stop()
+    $durationSec = 0
+    if ($script:vmwareHealthStartedAt) {
+        $durationSec = [math]::Round(((Get-Date) - $script:vmwareHealthStartedAt).TotalSeconds, 1)
+    }
+    $exitCode = Get-ProcessExitCodeSafe -Process $script:vmwareHealthProcess
+    if ($exitCode -ne 0) {
+        $errTail = Get-WorkerErrorTail -ErrorPath $script:vmwareHealthStdErr
+        if ($errTail) {
+            Append-Status ("VMware Health ended with exit code {0}. Error: {1}" -f $exitCode, $errTail)
+        } else {
+            Append-Status ("VMware Health ended with exit code {0}." -f $exitCode)
+        }
+        $script:vmwareHealthProcess = $null
+        $script:vmwareHealthStartedAt = $null
+        $script:vmwareHealthSoftTimeoutWarned = $false
+        $script:vmwareHealthApplyRequested = $false
+        Set-AnalysisUiState -IsBusy:$false -StateText "VMware Health idle"
+        return
+    }
+
+    if (Wait-ForOutputFile -Path $script:vmwareHealthJson -TimeoutMs 4000) {
+        try {
+            $report = Get-Content -LiteralPath $script:vmwareHealthJson -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
+            $vmCount = [int]$report.Summary.VmCount
+            $crit = [int]$report.Summary.CriticalCount
+            $mks = [int]$report.Summary.MksCrashVmCount
+            $stale = [int]$report.Summary.StaleLockVmCount
+            $mode = [string]$report.Mode
+            Append-Status ("VMware Health completed in {0}s ({1}). VMs={2} Critical={3} MksCrash={4} StaleLocks={5}" -f $durationSec, $mode, $vmCount, $crit, $mks, $stale)
+            Append-Status ("  Best next: {0}" -f [string]$report.BestNextDecision)
+            Append-Status ("  Report: {0}" -f $script:vmwareHealthJson)
+            $latest = Join-Path $script:hubRoot "logs\vmware-health-latest.json"
+            if (Test-Path -LiteralPath $script:vmwareHealthJson) {
+                Copy-Item -LiteralPath $script:vmwareHealthJson -Destination $latest -Force -ErrorAction SilentlyContinue
+            }
+            $toastLevel = if ($crit -gt 0 -or $mks -gt 0) { 'Warning' } else { 'Success' }
+            Show-Toast -Title "VMware Health Done" -Body ("{0} VMs, {1} MKS crash(es) ({2}s)" -f $vmCount, $mks, $durationSec) -Level $toastLevel
+        } catch {
+            Append-Status ("VMware Health completed in {0}s but parse failed: {1}" -f $durationSec, $_.Exception.Message)
+        }
+    } else {
+        Append-Status ("VMware Health completed in {0}s but output JSON was not found." -f $durationSec)
+    }
+
+    $progressAnalysis.Value = 100
+    $lblAnalysisState.Text = ("VMware Health completed in {0}s." -f $durationSec)
+    $script:vmwareHealthProcess = $null
+    $script:vmwareHealthStartedAt = $null
+    $script:vmwareHealthSoftTimeoutWarned = $false
+    $script:vmwareHealthApplyRequested = $false
+    Set-AnalysisUiState -IsBusy:$false -StateText $lblAnalysisState.Text
+}
+
+function Run-VmwareHealth {
+    param([switch]$Apply)
+
+    if (-not (Test-Path -LiteralPath $script:vmwareHealthScript)) {
+        Append-Status "VMware Health script not found: $script:vmwareHealthScript"
+        return
+    }
+    if (Test-AnyOperationRunning) {
+        Append-Status "Another operation is already running. Wait for completion."
+        return
+    }
+
+    try {
+        Remove-IfExists -Path $script:vmwareHealthJson
+        Remove-IfExists -Path $script:vmwareHealthStdOut
+        Remove-IfExists -Path $script:vmwareHealthStdErr
+
+        $extra = @('-OutputJson', $script:vmwareHealthJson)
+        if ($Apply) { $extra += '-Apply' }
+
+        $script:vmwareHealthApplyRequested = [bool]$Apply
+        $script:vmwareHealthSoftTimeoutWarned = $false
+        $script:vmwareHealthStartedAt = Get-Date
+        $args = @(
+            "-NoProfile",
+            "-ExecutionPolicy", "Bypass",
+            "-File", $script:vmwareHealthScript
+        ) + $extra
+
+        $script:vmwareHealthProcess = Start-Process -FilePath $script:psHost -ArgumentList $args -WindowStyle Hidden -RedirectStandardOutput $script:vmwareHealthStdOut -RedirectStandardError $script:vmwareHealthStdErr -PassThru
+        $progressAnalysis.Value = 1
+        $label = if ($Apply) { 'VMware Health+Apply' } else { 'VMware Health' }
+        Set-AnalysisUiState -IsBusy:$true -StateText ("{0} starting (target {1}s)..." -f $label, $script:vmwareHealthTimeoutSec)
+        $vmwareHealthTimer.Start()
+        Append-Status ("{0} started in background." -f $label)
+    } catch {
+        Append-Status ("VMware Health error: {0}" -f $_.Exception.Message)
+        $script:vmwareHealthProcess = $null
+        $script:vmwareHealthStartedAt = $null
+        $script:vmwareHealthSoftTimeoutWarned = $false
+        $script:vmwareHealthApplyRequested = $false
+        Set-AnalysisUiState -IsBusy:$false -StateText "VMware Health idle"
+    }
 }
 
 function Run-NvmeAdvisor {
@@ -3171,9 +3364,9 @@ function Run-PartitionLegacy {
     }
 }
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ═══════════════════════════════════════════════════════════════════════════════
 #  Deep Scan functions
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ═══════════════════════════════════════════════════════════════════════════════
 
 function Get-DeepScanFilteredFindings {
     $result = New-Object System.Collections.Generic.List[object]
@@ -3289,7 +3482,7 @@ function Show-DeepFindingDetail {
 
     $f = $script:deepScanFindings[$Index]
     $lines = @(
-        "[{0}]  {1}  â€”  {2}" -f $f.Severity, $f.Id, $f.Title,
+        "[{0}]  {1}  —  {2}" -f $f.Severity, $f.Id, $f.Title,
         "Category : {0}" -f $f.Category,
         "Impact   : {0}" -f $f.Impact,
         "",
@@ -3308,7 +3501,7 @@ function Show-DeepFindingDetail {
         [void]$si.SubItems.Add($kind)
         [void]$si.SubItems.Add([string]$sol.Label)
         [void]$si.SubItems.Add([string]$sol.RiskNote)
-        [void]$si.SubItems.Add($(if ($sol.Rollback) { [string]$sol.Rollback } else { "â€”" }))
+        [void]$si.SubItems.Add($(if ($sol.Rollback) { [string]$sol.Rollback } else { "—" }))
         $si.Tag = $solIndex
         switch ([string]$sol.Level) {
             "Safe"       { $si.ForeColor = $clrGreen }
@@ -3393,7 +3586,7 @@ function Poll-DeepScan {
             $critCount = [int]$auditResult.Summary.Critical
             $impCount  = [int]$auditResult.Summary.Important
             Populate-DeepScanFindings -Findings (Get-DeepScanFilteredFindings)
-            $stateMsg = ("Scan complete â€” {0} findings  ({1} critical  {2} important  {3} already OK)" -f $script:deepScanFindings.Count, $critCount, $impCount, $alreadyOK)
+            $stateMsg = ("Scan complete — {0} findings  ({1} critical  {2} important  {3} already OK)" -f $script:deepScanFindings.Count, $critCount, $impCount, $alreadyOK)
             $lblDeepScanState.Text = $stateMsg
             Append-Status ("Deep Scan completed in {0}s. Findings={1} (Critical={2} Important={3}) AlreadyOK={4}" -f $durationSec, $script:deepScanFindings.Count, $critCount, $impCount, $alreadyOK)
             Show-Toast -Title "Deep Scan Done" -Body ("{0} findings in {1}s" -f $script:deepScanFindings.Count, $durationSec) -Level $(if ($critCount -gt 0) { "Warning" } else { "Success" })
@@ -3404,7 +3597,7 @@ function Poll-DeepScan {
             }
         } catch {
             Append-Status ("Deep Scan completed in {0}s but parse failed: {1}" -f $durationSec, $_.Exception.Message)
-            $lblDeepScanState.Text = "Deep Scan parse error â€” see Logs tab."
+            $lblDeepScanState.Text = "Deep Scan parse error — see Logs tab."
         }
     } else {
         Append-Status ("Deep Scan completed in {0}s but output JSON not found." -f $durationSec)
@@ -3619,7 +3812,7 @@ function Poll-PrivacyScan {
             $script:privacyFindings = @($result.Findings)
             Populate-PrivacyFindings -Findings $script:privacyFindings
             $crit = [int]$result.Summary.Critical
-            $lblPrivacyState.Text = ("Done â€” {0} findings ({1} critical) in {2}s" -f $script:privacyFindings.Count, $crit, $durationSec)
+            $lblPrivacyState.Text = ("Done — {0} findings ({1} critical) in {2}s" -f $script:privacyFindings.Count, $crit, $durationSec)
             Append-Status ("Privacy scan completed in {0}s. Findings={1} Critical={2}" -f $durationSec, $script:privacyFindings.Count, $crit)
             Show-Toast -Title "Privacy Scan" -Body ("{0} findings in {1}s" -f $script:privacyFindings.Count, $durationSec) -Level $(if ($crit -gt 0) { "Warning" } else { "Success" })
             if ($script:privacyFindings.Count -gt 0) {
@@ -3628,7 +3821,7 @@ function Poll-PrivacyScan {
             }
         } catch {
             Append-Status ("Privacy scan parse failed: {0}" -f $_.Exception.Message)
-            $lblPrivacyState.Text = "Parse error â€” see Diagnostics tab."
+            $lblPrivacyState.Text = "Parse error — see Diagnostics tab."
         }
     } else {
         Append-Status ("Privacy scan completed in {0}s but JSON output missing." -f $durationSec)
@@ -3743,7 +3936,7 @@ function Apply-DeepFix {
         Append-Status ("Apply fix error: {0}" -f $_.Exception.Message)
         $script:deepScanApplyProcess = $null
         $script:deepScanApplyStartedAt = $null
-        $lblDeepApplyState.Text = "Apply failed â€” see status log."
+        $lblDeepApplyState.Text = "Apply failed — see status log."
         Set-AnalysisUiState -IsBusy:$false -StateText "Deep Scan idle"
     }
 }
@@ -3766,7 +3959,7 @@ function Poll-DeepScanApply {
     if ($exitCode -ne 0) {
         $errTail = Get-WorkerErrorTail -ErrorPath $script:deepScanStdErr
         Append-Status ("Apply fix ended with exit code {0}. {1}" -f $exitCode, $errTail)
-        $lblDeepApplyState.Text = "Apply failed â€” see Logs tab."
+        $lblDeepApplyState.Text = "Apply failed — see Logs tab."
         $script:deepScanApplyProcess = $null
         $script:deepScanApplyStartedAt = $null
         Set-AnalysisUiState -IsBusy:$false -StateText "Deep Scan idle"
@@ -3817,13 +4010,14 @@ function Run-GarbageAnalysis {
 
     $depth = [string]$cmbDepth.SelectedItem
     $auditLevel = [string]$cmbAuditLevel.SelectedItem
-    $cleanupMode = [string]$cmbCleanupMode.SelectedItem
     $top = [int]$numTop.Value
+    $drive = if ($cmbDrive.SelectedItem) { [string]$cmbDrive.SelectedItem } else { 'C' }
 
     try {
-        Append-Status ("Analyzing garbage hotspots Depth={0} Audit={1} Mode={2} Top={3}" -f $depth, $auditLevel, $cleanupMode, $top)
+        Append-Status ("Analyzing disk occupancy Drive={0} Depth={1} Audit={2} Top={3}" -f $drive, $depth, $auditLevel, $top)
         $script:analysisTimeoutSec = Get-AnalysisTimeoutSec -Depth $depth
         $script:analysisSoftTimeoutWarned = $false
+        $occupancyJson = Join-Path $script:hubRoot "logs\disk-occupancy-latest.json"
 
         $started = $false
         if (Get-Command Start-HubAsyncWorker -ErrorAction SilentlyContinue) {
@@ -3831,12 +4025,12 @@ function Run-GarbageAnalysis {
                 -PsHost $script:psHost `
                 -ScriptPath $script:analyzerScript `
                 -ExtraArgs @(
-                    '-Drives', 'C,D',
+                    '-Drive', $drive,
                     '-Top', "$top",
                     '-Depth', $depth,
                     '-AuditLevel', $auditLevel,
-                    '-CleanupMode', $cleanupMode,
-                    '-OutputCsv', $script:analysisCsv
+                    '-OutputCsv', $script:analysisCsv,
+                    '-OutputJson', $occupancyJson
                 ) `
                 -OutputPaths @($script:analysisCsv, $script:analysisStdOut, $script:analysisStdErr) `
                 -StdOutPath $script:analysisStdOut `
@@ -3853,9 +4047,10 @@ function Run-GarbageAnalysis {
             Remove-IfExists -Path $script:analysisStdErr
             $args = @(
                 "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $script:analyzerScript,
-                "-Drives", "C,D", "-Top", "$top", "-Depth", $depth,
-                "-AuditLevel", $auditLevel, "-CleanupMode", $cleanupMode,
-                "-OutputCsv", $script:analysisCsv
+                "-Drive", $drive, "-Top", "$top", "-Depth", $depth,
+                "-AuditLevel", $auditLevel,
+                "-OutputCsv", $script:analysisCsv,
+                "-OutputJson", $occupancyJson
             )
             $script:analysisStartedAt = Get-Date
             $script:analysisProcess = Start-Process -FilePath $script:psHost -ArgumentList $args -WindowStyle Hidden -RedirectStandardOutput $script:analysisStdOut -RedirectStandardError $script:analysisStdErr -PassThru
@@ -3950,7 +4145,7 @@ function Run-ApplySafeThrottle {
         return
     }
     if (-not (Test-Path -LiteralPath $script:computeJson)) {
-        Append-Status "Run Compute analysis first â€” no pressure report found."
+        Append-Status "Run Compute analysis first — no pressure report found."
         return
     }
     if (Test-AnyOperationRunning) {
@@ -4031,7 +4226,7 @@ function Run-DefenderExtremeReview {
             -PsHost $script:psHost -Language $script:guiLanguage -OnStatus { param($m) Append-Status $m } `
             -ComputeJsonPath $script:computeJson -EvaluateScript $script:evaluateDefenderScript -ProcessName 'MsMpEng'
         if ($result.Ok) {
-            Show-Toast -Title "KEEP Apply" -Body ("Tier $($result.Tier) â€” $($result.Reason)") -Level "Warning"
+            Show-Toast -Title "KEEP Apply" -Body ("Tier $($result.Tier) — $($result.Reason)") -Level "Warning"
         }
     } catch {
         Append-Status ("KEEP wizard error: {0}" -f $_.Exception.Message)
@@ -4303,11 +4498,11 @@ $btnHealthAudit.Add_Click({
     }
 })
 $btnHealthApply.Add_Click({
-    $level = [string]$cmbFixLevel.SelectedItem
+    $level = [string]$cmbDeepFixLevel.SelectedItem
     $msg = if ($script:guiLanguage -eq 'it') {
-        "Scansione + fix automatici fino al livello '$level'.`n`nUna soluzione per finding. Rischio: Med-Alto.`n`nContinuare?"
+        "Scansione + fix automatici fino al livello '$level' (impostazione FIX MAX nella tab Salute).`n`nUna soluzione per finding. Rischio: Med-Alto.`n`nContinuare?"
     } else {
-        "Scan + auto-apply fixes up to '$level' level.`n`nOne solution per finding. Risk: Med-High.`n`nContinue?"
+        "Scan + auto-apply fixes up to '$level' (FIX MAX on Health tab).`n`nOne solution per finding. Risk: Med-High.`n`nContinue?"
     }
     $confirm = [System.Windows.Forms.MessageBox]::Show($msg, (Get-I18n 'buttons.health_apply'), "YesNo", "Warning")
     if ($confirm -eq "Yes") {
@@ -4341,6 +4536,20 @@ $btnPartitionPlan.Add_Click({
         }
     }
 })
+$btnVmwareHealth.Add_Click({
+    $msg = "VMware Health:`nYes = Audit only (inventory + diagnose, no changes).`nNo = Audit + safe Apply (stale locks when powered off; disable 3D after .vmx backup when MKS crash).`nCancel = abort.`n`nNever deletes .vmdk/snapshots. Running VMs are not force-powered-off."
+    $choice = [System.Windows.Forms.MessageBox]::Show($msg, "VMware Health", "YesNoCancel", "Question")
+    if ($choice -eq "Yes") {
+        Run-VmwareHealth
+        return
+    }
+    if ($choice -eq "No") {
+        $confirm = [System.Windows.Forms.MessageBox]::Show("Apply safe VMware repairs only for powered-off VMs (stale locks / mks.enable3d=FALSE with backup). Continue?", "Confirm VMware Apply", "YesNo", "Warning")
+        if ($confirm -eq "Yes") {
+            Run-VmwareHealth -Apply
+        }
+    }
+})
 $btnReloadTasks.Add_Click({ Reload-Tasks })
 $btnInstallTasks.Add_Click({ Run-CoreInstall })
 $btnLoadLogs.Add_Click({
@@ -4359,6 +4568,8 @@ $btnLoadLogs.Add_Click({
         "Health Audit (stderr)"     = $script:healthAuditStdErr
         "NVMe Plan (stdout)"        = $script:nvmeAdvisorStdOut
         "NVMe Plan (stderr)"        = $script:nvmeAdvisorStdErr
+        "VMware Health (stdout)"    = $script:vmwareHealthStdOut
+        "VMware Health (stderr)"    = $script:vmwareHealthStdErr
         "Partition Plan (stdout)"   = $script:partitionLegacyStdOut
         "Partition Plan (stderr)"   = $script:partitionLegacyStdErr
         "Core Install (stdout)"      = $script:coreInstallStdOut
@@ -4384,7 +4595,7 @@ $btnReloadConfig.Add_Click({
     Append-Status "Configuration reloaded from disk."
 })
 
-# â”€â”€ Deep Scan event handlers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Deep Scan event handlers ───────────────────────────────────────────────────
 $btnDeepScanRun.Add_Click({ Run-DeepScan })
 
 $btnDeepScanCancel.Add_Click({
@@ -4421,7 +4632,7 @@ $listDeepSolutions.Add_SelectedIndexChanged({
     $btnDeepApply.Enabled   = $canApply
     $btnDeepApply.ForeColor = if ($canApply) { $clrText } else { $clrMuted }
     $solItem = $listDeepSolutions.SelectedItems[0]
-    $lblDeepApplyState.Text = ("Ready to apply [{0}] fix â€” click button to confirm" -f $solItem.Text)
+    $lblDeepApplyState.Text = ("Ready to apply [{0}] fix — click button to confirm" -f $solItem.Text)
 })
 
 $btnDeepApply.Add_Click({
@@ -4480,6 +4691,10 @@ $healthApplyTimer.Add_Tick({ Poll-HealthApply })
 $nvmeAdvisorTimer = New-Object System.Windows.Forms.Timer
 $nvmeAdvisorTimer.Interval = 1000
 $nvmeAdvisorTimer.Add_Tick({ Poll-NvmeAdvisor })
+
+$vmwareHealthTimer = New-Object System.Windows.Forms.Timer
+$vmwareHealthTimer.Interval = 1000
+$vmwareHealthTimer.Add_Tick({ Poll-VmwareHealth })
 
 $coreInstallTimer = New-Object System.Windows.Forms.Timer
 $coreInstallTimer.Interval = 1000

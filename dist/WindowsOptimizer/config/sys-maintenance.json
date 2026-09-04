@@ -79,6 +79,15 @@
     "IdleCpuThresholdPercent": 45,
     "OnlyWhenIdle": true
   },
+  "Vmware": {
+    "InventoryRoots": [
+      "D:\\Macchine_Virtuali",
+      "C:\\Users\\*\\Documents\\Virtual Machines",
+      "C:\\Virtual Machines"
+    ],
+    "MaxScanDepth": 4,
+    "SafeRepairsEnabled": true
+  },
   "FsIntegrity": {
     "Enabled": true,
     "ScanDrives": [

@@ -179,6 +179,7 @@ $script:cfgTier2SimulateOnly = $true
 $script:diagnosticsDir = Join-Path $script:hubRoot "logs\diagnostics"
 $script:healthAuditScript  = Join-Path $script:scriptRoot "system-health-audit.ps1"
 $script:nvmeAdvisorScript  = Join-Path $script:scriptRoot "analyze-nvme-readonly-plan.ps1"
+$script:vmwareHealthScript = Join-Path $script:scriptRoot "analyze-vmware-health.ps1"
 $script:partitionLegacyScript = Join-Path $script:scriptRoot "analyze-recovery-partition-legacy.ps1"
 $script:applyFixesScript   = Join-Path $script:scriptRoot "apply-safe-fixes.ps1"
 $script:healthAuditProcess = $null
@@ -202,6 +203,14 @@ $script:nvmeAdvisorStdErr  = Join-Path $script:hubRoot "logs\nvme-advisor-live.e
 $script:nvmeAdvisorStartedAt = $null
 $script:nvmeAdvisorTimeoutSec = 75
 $script:nvmeAdvisorSoftTimeoutWarned = $false
+$script:vmwareHealthProcess = $null
+$script:vmwareHealthJson    = Join-Path $script:hubRoot "logs\vmware-health-live.json"
+$script:vmwareHealthStdOut  = Join-Path $script:hubRoot "logs\vmware-health-live.out.log"
+$script:vmwareHealthStdErr  = Join-Path $script:hubRoot "logs\vmware-health-live.err.log"
+$script:vmwareHealthStartedAt = $null
+$script:vmwareHealthTimeoutSec = 180
+$script:vmwareHealthSoftTimeoutWarned = $false
+$script:vmwareHealthApplyRequested = $false
 $script:partitionLegacyProcess = $null
 $script:partitionLegacyJson    = Join-Path $script:hubRoot "logs\partition-legacy-live.json"
 $script:partitionLegacyStdOut  = Join-Path $script:hubRoot "logs\partition-legacy-live.out.log"
@@ -471,6 +480,7 @@ $btnPkgFix        = New-Btn "Pkg Prereq Fix" $clrTeal    148 38
 $btnNvmePlan      = New-Btn "NVMe Plan"       $clrAmber   138 38
 $btnDeepScanJump  = New-Btn "Health Tab"     $clrPurple  118 38
 $btnPartitionPlan = New-Btn "Partition Plan"  $clrCyan    148 38
+$btnVmwareHealth  = New-Btn "VMware Health"   $clrTeal    138 38
 $btnCompute       = New-Btn "Compute"         $clrPurple  118 38
 $btnApplyThrottle = New-Btn "Safe Throttle"   $clrGreen   118 38
 $btnDefenderReview = New-Btn "Defender"      $clrAmber   108 38
@@ -519,6 +529,7 @@ $btnApplyThrottle.Location = New-Object System.Drawing.Point(136, 74)
 $btnDefenderReview.Location = New-Object System.Drawing.Point(260, 74)
 $btnAudit.Location         = New-Object System.Drawing.Point(500, 74)
 $btnExecute.Location       = New-Object System.Drawing.Point(628, 74)
+$btnVmwareHealth.Location  = New-Object System.Drawing.Point(756, 74)
 
 $lblCleanupMode = New-Object System.Windows.Forms.Label
 $lblCleanupMode.Text      = "MODE"
@@ -543,7 +554,7 @@ $pnlAdvancedTools.Controls.AddRange(@(
     $lblAdvancedActions,
     $btnHealthApply, $btnPkgFix, $btnNvmePlan, $btnDeepScanJump, $btnPartitionPlan, $btnDiagnostics,
     $btnCompute, $btnApplyThrottle, $btnDefenderReview,
-    $lblCleanupMode, $cmbCleanupMode, $btnAudit, $btnExecute
+    $lblCleanupMode, $cmbCleanupMode, $btnAudit, $btnExecute, $btnVmwareHealth
 ))
 
 $btnCancelAnalyze.Enabled  = $false
@@ -834,6 +845,7 @@ $cmbLogSource.Items.AddRange(@(
     "Quick Cleanup (log)", "Storage Cleanup (log)",
     "Health Audit (stdout)", "Health Audit (stderr)",
     "NVMe Plan (stdout)", "NVMe Plan (stderr)",
+    "VMware Health (stdout)", "VMware Health (stderr)",
     "Partition Plan (stdout)", "Partition Plan (stderr)",
     "Core Install (stdout)", "Core Install (stderr)"
 ))
@@ -1352,6 +1364,7 @@ function Apply-GuiLanguage {
     $btnNvmePlan.Text = Get-I18n 'buttons.nvme_plan'
     $btnDeepScanJump.Text = Get-I18n 'buttons.health_tab'
     $btnPartitionPlan.Text = Get-I18n 'buttons.partition_plan'
+    $btnVmwareHealth.Text = Get-I18n 'buttons.vmware_health'
     $btnCompute.Text = Get-I18n 'buttons.compute'
     $btnApplyThrottle.Text = Get-I18n 'buttons.apply_throttle'
     $btnDefenderReview.Text = Get-I18n 'buttons.defender_review'
@@ -1402,6 +1415,7 @@ function Initialize-GuiCommandHelp {
         $btnDefenderReview = 'defender_review'
         $btnNvmePlan      = 'nvme_plan'
         $btnPartitionPlan = 'partition_plan'
+        $btnVmwareHealth  = 'vmware_health'
         $btnPkgFix        = 'pkg_fix'
         $btnDeepScanRun   = 'run_deep_scan'
         $btnInstallTasks  = 'install_core'
@@ -1833,6 +1847,7 @@ function Test-AnyOperationRunning {
     if ($script:quickCleanupProcess -and (-not $script:quickCleanupProcess.HasExited)) { $busy = $true }
     if ($script:healthAuditProcess -and (-not $script:healthAuditProcess.HasExited)) { $busy = $true }
     if ($script:nvmeAdvisorProcess -and (-not $script:nvmeAdvisorProcess.HasExited)) { $busy = $true }
+    if ($script:vmwareHealthProcess -and (-not $script:vmwareHealthProcess.HasExited)) { $busy = $true }
     if ($script:partitionLegacyProcess -and (-not $script:partitionLegacyProcess.HasExited)) { $busy = $true }
     if ($script:coreInstallProcess -and (-not $script:coreInstallProcess.HasExited)) { $busy = $true }
     if ($script:deepScanProcess -and (-not $script:deepScanProcess.HasExited)) { $busy = $true }
@@ -1862,6 +1877,7 @@ function Set-AnalysisUiState {
     $btnPkgFix.Enabled = -not $IsBusy
     $btnNvmePlan.Enabled = -not $IsBusy
     $btnPartitionPlan.Enabled = -not $IsBusy
+    $btnVmwareHealth.Enabled = -not $IsBusy
     $cmbDepth.Enabled = -not $IsBusy
     $cmbAuditLevel.Enabled = -not $IsBusy
     $cmbCleanupMode.Enabled = -not $IsBusy
@@ -2886,6 +2902,147 @@ function Poll-NvmeAdvisor {
     $script:nvmeAdvisorStartedAt = $null
     $script:nvmeAdvisorSoftTimeoutWarned = $false
     Set-AnalysisUiState -IsBusy:$false -StateText $lblAnalysisState.Text
+}
+
+function Update-VmwareHealthProgress {
+    if (-not $script:vmwareHealthStartedAt) { return }
+    $elapsedSec = [math]::Round(((Get-Date) - $script:vmwareHealthStartedAt).TotalSeconds, 0)
+    $timeoutSec = [math]::Max(1, $script:vmwareHealthTimeoutSec)
+    $pct = [math]::Min(95, [int](($elapsedSec / $timeoutSec) * 100))
+    if ($pct -lt $progressAnalysis.Minimum) { $pct = $progressAnalysis.Minimum }
+    if ($pct -gt $progressAnalysis.Maximum) { $pct = $progressAnalysis.Maximum }
+    $progressAnalysis.Value = $pct
+    $script:spinIdx = ($script:spinIdx + 1) % $script:spinFrames.Count
+    $modeLabel = if ($script:vmwareHealthApplyRequested) { 'VMware Health+Apply' } else { 'VMware Health' }
+    $lblAnalysisState.Text = ("{0}{1}  {2}s / {3}s" -f $modeLabel, $script:spinFrames[$script:spinIdx], $elapsedSec, $timeoutSec)
+    if (($elapsedSec -gt $timeoutSec) -and (-not $script:vmwareHealthSoftTimeoutWarned)) {
+        $script:vmwareHealthSoftTimeoutWarned = $true
+        Append-Status ("VMware Health exceeded expected time ({0}s). No forced stop; cancel manually if needed." -f $timeoutSec)
+    }
+}
+
+function Stop-VmwareHealth {
+    param([string]$Reason)
+    if ($script:vmwareHealthProcess -and (-not $script:vmwareHealthProcess.HasExited)) {
+        try {
+            Stop-Process -Id $script:vmwareHealthProcess.Id -Force -ErrorAction Stop
+            Append-Status ("VMware Health stopped. Reason: {0}" -f $Reason)
+        } catch {
+            Append-Status ("Unable to stop VMware Health cleanly: {0}" -f $_.Exception.Message)
+        }
+    }
+    $vmwareHealthTimer.Stop()
+    $script:vmwareHealthProcess = $null
+    $script:vmwareHealthStartedAt = $null
+    $script:vmwareHealthSoftTimeoutWarned = $false
+    $script:vmwareHealthApplyRequested = $false
+    Set-AnalysisUiState -IsBusy:$false -StateText "VMware Health idle"
+}
+
+function Poll-VmwareHealth {
+    if (-not $script:vmwareHealthProcess) { return }
+    if (-not $script:vmwareHealthProcess.HasExited) {
+        Update-VmwareHealthProgress
+        return
+    }
+
+    $vmwareHealthTimer.Stop()
+    $durationSec = 0
+    if ($script:vmwareHealthStartedAt) {
+        $durationSec = [math]::Round(((Get-Date) - $script:vmwareHealthStartedAt).TotalSeconds, 1)
+    }
+    $exitCode = Get-ProcessExitCodeSafe -Process $script:vmwareHealthProcess
+    if ($exitCode -ne 0) {
+        $errTail = Get-WorkerErrorTail -ErrorPath $script:vmwareHealthStdErr
+        if ($errTail) {
+            Append-Status ("VMware Health ended with exit code {0}. Error: {1}" -f $exitCode, $errTail)
+        } else {
+            Append-Status ("VMware Health ended with exit code {0}." -f $exitCode)
+        }
+        $script:vmwareHealthProcess = $null
+        $script:vmwareHealthStartedAt = $null
+        $script:vmwareHealthSoftTimeoutWarned = $false
+        $script:vmwareHealthApplyRequested = $false
+        Set-AnalysisUiState -IsBusy:$false -StateText "VMware Health idle"
+        return
+    }
+
+    if (Wait-ForOutputFile -Path $script:vmwareHealthJson -TimeoutMs 4000) {
+        try {
+            $report = Get-Content -LiteralPath $script:vmwareHealthJson -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
+            $vmCount = [int]$report.Summary.VmCount
+            $crit = [int]$report.Summary.CriticalCount
+            $mks = [int]$report.Summary.MksCrashVmCount
+            $stale = [int]$report.Summary.StaleLockVmCount
+            $mode = [string]$report.Mode
+            Append-Status ("VMware Health completed in {0}s ({1}). VMs={2} Critical={3} MksCrash={4} StaleLocks={5}" -f $durationSec, $mode, $vmCount, $crit, $mks, $stale)
+            Append-Status ("  Best next: {0}" -f [string]$report.BestNextDecision)
+            Append-Status ("  Report: {0}" -f $script:vmwareHealthJson)
+            $latest = Join-Path $script:hubRoot "logs\vmware-health-latest.json"
+            if (Test-Path -LiteralPath $script:vmwareHealthJson) {
+                Copy-Item -LiteralPath $script:vmwareHealthJson -Destination $latest -Force -ErrorAction SilentlyContinue
+            }
+            $toastLevel = if ($crit -gt 0 -or $mks -gt 0) { 'Warning' } else { 'Success' }
+            Show-Toast -Title "VMware Health Done" -Body ("{0} VMs, {1} MKS crash(es) ({2}s)" -f $vmCount, $mks, $durationSec) -Level $toastLevel
+        } catch {
+            Append-Status ("VMware Health completed in {0}s but parse failed: {1}" -f $durationSec, $_.Exception.Message)
+        }
+    } else {
+        Append-Status ("VMware Health completed in {0}s but output JSON was not found." -f $durationSec)
+    }
+
+    $progressAnalysis.Value = 100
+    $lblAnalysisState.Text = ("VMware Health completed in {0}s." -f $durationSec)
+    $script:vmwareHealthProcess = $null
+    $script:vmwareHealthStartedAt = $null
+    $script:vmwareHealthSoftTimeoutWarned = $false
+    $script:vmwareHealthApplyRequested = $false
+    Set-AnalysisUiState -IsBusy:$false -StateText $lblAnalysisState.Text
+}
+
+function Run-VmwareHealth {
+    param([switch]$Apply)
+
+    if (-not (Test-Path -LiteralPath $script:vmwareHealthScript)) {
+        Append-Status "VMware Health script not found: $script:vmwareHealthScript"
+        return
+    }
+    if (Test-AnyOperationRunning) {
+        Append-Status "Another operation is already running. Wait for completion."
+        return
+    }
+
+    try {
+        Remove-IfExists -Path $script:vmwareHealthJson
+        Remove-IfExists -Path $script:vmwareHealthStdOut
+        Remove-IfExists -Path $script:vmwareHealthStdErr
+
+        $extra = @('-OutputJson', $script:vmwareHealthJson)
+        if ($Apply) { $extra += '-Apply' }
+
+        $script:vmwareHealthApplyRequested = [bool]$Apply
+        $script:vmwareHealthSoftTimeoutWarned = $false
+        $script:vmwareHealthStartedAt = Get-Date
+        $args = @(
+            "-NoProfile",
+            "-ExecutionPolicy", "Bypass",
+            "-File", $script:vmwareHealthScript
+        ) + $extra
+
+        $script:vmwareHealthProcess = Start-Process -FilePath $script:psHost -ArgumentList $args -WindowStyle Hidden -RedirectStandardOutput $script:vmwareHealthStdOut -RedirectStandardError $script:vmwareHealthStdErr -PassThru
+        $progressAnalysis.Value = 1
+        $label = if ($Apply) { 'VMware Health+Apply' } else { 'VMware Health' }
+        Set-AnalysisUiState -IsBusy:$true -StateText ("{0} starting (target {1}s)..." -f $label, $script:vmwareHealthTimeoutSec)
+        $vmwareHealthTimer.Start()
+        Append-Status ("{0} started in background." -f $label)
+    } catch {
+        Append-Status ("VMware Health error: {0}" -f $_.Exception.Message)
+        $script:vmwareHealthProcess = $null
+        $script:vmwareHealthStartedAt = $null
+        $script:vmwareHealthSoftTimeoutWarned = $false
+        $script:vmwareHealthApplyRequested = $false
+        Set-AnalysisUiState -IsBusy:$false -StateText "VMware Health idle"
+    }
 }
 
 function Run-NvmeAdvisor {
@@ -4379,6 +4536,20 @@ $btnPartitionPlan.Add_Click({
         }
     }
 })
+$btnVmwareHealth.Add_Click({
+    $msg = "VMware Health:`nYes = Audit only (inventory + diagnose, no changes).`nNo = Audit + safe Apply (stale locks when powered off; disable 3D after .vmx backup when MKS crash).`nCancel = abort.`n`nNever deletes .vmdk/snapshots. Running VMs are not force-powered-off."
+    $choice = [System.Windows.Forms.MessageBox]::Show($msg, "VMware Health", "YesNoCancel", "Question")
+    if ($choice -eq "Yes") {
+        Run-VmwareHealth
+        return
+    }
+    if ($choice -eq "No") {
+        $confirm = [System.Windows.Forms.MessageBox]::Show("Apply safe VMware repairs only for powered-off VMs (stale locks / mks.enable3d=FALSE with backup). Continue?", "Confirm VMware Apply", "YesNo", "Warning")
+        if ($confirm -eq "Yes") {
+            Run-VmwareHealth -Apply
+        }
+    }
+})
 $btnReloadTasks.Add_Click({ Reload-Tasks })
 $btnInstallTasks.Add_Click({ Run-CoreInstall })
 $btnLoadLogs.Add_Click({
@@ -4397,6 +4568,8 @@ $btnLoadLogs.Add_Click({
         "Health Audit (stderr)"     = $script:healthAuditStdErr
         "NVMe Plan (stdout)"        = $script:nvmeAdvisorStdOut
         "NVMe Plan (stderr)"        = $script:nvmeAdvisorStdErr
+        "VMware Health (stdout)"    = $script:vmwareHealthStdOut
+        "VMware Health (stderr)"    = $script:vmwareHealthStdErr
         "Partition Plan (stdout)"   = $script:partitionLegacyStdOut
         "Partition Plan (stderr)"   = $script:partitionLegacyStdErr
         "Core Install (stdout)"      = $script:coreInstallStdOut
@@ -4518,6 +4691,10 @@ $healthApplyTimer.Add_Tick({ Poll-HealthApply })
 $nvmeAdvisorTimer = New-Object System.Windows.Forms.Timer
 $nvmeAdvisorTimer.Interval = 1000
 $nvmeAdvisorTimer.Add_Tick({ Poll-NvmeAdvisor })
+
+$vmwareHealthTimer = New-Object System.Windows.Forms.Timer
+$vmwareHealthTimer.Interval = 1000
+$vmwareHealthTimer.Add_Tick({ Poll-VmwareHealth })
 
 $coreInstallTimer = New-Object System.Windows.Forms.Timer
 $coreInstallTimer.Interval = 1000
