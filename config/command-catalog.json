@@ -71,26 +71,26 @@
       }
     },
     "scan_storage": {
-      "scripts": ["analyze-garbage-hotspots.ps1"],
-      "efficacy": 38,
-      "effortImpact": 32,
+      "scripts": ["analyze-disk-occupancy.ps1", "analyze-garbage-hotspots.ps1"],
+      "efficacy": 52,
+      "effortImpact": 40,
       "risk": "Low",
       "writesSystem": false,
       "en": {
         "title": "Scan Storage",
-        "summary": "Finds folders likely holding reclaimable space (analysis only).",
-        "does": "Samples files under known paths, scores stale/transient content, exports CSV.",
-        "doesNot": "Does not delete files. Use Storage Clean for deletion.",
-        "expect": "Ranked list in Home explorer; double-click opens path.",
-        "tip": "Deep depth scans more root folders — takes longer but finds more candidates."
+        "summary": "Classifies what occupies a selected drive: safe-delete, system/app-bound, personal HITL.",
+        "does": "Walks the selected volume (not only typical install paths), scores files, samples magic bytes/NTFS cluster/LCN, exports CSV+JSON.",
+        "doesNot": "Does not delete on Scan. SafeDelete files are removed only via ExecuteSafeDelete / Quick Clean.",
+        "expect": "Ranked explorer rows tagged SafeDelete / SystemBound / AppBound / PersonalHitl.",
+        "tip": "Pick the drive first. BitLevel adds magic-byte + cluster allocation (not a full bitstream crawl)."
       },
       "it": {
         "title": "Analizza Spazio",
-        "summary": "Trova cartelle con spazio potenzialmente recuperabile (solo analisi).",
-        "does": "Campiona file in percorsi noti, calcola score stale/transient, esporta CSV.",
-        "doesNot": "Non elimina file. Usa Pulizia Storage per cancellare.",
-        "expect": "Lista ordinata in Home; doppio clic apre il percorso.",
-        "tip": "Profondità Deep analizza più cartelle radice — più lento ma più completo."
+        "summary": "Classifica cosa occupa l'unità scelta: eliminabile, di sistema/app, personale HITL.",
+        "does": "Percorre il volume (non solo path tipici), campiona magic-byte/cluster NTFS, esporta CSV+JSON.",
+        "doesNot": "La scansione non cancella. I SafeDelete si eliminano solo con ExecuteSafeDelete / Quick Clean.",
+        "expect": "Lista in Home con classi SafeDelete / SystemBound / AppBound / PersonalHitl.",
+        "tip": "Seleziona prima l'unità. BitLevel = magic-byte + allocazione cluster, non uno scan bit-a-bit del disco."
       }
     },
     "quick_clean": {
@@ -229,6 +229,29 @@
         "doesNot": "Non sposta dati né cambia pattern di scrittura in automatico.",
         "expect": "Testo piano; SMART spesso vuoto con RAID/RST.",
         "tip": "Affianca tool vendor (CrystalDiskInfo) per dati certi."
+      }
+    },
+    "vmware_health": {
+      "scripts": ["analyze-vmware-health.ps1", "lib/vmware-health.ps1"],
+      "efficacy": 62,
+      "effortImpact": 55,
+      "risk": "Med",
+      "writesSystem": true,
+      "en": {
+        "title": "VMware Health",
+        "summary": "Inventory VMware Workstation VMs, diagnose MKS/mksSandbox crashes, locks, and 3D settings.",
+        "does": "Scans configurable roots (e.g. D:\\Macchine_Virtuali), reads vmware.log / mksSandbox logs, reports stale locks and host pressure.",
+        "doesNot": "Does not delete .vmdk/snapshots, force power-off, or run vm-support unless you apply safe repairs explicitly.",
+        "expect": "JSON VmwareHealthReport.v1 in logs/vmware-health-latest.json; GUI dry-run by default.",
+        "tip": "For ISBRendererComm/mksSandbox crashes: power off VM, then Apply to disable 3D (backed-up .vmx) and clear only verified stale locks."
+      },
+      "it": {
+        "title": "Salute VMware",
+        "summary": "Inventario VM VMware Workstation, diagnosi crash MKS/mksSandbox, lock e impostazioni 3D.",
+        "does": "Scansiona root configurabili (es. D:\\Macchine_Virtuali), legge vmware.log / mksSandbox, segnala lock obsoleti e pressione host.",
+        "doesNot": "Non elimina .vmdk/snapshot, non spegne VM forzatamente, non esegue vm-support salvo apply esplicito dei repair safe.",
+        "expect": "JSON VmwareHealthReport.v1 in logs/vmware-health-latest.json; dalla GUI default dry-run.",
+        "tip": "Per crash ISBRendererComm/mksSandbox: spegni la VM, poi Applica per disabilitare il 3D (.vmx con backup) e pulire solo lock verificati come stale."
       }
     },
     "partition_plan": {

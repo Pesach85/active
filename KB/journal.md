@@ -1,5 +1,15 @@
+## 2026-09-04 — VMware Health (mksSandbox)
+
+### Obiettivo
+Routine Hub per inventario/diagnosi/ripristino safe VMware Workstation (crash MKS `ISBRendererComm` / mksSandbox).
+
+### Modifiche
+- `scripts/lib/vmware-health.ps1` + `scripts/analyze-vmware-health.ps1`
+- GUI Advanced: VMware Health; catalog + locale IT/EN; smoke; package-suite
+- KB `vmware-health-mks-decision.md`
+
 ### Esito
-Smoke ALL PASSED; push `c397d51` v3.5.2.
+Diagnosi Win10 LTSC: PoweredOn + mks.enable3d=TRUE + MKS crash signature; Apply rifiutato (SkippedPoweredOn). Inventario 13 VM. Smoke step `vmware-health` OK (full suite may fail on unrelated process-resolution-dryrun-missing).
 
 ## 2026-09-04 — Disk occupancy GUI + CSV fix
 

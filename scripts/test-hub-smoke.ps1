@@ -129,6 +129,21 @@ Invoke-SmokeStep -Name 'garbage-hotspots' `
         }
     }
 
+$vmwareOut = Join-Path $logs 'smoke-vmware-health.json'
+Invoke-SmokeStep -Name 'vmware-health' `
+    -ScriptPath (Join-Path $scriptDir 'analyze-vmware-health.ps1') `
+    -Arguments @('-OutputJson', $vmwareOut) `
+    -OutputPath $vmwareOut `
+    -Validate {
+        param($path)
+        $j = Get-Content -LiteralPath $path -Raw | ConvertFrom-Json
+        if ([string]$j.SchemaVersion -notmatch 'VmwareHealthReport') { throw "Unexpected schema $($j.SchemaVersion)" }
+        if ($null -eq $j.Summary) { throw 'Summary missing' }
+        if ($null -eq $j.VirtualMachines) { throw 'VirtualMachines missing' }
+        if ($null -eq $j.Install) { throw 'Install missing' }
+        if ([string]::IsNullOrWhiteSpace([string]$j.BestNextDecision)) { throw 'BestNextDecision missing' }
+    }
+
 if (-not $SkipPrivacy) {
     $privacyOut = Join-Path $logs 'smoke-privacy.json'
     Invoke-SmokeStep -Name 'privacy-scan' `

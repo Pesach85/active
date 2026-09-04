@@ -32,6 +32,7 @@
     "nvme_plan": "NVMe Advisor",
     "health_tab": "Health Tab",
     "partition_plan": "Partition Plan",
+    "vmware_health": "VMware Health",
     "compute": "Compute Load",
     "apply_throttle": "Safe Throttle",
     "defender_review": "Defender KEEP…",
