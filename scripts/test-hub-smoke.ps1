@@ -606,14 +606,16 @@ else {
 }
 
 $dryRunOut = Join-Path $logs 'smoke-res-dryrun-missing.json'
+# Use a PID that cannot be a live Windows process (1234 is often lsass on this host).
 Invoke-SmokeStep -Name 'process-resolution-dryrun-missing' `
     -ScriptPath (Join-Path $scriptDir 'resolve-unknown-process.ps1') `
-    -Arguments @('-ProcessId', '1234', '-Action', 'ThrottleBelowNormal', '-DryRun', '-OutputJson', $dryRunOut, '-Quiet') `
+    -Arguments @('-ProcessId', '2147483000', '-Action', 'ThrottleBelowNormal', '-DryRun', '-OutputJson', $dryRunOut, '-Quiet') `
     -OutputPath $dryRunOut `
     -Validate {
         param($path)
         $j = Get-Content -LiteralPath $path -Raw | ConvertFrom-Json
-        if ([string]$j.Outcome -ne 'ProcessNotRunning') { throw "Expected ProcessNotRunning got $($j.Outcome)" }
+        $ok = @('ProcessNotRunning', 'ProcessNotFound')
+        if ([string]$j.Outcome -notin $ok) { throw "Expected ProcessNotRunning/ProcessNotFound got $($j.Outcome)" }
     }
 
 

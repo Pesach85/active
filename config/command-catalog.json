@@ -243,7 +243,7 @@
         "does": "Scans configurable roots (e.g. D:\\Macchine_Virtuali), reads vmware.log / mksSandbox logs, reports stale locks and host pressure.",
         "doesNot": "Does not delete .vmdk/snapshots, force power-off, or run vm-support unless you apply safe repairs explicitly.",
         "expect": "JSON VmwareHealthReport.v1 in logs/vmware-health-latest.json; GUI dry-run by default.",
-        "tip": "For ISBRendererComm/mksSandbox crashes: power off VM, then Apply to disable 3D (backed-up .vmx) and clear only verified stale locks."
+        "tip": "Home primary row or Health tab → VMware Health. For ISBRendererComm/mksSandbox: power off VM, then Apply to disable 3D (backed-up .vmx) and clear only verified stale locks."
       },
       "it": {
         "title": "Salute VMware",
@@ -251,7 +251,7 @@
         "does": "Scansiona root configurabili (es. D:\\Macchine_Virtuali), legge vmware.log / mksSandbox, segnala lock obsoleti e pressione host.",
         "doesNot": "Non elimina .vmdk/snapshot, non spegne VM forzatamente, non esegue vm-support salvo apply esplicito dei repair safe.",
         "expect": "JSON VmwareHealthReport.v1 in logs/vmware-health-latest.json; dalla GUI default dry-run.",
-        "tip": "Per crash ISBRendererComm/mksSandbox: spegni la VM, poi Applica per disabilitare il 3D (.vmx con backup) e pulire solo lock verificati come stale."
+        "tip": "Home (azioni principali) o tab Salute → Salute VMware. Per crash ISBRendererComm/mksSandbox: spegni la VM, poi Applica per disabilitare il 3D (.vmx con backup) e pulire solo lock verificati come stale."
       }
     },
     "partition_plan": {

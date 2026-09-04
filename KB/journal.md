@@ -1,3 +1,16 @@
+## 2026-09-04 — VMware Health visible (stale EXE + primary row)
+
+### Obiettivo
+Utente non vedeva Salute VMware dopo ship: shortcut lanciava EXE PS2EXE del 31/08 senza il pulsante; script su junction erano aggiornati.
+
+### Modifiche
+- `Launch-Hub.bat` preferisce `system-optimizer-gui.ps1` live
+- Pulsante VMware su Home (azioni principali) + tab Salute; GUI v3.3.0
+- KB `vmware-health-mks-decision.md` lesson; rebuild EXE su deploy
+
+### Esito
+Verifica install: junction → dist OK; root cause stale EXE. Quality gate + deploy + push.
+
 ## 2026-09-04 — VMware Health (mksSandbox)
 
 ### Obiettivo

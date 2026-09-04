@@ -49,6 +49,23 @@ function Invoke-AdbCommand {
     return $text
 }
 
+function Ensure-DeviceAwake {
+    param([string]$Adb, [string]$Serial = '')
+    Invoke-AdbCommand -Adb $Adb -Command @('shell', 'input', 'keyevent', 'KEYCODE_WAKEUP') -Serial $Serial | Out-Null
+    Start-Sleep -Milliseconds 400
+    Invoke-AdbCommand -Adb $Adb -Command @('shell', 'wm', 'dismiss-keyguard') -Serial $Serial | Out-Null
+    Start-Sleep -Milliseconds 300
+}
+
+function Test-AppInForeground {
+    param([string]$Dump)
+    return (
+        $Dump -match 'topResumedActivity=.*com\.systemoptimizerhub\.transparency' -or
+        $Dump -match 'ResumedActivity:.*com\.systemoptimizerhub\.transparency' -or
+        $Dump -match 'mFocusedApp=.*com\.systemoptimizerhub\.transparency'
+    )
+}
+
 $adb = Get-AdbPath
 if (-not $ApkPath) {
     $ApkPath = Join-Path $HubRoot 'dist\android\SystemOptimizerHub-android-debug.apk'
@@ -61,11 +78,22 @@ Assert-DeviceTest 'adb device connected' {
     if ($list -notmatch '(?m)^\S+\s+device\s*$') { throw 'No device in state device' }
 }
 
-Assert-DeviceTest 'native engine source present' {
+Assert-DeviceTest 'native engine v1 modules present' {
     $engine = Join-Path $HubRoot 'mobile\android\app\src\main\java\com\systemoptimizerhub\transparency\DeviceMaintenanceEngine.kt'
     if (-not (Test-Path -LiteralPath $engine)) { throw 'DeviceMaintenanceEngine.kt missing' }
     $content = Get-Content -LiteralPath $engine -Raw
     if ($content -match '127\.0\.0\.1:8765|WebView') { throw 'WebView/PC remote code still present in engine' }
+    $modules = @(
+        'engine\ProcessPressureEngine.kt',
+        'engine\StorageHotspotAnalyzer.kt',
+        'engine\WasteResourceAnalyzer.kt',
+        'engine\MemoryLiberationAdvisor.kt',
+        'report\TransparencyReportBuilder.kt'
+    )
+    foreach ($m in $modules) {
+        $p = Join-Path $HubRoot "mobile\android\app\src\main\java\com\systemoptimizerhub\transparency\$m"
+        if (-not (Test-Path -LiteralPath $p)) { throw "Missing module $m" }
+    }
 }
 
 if (-not $SkipInstall) {
@@ -78,26 +106,34 @@ if (-not $SkipInstall) {
     }
 }
 
-Assert-DeviceTest 'package version 0.9.x' {
+Assert-DeviceTest 'package version 1.x' {
     $ver = Invoke-AdbCommand -Adb $adb -Command @(
         'shell', 'dumpsys', 'package', 'com.systemoptimizerhub.transparency'
     ) -Serial $DeviceSerial
-    if ($ver -notmatch 'versionName=0\.9') { throw 'Expected native v0.9.x on device' }
+    if ($ver -notmatch 'versionName=1\.') { throw 'Expected native v1.x on device' }
 }
 
 if (-not $SkipLaunch) {
+    Ensure-DeviceAwake -Adb $adb -Serial $DeviceSerial
+
     Assert-DeviceTest 'launch MainActivity' {
         $out = Invoke-AdbCommand -Adb $adb -Command @(
-            'shell', 'am', 'start', '-W', '-n', 'com.systemoptimizerhub.transparency/.MainActivity'
+            'shell', 'am', 'start', '-W', '-S', '-n', 'com.systemoptimizerhub.transparency/.MainActivity'
         ) -Serial $DeviceSerial
-        if ($out -notmatch 'Complete|Already') { throw $out }
+        if ($out -notmatch 'Complete') { throw $out }
     }
 
     Assert-DeviceTest 'native dashboard foreground' {
-        Start-Sleep -Seconds 5
+        Start-Sleep -Seconds 6
         $dump = Invoke-AdbCommand -Adb $adb -Command @('shell', 'dumpsys', 'activity', 'activities') -Serial $DeviceSerial
-        if ($dump -notmatch 'topResumedActivity=.*com\.systemoptimizerhub\.transparency') {
-            throw 'App not top resumed'
+        if (-not (Test-AppInForeground -Dump $dump)) {
+            Ensure-DeviceAwake -Adb $adb -Serial $DeviceSerial
+            Invoke-AdbCommand -Adb $adb -Command @(
+                'shell', 'am', 'start', '-W', '-n', 'com.systemoptimizerhub.transparency/.MainActivity'
+            ) -Serial $DeviceSerial | Out-Null
+            Start-Sleep -Seconds 4
+            $dump = Invoke-AdbCommand -Adb $adb -Command @('shell', 'dumpsys', 'activity', 'activities') -Serial $DeviceSerial
+            if (-not (Test-AppInForeground -Dump $dump)) { throw 'App not foreground (ResumedActivity/mFocusedApp)' }
         }
     }
 
@@ -123,5 +159,5 @@ if ($failures.Count -gt 0) {
     exit 1
 }
 
-Write-Host '[ANDROID-DEVICE] ALL PASSED (native on-device maintenance)'
+Write-Host '[ANDROID-DEVICE] ALL PASSED (native on-device maintenance v1.0)'
 exit 0

@@ -87,6 +87,8 @@ if (-not $snap) {
         ($result | ConvertTo-Json -Depth 8) | Out-File -LiteralPath $OutputJson -Encoding utf8 -Force
         if (-not $Quiet) { Write-Host $result.Message }
         $result
+        # Advisory/DryRun missing PID is OK (exit 0). Mutating actions on missing process fail closed.
+        if ($DryRun -or $Action -eq 'Advisory') { exit 0 }
         exit 1
     }
 }
@@ -264,3 +266,10 @@ if (-not $Quiet) {
 
 $result
 Clear-OperatorPasswordFile -PasswordFile $WindowsPasswordFile
+
+# Keep default PowerShell success (0) for catalog/not-running JSON outcomes.
+# Only force non-zero when HITL confirm/auth gates intentionally fail.
+if ([string]$result.Outcome -in @('ConfirmPhraseRequired', 'TerminateBlocked', 'AuthRequired')) {
+    exit 1
+}
+exit 0
