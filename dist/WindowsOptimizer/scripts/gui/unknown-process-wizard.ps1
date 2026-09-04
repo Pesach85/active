@@ -35,7 +35,7 @@ function Show-UnknownProcessResolutionWizard {
 
     if ($Owner) { $Owner.Cursor = [System.Windows.Forms.Cursors]::WaitCursor }
     try {
-        $p = Start-Process -FilePath $PsHost -ArgumentList $args -Wait -PassThru -WindowStyle Hidden
+        $p = Start-HubPowerShellProcess -FilePath $PsHost -ArgumentList $args -Wait -PassThru
     } finally {
         if ($Owner) { $Owner.Cursor = [System.Windows.Forms.Cursors]::Default }
     }

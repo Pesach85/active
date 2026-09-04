@@ -85,9 +85,19 @@ function Start-HubAsyncWorker {
     }
 
     try {
+        $argLine = if (Get-Command ConvertTo-StartProcessArgumentList -ErrorAction SilentlyContinue) {
+            ConvertTo-StartProcessArgumentList -Arguments $argv
+        } else {
+            # Inline fallback if helpers not loaded yet
+            $parts = foreach ($raw in @($argv)) {
+                $a = [string]$raw
+                if ($a -match '[\s"]') { '"' + ($a.Replace('"', '\"')) + '"' } else { $a }
+            }
+            [string]($parts -join ' ')
+        }
         $startParams = @{
             FilePath     = $PsHost
-            ArgumentList = $argv
+            ArgumentList = $argLine
             WindowStyle  = 'Hidden'
             PassThru     = $true
         }
