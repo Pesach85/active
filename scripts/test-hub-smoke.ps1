@@ -102,6 +102,19 @@ Invoke-SmokeStep -Name 'health-audit' `
     }
 
 $garbageCsv = Join-Path $logs 'smoke-garbage.csv'
+$occupancyJson = Join-Path $logs 'smoke-disk-occupancy.json'
+Invoke-SmokeStep -Name 'disk-occupancy' `
+    -ScriptPath (Join-Path $scriptDir 'analyze-disk-occupancy.ps1') `
+    -Arguments @('-Drive', 'C', '-Depth', 'Quick', '-Top', '5', '-AuditLevel', 'BitLevel', '-OutputCsv', $garbageCsv, '-OutputJson', $occupancyJson) `
+    -OutputPath $occupancyJson `
+    -Validate {
+        param($path)
+        $j = Get-Content -LiteralPath $path -Raw | ConvertFrom-Json
+        if ([string]$j.SchemaVersion -notmatch 'DiskOccupancyReport') { throw "Unexpected schema $($j.SchemaVersion)" }
+        if ([int]$j.FilesScanned -lt 1) { throw 'FilesScanned=0' }
+        if (-not $j.BitLevelMeans) { throw 'BitLevelMeans missing' }
+    }
+
 Invoke-SmokeStep -Name 'garbage-hotspots' `
     -ScriptPath (Join-Path $scriptDir 'analyze-garbage-hotspots.ps1') `
     -Arguments @('-Depth', 'Quick', '-Top', '5', '-OutputCsv', $garbageCsv, '-Drives', 'C') `
@@ -600,8 +613,15 @@ if (-not $fp.PeHeader) { $failures.Add('process-forensics: missing PE header') }
 Write-Host '[SMOKE] transparency-web-ensure...'
 $pWeb = Start-Process -FilePath $pwsh -ArgumentList @(
     '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Join-Path $scriptDir 'ensure-transparency-web.ps1'), '-Quiet'
-) -Wait -PassThru -WindowStyle Hidden
-if ($pWeb.ExitCode -ne 0) { $failures.Add('transparency-web-ensure failed to start') }
+) -PassThru -WindowStyle Hidden
+$webDeadline = (Get-Date).AddSeconds(45)
+while (-not $pWeb.HasExited -and (Get-Date) -lt $webDeadline) {
+    Start-Sleep -Milliseconds 400
+}
+if (-not $pWeb.HasExited) {
+    Stop-Process -Id $pWeb.Id -Force -ErrorAction SilentlyContinue
+    $failures.Add('transparency-web-ensure timed out after 45s')
+} elseif ($pWeb.ExitCode -ne 0) { $failures.Add('transparency-web-ensure failed to start') }
 else {
     try {
         $h = Invoke-WebRequest -Uri 'http://127.0.0.1:8765/api/health' -TimeoutSec 5 -UseBasicParsing

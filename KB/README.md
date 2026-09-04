@@ -13,6 +13,8 @@ Knowledge base operativa giornaliera. La conoscenza strutturata permanente vive 
 | `network-deep-scan-design.md` | **Phase 5:** multi-layer network deep scan (cross-diff, UDP, DNS, Tor heuristics, memory forensics) |
 | `multi-platform-install-decision.md` | **Install:** Windows dev-sync, Linux user install, Android native UX |
 | `cursor-skills-adoption.md` | **Skills Cursor:** orchestrazione + catalogo skill adottate (fable/chrisboden) |
+| `disk-occupancy-decision.md` | **Storage:** classificazione granulare unità, BitLevel onesto, SafeDelete vs HITL |
+| `datahub-mount-recovery-20260904.md` | **DataHub:** mount C:\DataHub → D: rotto il 2026-09-04; recover + remount staged reboot |
 | `../docs/checklists/hub-quality-gate-validation.md` | **Checklist deterministica** quality gate completo |
 | `codebase-health.md` | Snapshot salute codice + voti per area |
 | `bugs-fixed.md` | Incident risolti e check anti-regressione |

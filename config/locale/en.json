@@ -49,13 +49,14 @@
     "reload": "Reload"
   },
   "labels": {
-    "scan_depth": "SCAN",
+    "scan_depth": "DEPTH",
+    "drive": "DRIVE",
     "detail": "DETAIL",
-    "mode": "MODE",
+    "mode": "CLEAN MODE",
     "top": "TOP",
     "max_fix": "MAX FIX",
     "show": "SHOW",
-    "explorer_hint": "Double-click a row to open the path",
+    "explorer_hint": "Double-click a row to open the path. DEPTH = how many files to sample. CLEAN MODE (More tools) = Safe/Radical cleanup only.",
     "privacy_desc": "Read-only scan for plaintext credentials. Values are redacted in reports.",
     "deep_scan_desc": "System health scan — review findings, pick one solution, then Apply. Does not auto-fix.",
     "config_hint": "Monitor/WHEA/Orchestrator thresholds: edit JSON or use Save to persist GUI section.",

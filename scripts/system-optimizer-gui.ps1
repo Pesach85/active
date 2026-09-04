@@ -120,7 +120,8 @@ function Invoke-ChildPowerShell {
 
 $script:cleanupScript = Join-Path $script:scriptRoot "cleanup-storage-safe.ps1"
 $script:quickCleanupScript = Join-Path $script:scriptRoot "quick-cleanup-safe.ps1"
-$script:analyzerScript = Join-Path $script:scriptRoot "analyze-garbage-hotspots.ps1"
+$script:analyzerScript = Join-Path $script:scriptRoot "analyze-disk-occupancy.ps1"
+$script:legacyGarbageScript = Join-Path $script:scriptRoot "analyze-garbage-hotspots.ps1"
 $script:computeAnalyzerScript = Join-Path $script:scriptRoot "analyze-process-pressure.ps1"
 $script:applyPressureScript = Join-Path $script:scriptRoot "apply-process-pressure-safe.ps1"
 $script:evaluateDefenderScript = Join-Path $script:scriptRoot "evaluate-defender-extreme-necessity.ps1"
@@ -516,13 +517,33 @@ $btnDiagnostics.Location   = New-Object System.Drawing.Point(792, 30)
 $btnCompute.Location       = New-Object System.Drawing.Point(12, 74)
 $btnApplyThrottle.Location = New-Object System.Drawing.Point(136, 74)
 $btnDefenderReview.Location = New-Object System.Drawing.Point(260, 74)
-$btnAudit.Location         = New-Object System.Drawing.Point(376, 74)
-$btnExecute.Location       = New-Object System.Drawing.Point(504, 74)
+$btnAudit.Location         = New-Object System.Drawing.Point(500, 74)
+$btnExecute.Location       = New-Object System.Drawing.Point(628, 74)
+
+$lblCleanupMode = New-Object System.Windows.Forms.Label
+$lblCleanupMode.Text      = "MODE"
+$lblCleanupMode.Font      = $fntSmall
+$lblCleanupMode.ForeColor = $clrMuted
+$lblCleanupMode.AutoSize  = $true
+$lblCleanupMode.Location  = New-Object System.Drawing.Point(376, 58)
+$lblCleanupMode.BackColor = [System.Drawing.Color]::Transparent
+
+$cmbCleanupMode = New-Object System.Windows.Forms.ComboBox
+$cmbCleanupMode.DropDownStyle = "DropDownList"
+$cmbCleanupMode.Items.AddRange(@("Safe", "Radical"))
+$cmbCleanupMode.SelectedItem = "Safe"
+$cmbCleanupMode.Width = 100
+$cmbCleanupMode.Location = New-Object System.Drawing.Point(376, 76)
+$cmbCleanupMode.BackColor = $clrRaised
+$cmbCleanupMode.ForeColor = $clrText
+$cmbCleanupMode.Font = $fntUI
+$cmbCleanupMode.FlatStyle = "Flat"
 
 $pnlAdvancedTools.Controls.AddRange(@(
     $lblAdvancedActions,
     $btnHealthApply, $btnPkgFix, $btnNvmePlan, $btnDeepScanJump, $btnPartitionPlan, $btnDiagnostics,
-    $btnCompute, $btnApplyThrottle, $btnDefenderReview, $btnAudit, $btnExecute
+    $btnCompute, $btnApplyThrottle, $btnDefenderReview,
+    $lblCleanupMode, $cmbCleanupMode, $btnAudit, $btnExecute
 ))
 
 $btnCancelAnalyze.Enabled  = $false
@@ -534,20 +555,37 @@ $pnlScanOptions.Dock      = "Top"
 $pnlScanOptions.Height    = 58
 $pnlScanOptions.BackColor = $clrSurface
 
+$lblDrivePick = New-Object System.Windows.Forms.Label
+$lblDrivePick.Text      = "DRIVE"
+$lblDrivePick.Font      = $fntSmall
+$lblDrivePick.ForeColor = $clrMuted
+$lblDrivePick.AutoSize  = $true
+$lblDrivePick.Location  = New-Object System.Drawing.Point(12, 6)
+$lblDrivePick.BackColor = [System.Drawing.Color]::Transparent
+
+$cmbDrive = New-Object System.Windows.Forms.ComboBox
+$cmbDrive.DropDownStyle = "DropDownList"
+$cmbDrive.Width = 72
+$cmbDrive.Location = New-Object System.Drawing.Point(12, 24)
+$cmbDrive.BackColor = $clrRaised
+$cmbDrive.ForeColor = $clrText
+$cmbDrive.Font = $fntUI
+$cmbDrive.FlatStyle = "Flat"
+
 $lblDepth = New-Object System.Windows.Forms.Label
 $lblDepth.Text      = "SCAN"
 $lblDepth.Font      = $fntSmall
 $lblDepth.ForeColor = $clrMuted
 $lblDepth.AutoSize  = $true
-$lblDepth.Location  = New-Object System.Drawing.Point(12, 6)
+$lblDepth.Location  = New-Object System.Drawing.Point(96, 6)
 $lblDepth.BackColor = [System.Drawing.Color]::Transparent
 
 $cmbDepth = New-Object System.Windows.Forms.ComboBox
 $cmbDepth.DropDownStyle = "DropDownList"
 $cmbDepth.Items.AddRange(@("Quick", "Standard", "Deep"))
 $cmbDepth.SelectedItem = "Standard"
-$cmbDepth.Width = 108
-$cmbDepth.Location = New-Object System.Drawing.Point(12, 24)
+$cmbDepth.Width = 100
+$cmbDepth.Location = New-Object System.Drawing.Point(96, 24)
 $cmbDepth.BackColor = $clrRaised
 $cmbDepth.ForeColor = $clrText
 $cmbDepth.Font = $fntUI
@@ -558,64 +596,26 @@ $lblAuditLevel.Text      = "DETAIL"
 $lblAuditLevel.Font      = $fntSmall
 $lblAuditLevel.ForeColor = $clrMuted
 $lblAuditLevel.AutoSize  = $true
-$lblAuditLevel.Location  = New-Object System.Drawing.Point(132, 6)
+$lblAuditLevel.Location  = New-Object System.Drawing.Point(208, 6)
 $lblAuditLevel.BackColor = [System.Drawing.Color]::Transparent
 
 $cmbAuditLevel = New-Object System.Windows.Forms.ComboBox
 $cmbAuditLevel.DropDownStyle = "DropDownList"
 $cmbAuditLevel.Items.AddRange(@("FileLevel", "BitLevel"))
-$cmbAuditLevel.SelectedItem = "FileLevel"
-$cmbAuditLevel.Width = 108
-$cmbAuditLevel.Location = New-Object System.Drawing.Point(132, 24)
+$cmbAuditLevel.SelectedItem = "BitLevel"
+$cmbAuditLevel.Width = 100
+$cmbAuditLevel.Location = New-Object System.Drawing.Point(208, 24)
 $cmbAuditLevel.BackColor = $clrRaised
 $cmbAuditLevel.ForeColor = $clrText
 $cmbAuditLevel.Font = $fntUI
 $cmbAuditLevel.FlatStyle = "Flat"
-
-$lblCleanupMode = New-Object System.Windows.Forms.Label
-$lblCleanupMode.Text      = "MODE"
-$lblCleanupMode.Font      = $fntSmall
-$lblCleanupMode.ForeColor = $clrMuted
-$lblCleanupMode.AutoSize  = $true
-$lblCleanupMode.Location  = New-Object System.Drawing.Point(252, 6)
-$lblCleanupMode.BackColor = [System.Drawing.Color]::Transparent
-
-$cmbCleanupMode = New-Object System.Windows.Forms.ComboBox
-$cmbCleanupMode.DropDownStyle = "DropDownList"
-$cmbCleanupMode.Items.AddRange(@("Safe", "Radical"))
-$cmbCleanupMode.SelectedItem = "Safe"
-$cmbCleanupMode.Width = 92
-$cmbCleanupMode.Location = New-Object System.Drawing.Point(252, 24)
-$cmbCleanupMode.BackColor = $clrRaised
-$cmbCleanupMode.ForeColor = $clrText
-$cmbCleanupMode.Font = $fntUI
-$cmbCleanupMode.FlatStyle = "Flat"
-
-$lblFixLevel = New-Object System.Windows.Forms.Label
-$lblFixLevel.Text      = "MAX FIX"
-$lblFixLevel.Font      = $fntSmall
-$lblFixLevel.ForeColor = $clrMuted
-$lblFixLevel.AutoSize  = $true
-$lblFixLevel.Location  = New-Object System.Drawing.Point(356, 6)
-$lblFixLevel.BackColor = [System.Drawing.Color]::Transparent
-
-$cmbFixLevel = New-Object System.Windows.Forms.ComboBox
-$cmbFixLevel.DropDownStyle = "DropDownList"
-$cmbFixLevel.Items.AddRange(@("Safe", "Moderate", "Aggressive"))
-$cmbFixLevel.SelectedItem = "Safe"
-$cmbFixLevel.Width = 108
-$cmbFixLevel.Location = New-Object System.Drawing.Point(356, 24)
-$cmbFixLevel.BackColor = $clrRaised
-$cmbFixLevel.ForeColor = $clrText
-$cmbFixLevel.Font = $fntUI
-$cmbFixLevel.FlatStyle = "Flat"
 
 $lblTop = New-Object System.Windows.Forms.Label
 $lblTop.Text      = "TOP"
 $lblTop.Font      = $fntSmall
 $lblTop.ForeColor = $clrMuted
 $lblTop.AutoSize  = $true
-$lblTop.Location  = New-Object System.Drawing.Point(476, 6)
+$lblTop.Location  = New-Object System.Drawing.Point(320, 6)
 $lblTop.BackColor = [System.Drawing.Color]::Transparent
 
 $numTop = New-Object System.Windows.Forms.NumericUpDown
@@ -623,7 +623,7 @@ $numTop.Minimum  = 5
 $numTop.Maximum  = 100
 $numTop.Value    = 25
 $numTop.Width    = 58
-$numTop.Location = New-Object System.Drawing.Point(476, 24)
+$numTop.Location = New-Object System.Drawing.Point(320, 24)
 $numTop.BackColor = $clrRaised
 $numTop.ForeColor = $clrText
 $numTop.Font = $fntUI
@@ -633,7 +633,7 @@ $lblExplorerHint.Text      = "Double-click a row to open the path"
 $lblExplorerHint.Font      = $fntSmall
 $lblExplorerHint.ForeColor = $clrMuted
 $lblExplorerHint.AutoSize  = $true
-$lblExplorerHint.Location  = New-Object System.Drawing.Point(548, 28)
+$lblExplorerHint.Location  = New-Object System.Drawing.Point(392, 28)
 $lblExplorerHint.BackColor = [System.Drawing.Color]::Transparent
 
 $pnlScanOptionsBorder = New-Object System.Windows.Forms.Panel
@@ -642,8 +642,7 @@ $pnlScanOptionsBorder.Height    = 1
 $pnlScanOptionsBorder.BackColor = $clrBorderC
 
 $pnlScanOptions.Controls.AddRange(@(
-    $lblDepth, $cmbDepth, $lblAuditLevel, $cmbAuditLevel,
-    $lblCleanupMode, $cmbCleanupMode, $lblFixLevel, $cmbFixLevel,
+    $lblDrivePick, $cmbDrive, $lblDepth, $cmbDepth, $lblAuditLevel, $cmbAuditLevel,
     $lblTop, $numTop, $lblExplorerHint, $pnlScanOptionsBorder
 ))
 
@@ -696,7 +695,7 @@ $listExplorer.ForeColor     = $clrText
 $listExplorer.Font          = $fntUI
 $listExplorer.BorderStyle   = "None"
 $listExplorer.Columns.Add("Score",     68)  | Out-Null
-$listExplorer.Columns.Add("Risk",      76)  | Out-Null
+    $listExplorer.Columns.Add("Class",     100) | Out-Null
 $listExplorer.Columns.Add("Drive",     54)  | Out-Null
 $listExplorer.Columns.Add("Path",      384) | Out-Null
 $listExplorer.Columns.Add("Category",  100) | Out-Null
@@ -1371,10 +1370,10 @@ function Apply-GuiLanguage {
     $btnSaveConfig.Text = Get-I18n 'buttons.save_settings'
     $btnReloadConfig.Text = Get-I18n 'buttons.reload'
     $lblDepth.Text = Get-I18n 'labels.scan_depth'
+    $lblDrivePick.Text = Get-I18n 'labels.drive'
     $lblAuditLevel.Text = Get-I18n 'labels.detail'
     $lblCleanupMode.Text = Get-I18n 'labels.mode'
     $lblTop.Text = Get-I18n 'labels.top'
-    $lblFixLevel.Text = Get-I18n 'labels.max_fix'
     $lblDeepFixLabel.Text = Get-I18n 'labels.max_fix'
     $lblDeepFilterLabel.Text = Get-I18n 'labels.show'
     $lblExplorerHint.Text = Get-I18n 'labels.explorer_hint'
@@ -1702,20 +1701,31 @@ function Open-DiagnosticsBundle {
 }
 
 function Refresh-Drives {
-    $drives = Get-PSDrive -PSProvider FileSystem | Where-Object { $_.Name -in @("C", "D") }
+    $drives = @(Get-PSDrive -PSProvider FileSystem | Where-Object { $_.Name -match '^[A-Z]$' -and $null -ne $_.Used })
     $parts = @()
+    $selected = $null
+    if ($cmbDrive.SelectedItem) { $selected = [string]$cmbDrive.SelectedItem }
+    $cmbDrive.Items.Clear()
     foreach ($d in $drives) {
+        [void]$cmbDrive.Items.Add($d.Name)
         $total   = $d.Free + $d.Used
         $usedPct = if ($total -gt 0) { [int](($d.Used / $total) * 100) } else { 0 }
         $freeGB  = [math]::Round($d.Free / 1GB, 1)
-        if ($d.Name -eq "C") {
+        if ($d.Name -eq "C" -and $lblDriveC) {
             $lblDriveC.Text = "C:  $freeGB GB free"
             $pbDriveC.Value = [Math]::Min(100, $usedPct)
-        } elseif ($d.Name -eq "D") {
+        } elseif ($d.Name -eq "D" -and $lblDriveD) {
             $lblDriveD.Text = "D:  $freeGB GB free"
             $pbDriveD.Value = [Math]::Min(100, $usedPct)
         }
         $parts += "$($d.Name): $freeGB GB free ($usedPct%)"
+    }
+    if ($selected -and $cmbDrive.Items.Contains($selected)) {
+        $cmbDrive.SelectedItem = $selected
+    } elseif ($cmbDrive.Items.Contains("C")) {
+        $cmbDrive.SelectedItem = "C"
+    } elseif ($cmbDrive.Items.Count -gt 0) {
+        $cmbDrive.SelectedIndex = 0
     }
     $lblStatusRight.Text = ("PSHost: {0}  |  {1}" -f (Split-Path -Leaf $script:psHost), (Get-Date -Format "HH:mm:ss"))
     if ($parts) { Append-Status ($parts -join "  |  ") }
@@ -1759,6 +1769,14 @@ function Populate-Explorer {
         [void]$item.SubItems.Add([string]$row.FilesScanned)
 
         switch ([string]$row.Recommendation) {
+            "SafeDelete" {
+                $item.BackColor = $clrRowHigh
+                $item.ForeColor = $clrTxtHigh
+            }
+            "PersonalHitl" {
+                $item.BackColor = $clrRowAmber
+                $item.ForeColor = $clrTxtAmber
+            }
             "High" {
                 $item.BackColor = $clrRowHigh
                 $item.ForeColor = $clrTxtHigh
@@ -1847,7 +1865,7 @@ function Set-AnalysisUiState {
     $cmbDepth.Enabled = -not $IsBusy
     $cmbAuditLevel.Enabled = -not $IsBusy
     $cmbCleanupMode.Enabled = -not $IsBusy
-    $cmbFixLevel.Enabled = -not $IsBusy
+    if ($cmbDrive) { $cmbDrive.Enabled = -not $IsBusy }
     $numTop.Enabled = -not $IsBusy
     $btnCancelAnalyze.Enabled   = $IsBusy
     $btnCancelAnalyze.ForeColor = if ($IsBusy) { $clrRed } else { $clrMuted }
@@ -2191,7 +2209,7 @@ function Poll-GarbageAnalysis {
         return
     }
 
-    if (Wait-ForOutputFile -Path $script:analysisCsv -TimeoutMs 4000) {
+    if (Wait-ForOutputFile -Path $script:analysisCsv -TimeoutMs 8000) {
         $rows = Import-Csv -LiteralPath $script:analysisCsv -ErrorAction SilentlyContinue
         if ($rows) {
             Populate-Explorer -Rows @($rows)
@@ -2205,9 +2223,27 @@ function Poll-GarbageAnalysis {
             $lblAnalysisState.Text = ("Analyzer completed in {0}s with no rows." -f $durationSec)
         }
     } else {
-        Populate-Explorer -Rows @()
-        Append-Status ("Analyzer completed in {0}s but output CSV was not found." -f $durationSec)
-        $lblAnalysisState.Text = ("Analyzer completed in {0}s but output CSV missing." -f $durationSec)
+        # Fallback: rebuild explorer from JSON if CSV missing (race / empty export).
+        $occupancyJson = Join-Path $script:hubRoot "logs\disk-occupancy-latest.json"
+        $recovered = $false
+        if (Test-Path -LiteralPath $occupancyJson) {
+            try {
+                $j = Get-Content -LiteralPath $occupancyJson -Raw -ErrorAction Stop | ConvertFrom-Json
+                $rows = @($j.Explorer)
+                if ($rows.Count -gt 0) {
+                    Populate-Explorer -Rows $rows
+                    Append-Status ("Explorer recovered from JSON ({0} rows) after CSV miss in {1}s." -f $rows.Count, $durationSec)
+                    $lblAnalysisState.Text = ("Analyzer completed in {0}s (JSON fallback)." -f $durationSec)
+                    $recovered = $true
+                }
+            } catch { }
+        }
+        if (-not $recovered) {
+            Populate-Explorer -Rows @()
+            $errTail = Get-WorkerErrorTail -ErrorPath $script:analysisStdErr
+            Append-Status ("Analyzer completed in {0}s but output CSV was not found. {1}" -f $durationSec, $errTail)
+            $lblAnalysisState.Text = ("Analyzer completed in {0}s but output CSV missing." -f $durationSec)
+        }
     }
 
     $script:analysisProcess = $null
@@ -2597,7 +2633,7 @@ function Run-HealthAudit {
         $script:healthAuditApplyPackagesOnly = [bool]$ApplyPackagesOnly
         $script:healthAuditApplyFindingIds = @()
         $script:healthApplyInProgress = $false
-        $script:healthAuditMaxLevel = if ($ApplyPackagesOnly) { 'Safe' } else { [string]$cmbFixLevel.SelectedItem }
+        $script:healthAuditMaxLevel = if ($ApplyPackagesOnly) { 'Safe' } else { [string]$cmbDeepFixLevel.SelectedItem }
 
         $started = $false
         if (Get-Command Start-HubAsyncWorker -ErrorAction SilentlyContinue) {
@@ -3817,13 +3853,14 @@ function Run-GarbageAnalysis {
 
     $depth = [string]$cmbDepth.SelectedItem
     $auditLevel = [string]$cmbAuditLevel.SelectedItem
-    $cleanupMode = [string]$cmbCleanupMode.SelectedItem
     $top = [int]$numTop.Value
+    $drive = if ($cmbDrive.SelectedItem) { [string]$cmbDrive.SelectedItem } else { 'C' }
 
     try {
-        Append-Status ("Analyzing garbage hotspots Depth={0} Audit={1} Mode={2} Top={3}" -f $depth, $auditLevel, $cleanupMode, $top)
+        Append-Status ("Analyzing disk occupancy Drive={0} Depth={1} Audit={2} Top={3}" -f $drive, $depth, $auditLevel, $top)
         $script:analysisTimeoutSec = Get-AnalysisTimeoutSec -Depth $depth
         $script:analysisSoftTimeoutWarned = $false
+        $occupancyJson = Join-Path $script:hubRoot "logs\disk-occupancy-latest.json"
 
         $started = $false
         if (Get-Command Start-HubAsyncWorker -ErrorAction SilentlyContinue) {
@@ -3831,12 +3868,12 @@ function Run-GarbageAnalysis {
                 -PsHost $script:psHost `
                 -ScriptPath $script:analyzerScript `
                 -ExtraArgs @(
-                    '-Drives', 'C,D',
+                    '-Drive', $drive,
                     '-Top', "$top",
                     '-Depth', $depth,
                     '-AuditLevel', $auditLevel,
-                    '-CleanupMode', $cleanupMode,
-                    '-OutputCsv', $script:analysisCsv
+                    '-OutputCsv', $script:analysisCsv,
+                    '-OutputJson', $occupancyJson
                 ) `
                 -OutputPaths @($script:analysisCsv, $script:analysisStdOut, $script:analysisStdErr) `
                 -StdOutPath $script:analysisStdOut `
@@ -3853,9 +3890,10 @@ function Run-GarbageAnalysis {
             Remove-IfExists -Path $script:analysisStdErr
             $args = @(
                 "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $script:analyzerScript,
-                "-Drives", "C,D", "-Top", "$top", "-Depth", $depth,
-                "-AuditLevel", $auditLevel, "-CleanupMode", $cleanupMode,
-                "-OutputCsv", $script:analysisCsv
+                "-Drive", $drive, "-Top", "$top", "-Depth", $depth,
+                "-AuditLevel", $auditLevel,
+                "-OutputCsv", $script:analysisCsv,
+                "-OutputJson", $occupancyJson
             )
             $script:analysisStartedAt = Get-Date
             $script:analysisProcess = Start-Process -FilePath $script:psHost -ArgumentList $args -WindowStyle Hidden -RedirectStandardOutput $script:analysisStdOut -RedirectStandardError $script:analysisStdErr -PassThru
@@ -4303,11 +4341,11 @@ $btnHealthAudit.Add_Click({
     }
 })
 $btnHealthApply.Add_Click({
-    $level = [string]$cmbFixLevel.SelectedItem
+    $level = [string]$cmbDeepFixLevel.SelectedItem
     $msg = if ($script:guiLanguage -eq 'it') {
-        "Scansione + fix automatici fino al livello '$level'.`n`nUna soluzione per finding. Rischio: Med-Alto.`n`nContinuare?"
+        "Scansione + fix automatici fino al livello '$level' (impostazione FIX MAX nella tab Salute).`n`nUna soluzione per finding. Rischio: Med-Alto.`n`nContinuare?"
     } else {
-        "Scan + auto-apply fixes up to '$level' level.`n`nOne solution per finding. Risk: Med-High.`n`nContinue?"
+        "Scan + auto-apply fixes up to '$level' (FIX MAX on Health tab).`n`nOne solution per finding. Risk: Med-High.`n`nContinue?"
     }
     $confirm = [System.Windows.Forms.MessageBox]::Show($msg, (Get-I18n 'buttons.health_apply'), "YesNo", "Warning")
     if ($confirm -eq "Yes") {

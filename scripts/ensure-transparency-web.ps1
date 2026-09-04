@@ -84,12 +84,7 @@ if (Test-TransparencyWebHealthy) {
     if (Test-Path -LiteralPath $pidFile) {
         try { $result.Pid = [int](Get-Content -LiteralPath $pidFile -Raw).Trim() } catch { }
     }
-    if ($result.Pid -le 0) {
-        try {
-            $owner = Get-NetTCPConnection -LocalAddress $BindAddress -LocalPort $Port -State Listen -ErrorAction Stop | Select-Object -First 1
-            if ($owner) { $result.Pid = [int]$owner.OwningProcess; Save-TransparencyWebPid -WebPid $result.Pid }
-        } catch { }
-    }
+    # Avoid Get-NetTCPConnection here: it can hang indefinitely on some Windows hosts.
     if (-not $Quiet) { Write-Host $result.Message }
     $result | ConvertTo-Json -Depth 4
     exit 0
