@@ -30,6 +30,8 @@ $items = @(
     (Join-Path $scriptDir "ensure-powershell-core.ps1"),
     (Join-Path $scriptDir "audit-disk-hotspots.ps1"),
     (Join-Path $scriptDir "analyze-garbage-hotspots.ps1"),
+    (Join-Path $scriptDir "analyze-disk-occupancy.ps1"),
+    (Join-Path $scriptDir "lib\disk-occupancy.ps1"),
     (Join-Path $scriptDir "analyze-compute-resources.ps1"),
     (Join-Path $scriptDir "analyze-process-pressure.ps1"),
     (Join-Path $scriptDir "apply-process-pressure-safe.ps1"),

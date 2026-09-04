@@ -16,7 +16,8 @@ Workspace operativo globale su C, D e sistema operativo, con profilo centralizza
 - `scripts/fs-integrity.ps1` — scan-only integrita filesystem (non ripara con `-Execute`).
 - `scripts/cleanup-storage-safe.ps1` — Safe/Radical + AuditDepth/AuditLevel.
 - `scripts/quick-cleanup-safe.ps1` — target sicuri, retention breve.
-- `scripts/analyze-garbage-hotspots.ps1` — ranking cartelle reclaim-prone.
+- `scripts/analyze-garbage-hotspots.ps1` — ranking cartelle reclaim-prone (legacy folder score).
+- `scripts/analyze-disk-occupancy.ps1` + `lib/disk-occupancy.ps1` — classificazione file per unità (`SafeDelete` / `SystemBound` / `AppBound` / `PersonalHitl`), magic-byte + cluster NTFS.
 - `scripts/analyze-compute-resources.ps1` — legacy wrapper compute score.
 - `scripts/analyze-process-pressure.ps1` — Process Pressure Intelligence (`ProcessPressureReport.v1`).
 - `scripts/apply-process-pressure-safe.ps1` — safe apply + rollback JSON.
@@ -72,7 +73,7 @@ Per ogni cartella candidata:
   - Deep: alta copertura, overhead maggiore.
 - AuditLevel:
   - FileLevel: stima su dimensione logica file.
-  - BitLevel: stima su allocazione cluster (piu precisa su spazio fisico).
+  - BitLevel: **non** è uno scan bit-a-bit del disco. È (1) allocazione cluster NTFS, (2) magic-byte header campionato, (3) LCN/extent su file grandi. Un bitstream completo sarebbe troppo costoso e non classifica meglio i file.
 - CleanupMode:
   - Safe: retention conservativa, target a basso rischio.
   - Radical: retention piu stretta e target aggiuntivi controllati.

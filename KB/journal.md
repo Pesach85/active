@@ -1,6 +1,19 @@
 ### Esito
 Smoke ALL PASSED; push `c397d51` v3.5.2.
 
+## 2026-09-04 — Disk occupancy GUI + CSV fix
+
+### Obiettivo
+Controlli storage coerenti (PROFONDITÀ / PULIZIA / FIX MAX), CSV sempre emesso, focus C (D intoccabile).
+
+### Modifiche
+- GUI: FIX MAX solo Salute; PULIZIA solo Altri strumenti; fallback JSON se CSV manca
+- `analyze-disk-occupancy.ps1`: CSV placeholder se Explorer vuoto
+- KB `disk-occupancy-decision.md` + runbook controlli GUI
+
+### Esito
+Occupancy Quick C → CSV_OK; ensure-transparency no longer hangs on Get-NetTCPConnection; hub-smoke storage steps OK (full smoke aborted once on web hang, then fixed).
+
 ## 2026-08-28 — Bug 30 health apply wbadmin hang
 
 ### Obiettivo
@@ -2641,3 +2654,28 @@ Add startup-integrity audit/repair; unregister stale AtStartup task; wire Health
 
 ### Esito
 Task gone; audit NeedsRepair=0; smoke startup-integrity OK; dist packaged. Full smoke hung on pre-existing transparency-web-ensure wait.
+
+## 2026-09-04 09:57:03
+### Obiettivo
+Ripristinare C:\DataHub come mount NTFS sul volume D: dopo il drop del reparse.
+
+### Task
+Inventario, recover TEMP su D:, staging remount Safe (pagefile/TEMP fisici + pending rename + task AtStartup S10).
+
+### Modifiche
+- Robocopy 40/42 file C:\DataHub\Temp\User -> D:\Temp\User (16.68 MB)
+- TEMP User/Machine puntati a D:\Temp\User e D:\Temp\System
+- PagingFiles -> D:\Pagefile\pagefile.sys 2048 4096 + C:\pagefile.sys 512 1024
+- MoveFileEx DELAY_UNTIL_REBOOT C:\DataHub -> C:\_DataHub_dismount_bak_reboot
+- Task DataHub-Remount-Once AtStartup + scripts/restore-datahub-mount-atstartup.ps1
+- Guard S10/S20/S30/S80: no Ensure-Dir su DataHub se non e un mount
+- KB/datahub-mount-recovery-20260904.md
+
+### Decisioni
+- Target mount = intero volume D: via Add-PartitionAccessPath (S10), non junction e non D:\DataHub
+- Pagefile non spostato a caldo: gia in uso su D:\Pagefile; registry allineato al path fisico per reboot sicuro
+- Remount live bloccato (Access denied). Staging reboot invece di kill shell Cursor / IntelGfx
+- D:\Temp\IntelGfx lasciato intatto
+
+### Esito
+Recover fatto. Remount staged: serve reboot HITL. C:\DataHub resta directory-trappola fino al boot.
