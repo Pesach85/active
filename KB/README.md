@@ -12,7 +12,7 @@ Knowledge base operativa giornaliera. La conoscenza strutturata permanente vive 
 | `hub-hitl-paths-decision.md` | **Phase 3 HITL:** resolve apply, defender apply, HUB_USE_CORE — pro/contro e matrice decisionale |
 | `network-deep-scan-design.md` | **Phase 5:** multi-layer network deep scan (cross-diff, UDP, DNS, Tor heuristics, memory forensics) |
 | `multi-platform-install-decision.md` | **Install:** Windows dev-sync, Linux user install, Android native UX |
-| `cursor-skills-adoption.md` | **Skills Cursor:** orchestrazione + catalogo skill adottate (fable/chrisboden) |
+| `cursor-skills-adoption.md` | **Skills Cursor:** matrice A/E/V/R, catalogo Hub + routing amplificatori Cursor |
 | `disk-occupancy-decision.md` | **Storage:** classificazione granulare unità, BitLevel onesto, SafeDelete vs HITL |
 | `vmware-health-mks-decision.md` | **VMware:** inventory/diagnose MKS mksSandbox; safe 3D-off + stale locks; HITL for disk/power |
 | `datahub-mount-recovery-20260904.md` | **DataHub:** mount C:\DataHub → D: rotto il 2026-09-04; recover + remount staged reboot |

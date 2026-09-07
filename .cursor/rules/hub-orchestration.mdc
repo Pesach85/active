@@ -39,8 +39,25 @@ Usa quando l'utente chiede fix/feature/refactor concreti sul codice. Scrivi codi
 | Smoke / quality gate / parity / pre-ship | `hub-quality-gate` |
 | Android APK / device / ADB / UX mobile | `android-on-device-maintenance` |
 | Commit + push + KB | `hub-kb-commit-push` |
+| Deploy Windows / dev-sync / BuildGui | `windows-dev-sync` |
+| Package Linux suite / dist LinuxOptimizer | `linux-suite-package` |
 | Transparency / T0-T3 / dashboard :8765 | `docs/skills/transparency-control` |
-| Nuova skill ricorrente | `skill-creator` |
+| Nuova skill ricorrente Hub | `skill-creator` |
+
+## Routing skill Cursor globali (amplificatori Hub)
+
+Usare le skill Cursor già installate (path utente/Cursor), **senza** duplicarle nel repo:
+
+| Intent utente | Skill |
+|---------------|-------|
+| Artefatto analitico standalone (metriche, matrici, audit) | `canvas` |
+| PR merge-ready / CI + commenti in loop | `babysit` |
+| Gate/monitor ricorrente in sessione | `loop` → poi `hub-quality-gate` |
+| Review Bugbot su diff | `review-bugbot` |
+| Review security su diff | `review-security` |
+| Hook agent (pre/post tool, gate shell) | `create-hook` |
+
+**Fuori scope Hub** (non wrappare, non creare skill Hub): Cloudflare suite, Rockwell/Siemens/TIA, SEO indexing, document-skills docx/pdf, new-repo/share/origin.
 
 ## Hard don'ts (dal kit Fable, adattati)
 
