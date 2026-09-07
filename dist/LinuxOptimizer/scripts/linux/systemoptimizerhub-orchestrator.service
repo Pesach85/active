@@ -1,0 +1,12 @@
+[Unit]
+Description=System Optimizer Hub orchestrator tick
+After=network.target
+
+[Service]
+Type=oneshot
+Environment=HUB_ROOT=%h/.local/opt/systemoptimizerhub
+ExecStart=%h/.local/bin/hub analyze pressure --duration 3 --top 5
+WorkingDirectory=%h/.local/opt/systemoptimizerhub
+
+[Install]
+WantedBy=default.target

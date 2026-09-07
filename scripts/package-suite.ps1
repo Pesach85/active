@@ -30,19 +30,70 @@ $items = @(
     (Join-Path $scriptDir "ensure-powershell-core.ps1"),
     (Join-Path $scriptDir "audit-disk-hotspots.ps1"),
     (Join-Path $scriptDir "analyze-garbage-hotspots.ps1"),
+    (Join-Path $scriptDir "analyze-disk-occupancy.ps1"),
+    (Join-Path $scriptDir "lib\disk-occupancy.ps1"),
+    (Join-Path $scriptDir "analyze-vmware-health.ps1"),
+    (Join-Path $scriptDir "lib\vmware-health.ps1"),
     (Join-Path $scriptDir "analyze-compute-resources.ps1"),
+    (Join-Path $scriptDir "analyze-process-pressure.ps1"),
+    (Join-Path $scriptDir "apply-process-pressure-safe.ps1"),
+    (Join-Path $scriptDir "evaluate-defender-extreme-necessity.ps1"),
+    (Join-Path $scriptDir "scan-network-deep.ps1"),
+    (Join-Path $scriptDir "apply-network-action.ps1"),
+    (Join-Path $scriptDir "apply-defender-extreme-necessity.ps1"),
+    (Join-Path $scriptDir "restore-defender-from-rollback.ps1"),
+    (Join-Path $scriptDir "lib\process-pressure-core.ps1"),
+    (Join-Path $scriptDir "lib\resource-budget.ps1"),
+    (Join-Path $scriptDir "build-optimization-context.ps1"),
+    (Join-Path $scriptDir "build-transparency-report.ps1"),
+    (Join-Path $scriptDir "serve-transparency-dashboard.ps1"),
+    (Join-Path $scriptDir "run-transparency-web.bat"),
+    (Join-Path $scriptDir "run-transparency-web.ps1"),
+    (Join-Path $scriptDir "lib\process-forensics.ps1"),
+    (Join-Path $scriptDir "ensure-transparency-web.ps1"),
+    (Join-Path $scriptDir "install-orchestrator-task.ps1"),
+    (Join-Path $scriptDir "lib\transparency-policy.ps1"),
+    (Join-Path $scriptDir "lib\transparency-events.ps1"),
+    (Join-Path $scriptDir "lib\hub-decision-log.ps1"),
+    (Join-Path $scriptDir "lib\hub-core-routing.ps1"),
+    (Join-Path $scriptDir "lib\network-transparency.ps1"),
+    (Join-Path $scriptDir "lib\network-deep-scan.ps1"),
+    (Join-Path $scriptDir "lib\process-knowledge.ps1"),
+    (Join-Path $scriptDir "lib\process-catalog-merge.ps1"),
+    (Join-Path $scriptDir "lib\process-resolution-policy.ps1"),
+    (Join-Path $scriptDir "lib\windows-app-install.ps1"),
+    (Join-Path $scriptDir "lib\operator-auth.ps1"),
+    (Join-Path $scriptDir "lib\startup-integrity.ps1"),
+    (Join-Path $scriptDir "audit-startup-integrity.ps1"),
+    (Join-Path $scriptDir "identify-unknown-process.ps1"),
+    (Join-Path $scriptDir "resolve-unknown-process.ps1"),
+    (Join-Path $configDir "process-resolution.json"),
+    (Join-Path $configDir "process-forensics.json"),
+    (Join-Path $scriptDir "enrich-process-classification.ps1"),
+    (Join-Path $configDir "process-knowledge.json"),
+    (Join-Path $configDir "process-intelligence.json"),
     (Join-Path $scriptDir "analyze-nvme-readonly-plan.ps1"),
     (Join-Path $scriptDir "analyze-recovery-partition-legacy.ps1"),
+    (Join-Path $scriptDir "privacy-scan-secrets.ps1"),
     (Join-Path $scriptDir "system-optimizer-gui.ps1"),
     (Join-Path $scriptDir "build-gui-exe.ps1"),
     (Join-Path $scriptDir "install-suite.ps1"),
+    (Join-Path $scriptDir "install-windows-app.ps1"),
+    (Join-Path $scriptDir "uninstall-windows-app.ps1"),
+    (Join-Path $scriptDir "dev-sync-production.ps1"),
+    (Join-Path $scriptDir "build-android-apk.ps1"),
+    (Join-Path $scriptDir "install-android-apk.ps1"),
+    (Join-Path $scriptDir "test-android-device-smoke.ps1"),
+    (Join-Path $scriptDir "lib\android-build-config.ps1"),
     (Join-Path $scriptDir "uninstall-suite.ps1"),
     (Join-Path $scriptDir "run-gui.bat"),
     (Join-Path $scriptDir "run-install-suite.bat"),
     (Join-Path $scriptDir "run-uninstall-suite.bat"),
     (Join-Path $scriptDir "run-core-bootstrap.bat"),
     (Join-Path $scriptDir "run-disk-audit-safe.bat"),
-    (Join-Path $configDir "sys-maintenance.json")
+    (Join-Path $configDir "sys-maintenance.json"),
+    (Join-Path $configDir "install-profile.json"),
+    (Join-Path $configDir "android-build.json")
 )
 
 if (-not (Test-Path -LiteralPath $OutputDir)) {
@@ -51,27 +102,82 @@ if (-not (Test-Path -LiteralPath $OutputDir)) {
 
 $targetScripts = Join-Path $OutputDir "scripts"
 $targetConfig = Join-Path $OutputDir "config"
+$targetLib = Join-Path $targetScripts "lib"
 New-Item -Path $targetScripts -ItemType Directory -Force | Out-Null
+New-Item -Path $targetLib -ItemType Directory -Force | Out-Null
 New-Item -Path $targetConfig -ItemType Directory -Force | Out-Null
 
 foreach ($item in $items) {
     if (Test-Path -LiteralPath $item) {
         if ($item -match '[\\/]config[\\/]') {
             Copy-Item -LiteralPath $item -Destination $targetConfig -Force
+        } elseif ($item -match '[\\/]lib[\\/]') {
+            Copy-Item -LiteralPath $item -Destination $targetLib -Force
         } else {
             Copy-Item -LiteralPath $item -Destination $targetScripts -Force
         }
     }
 }
 
+$guiSource = Join-Path $scriptDir "gui"
+$sanitizeScript = Join-Path $scriptDir "sanitize-ps-ascii.ps1"
+if (Test-Path -LiteralPath $sanitizeScript) {
+    $sanitizePwsh = (Get-Command pwsh -ErrorAction SilentlyContinue).Path
+    if (-not $sanitizePwsh) { $sanitizePwsh = (Get-Command powershell.exe -ErrorAction SilentlyContinue).Path }
+    if ($sanitizePwsh) {
+        & $sanitizePwsh -NoProfile -ExecutionPolicy Bypass -File $sanitizeScript -Paths @($guiSource) -Recurse | Out-Null
+    }
+}
+$guiTarget = Join-Path $targetScripts "gui"
+if (Test-Path -LiteralPath $guiSource) {
+    if (Test-Path -LiteralPath $guiTarget) {
+        Remove-Item -LiteralPath $guiTarget -Recurse -Force -ErrorAction SilentlyContinue
+    }
+    Copy-Item -LiteralPath $guiSource -Destination $guiTarget -Recurse -Force
+}
+
+$localeSource = Join-Path $configDir "locale"
+$localeTarget = Join-Path $targetConfig "locale"
+if (Test-Path -LiteralPath $localeSource) {
+    if (Test-Path -LiteralPath $localeTarget) {
+        Remove-Item -LiteralPath $localeTarget -Recurse -Force -ErrorAction SilentlyContinue
+    }
+    Copy-Item -LiteralPath $localeSource -Destination $localeTarget -Recurse -Force
+}
+
+$catalogSource = Join-Path $configDir "command-catalog.json"
+if (Test-Path -LiteralPath $catalogSource) {
+    Copy-Item -LiteralPath $catalogSource -Destination $targetConfig -Force
+}
+
+$kbSource = Join-Path $hubRoot "KB"
+$kbTarget = Join-Path $OutputDir "KB"
+if (Test-Path -LiteralPath $kbSource) {
+    if (-not (Test-Path -LiteralPath $kbTarget)) {
+        New-Item -Path $kbTarget -ItemType Directory -Force | Out-Null
+    }
+    Copy-Item -LiteralPath (Join-Path $kbSource "process-knowledge-cache.json") -Destination $kbTarget -Force -ErrorAction SilentlyContinue
+    Copy-Item -LiteralPath (Join-Path $kbSource "operator-process-decisions.json") -Destination $kbTarget -Force -ErrorAction SilentlyContinue
+}
+
+$webSource = Join-Path $hubRoot "web\transparency"
+$webTarget = Join-Path $OutputDir "web\transparency"
+if (Test-Path -LiteralPath $webSource) {
+    if (Test-Path -LiteralPath $webTarget) {
+        Remove-Item -LiteralPath $webTarget -Recurse -Force -ErrorAction SilentlyContinue
+    }
+    New-Item -Path (Split-Path $webTarget -Parent) -ItemType Directory -Force | Out-Null
+    Copy-Item -LiteralPath $webSource -Destination $webTarget -Recurse -Force
+}
+
 # Force UTF-8 BOM on packaged PowerShell scripts for Windows PowerShell parsing compatibility.
 $utf8Bom = New-Object System.Text.UTF8Encoding($true)
-Get-ChildItem -LiteralPath $targetScripts -Filter "*.ps1" -File -ErrorAction SilentlyContinue | ForEach-Object {
+Get-ChildItem -LiteralPath $targetScripts -Filter "*.ps1" -File -Recurse -ErrorAction SilentlyContinue | ForEach-Object {
     try {
         $raw = Get-Content -LiteralPath $_.FullName -Raw
         [System.IO.File]::WriteAllText($_.FullName, $raw, $utf8Bom)
     } catch {
-        Write-Warning ("Skipping UTF-8 BOM normalization for locked file: {0}" -f $_.FullName)
+        Write-Warning ("Skipping UTF-8 BOM normalization for locked file: {0}" -f $_.Exception.Message)
     }
 }
 
@@ -97,12 +203,42 @@ Uninstall:
 Build GUI EXE:
   powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\build-gui-exe.ps1 -SourceScript .\\scripts\\system-optimizer-gui.ps1 -OutputExe .\\WindowsOptimizer.exe
 
-Analyze Compute Resources:
+Analyze Compute Resources (legacy wrapper):
     powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\analyze-compute-resources.ps1 -DurationSec 8 -Top 8
+
+Process Pressure Intelligence (full report):
+    powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\analyze-process-pressure.ps1 -DurationSec 8 -Top 8 -IncludeResearch -OutputJson .\\logs\\process-pressure-latest.json
+
+Apply safe auto-actions (audit-first):
+    powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\apply-process-pressure-safe.ps1 -InputJson .\\logs\\process-pressure-latest.json -OutputJson .\\logs\\process-pressure-apply.json -MaxLevel Safe
 
 Quick Cleanup (safe targets):
     powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\quick-cleanup-safe.ps1 -Execute -RetentionDays 2 -MaxFilesPerTarget 2000
 "@
 
 Set-Content -LiteralPath (Join-Path $OutputDir "README.txt") -Value $readme -Encoding UTF8
+
+$hubPublishDir = Join-Path $OutputDir "hub"
+$cliProject = Join-Path $hubRoot "src\SystemOptimizerHub.Cli\SystemOptimizerHub.Cli.csproj"
+if (Test-Path -LiteralPath $cliProject) {
+    Write-Host "Publishing hub CLI to $hubPublishDir ..."
+    dotnet publish $cliProject -c Release -o $hubPublishDir -v q --nologo
+    if ($LASTEXITCODE -ne 0) { throw "dotnet publish hub CLI failed" }
+    $hubBat = Join-Path $OutputDir "hub.cmd"
+    @"
+@echo off
+setlocal
+set HUB_DIR=%~dp0hub
+dotnet "%HUB_DIR%\SystemOptimizerHub.Cli.dll" %*
+"@ | Set-Content -LiteralPath $hubBat -Encoding ASCII
+}
+
+foreach ($bat in @('Launch-Hub.bat', 'Launch-Transparency-Web.bat')) {
+    $batSrc = Join-Path $scriptDir $bat
+    if (Test-Path -LiteralPath $batSrc) {
+        Copy-Item -LiteralPath $batSrc -Destination (Join-Path $OutputDir $bat) -Force
+    }
+}
+
 Write-Host "Package ready at: $OutputDir"
+

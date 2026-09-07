@@ -2,39 +2,28 @@
 param(
     [string]$InstallRoot = "",
     [string]$SourceRoot = "",
-    [switch]$CoreInstallIfMissing
+    [switch]$CoreInstallIfMissing,
+    [switch]$Desktop,
+    [switch]$DevSync,
+    [switch]$NoDevSync,
+    [switch]$RegisterTasks
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
+$scriptDir = $PSScriptRoot
 if ([string]::IsNullOrWhiteSpace($SourceRoot)) {
-    $SourceRoot = Split-Path $PSScriptRoot -Parent
-}
-if ([string]::IsNullOrWhiteSpace($InstallRoot)) {
-    $InstallRoot = Join-Path $SourceRoot "dist\WindowsOptimizer"
+    $SourceRoot = Split-Path $scriptDir -Parent
 }
 
-$scriptsSource = Join-Path $SourceRoot "scripts"
-$configSource = Join-Path $SourceRoot "config"
-
-if (-not (Test-Path -LiteralPath $scriptsSource)) {
-    throw "Source scripts folder not found: $scriptsSource"
+$installArgs = @{
+    HubRoot = $SourceRoot
+    Desktop = $true
 }
+if ($InstallRoot) { $installArgs['InstallRoot'] = $InstallRoot }
+if ($DevSync) { $installArgs['DevSync'] = $true }
+if ($NoDevSync) { $installArgs['NoDevSync'] = $true }
+if ($RegisterTasks -or $CoreInstallIfMissing) { $installArgs['RegisterTasks'] = $true }
 
-New-Item -Path $InstallRoot -ItemType Directory -Force | Out-Null
-New-Item -Path (Join-Path $InstallRoot "scripts") -ItemType Directory -Force | Out-Null
-New-Item -Path (Join-Path $InstallRoot "config") -ItemType Directory -Force | Out-Null
-New-Item -Path (Join-Path $InstallRoot "logs") -ItemType Directory -Force | Out-Null
-
-Copy-Item -LiteralPath (Join-Path $scriptsSource "*.ps1") -Destination (Join-Path $InstallRoot "scripts") -Force
-if (Test-Path -LiteralPath (Join-Path $configSource "sys-maintenance.json")) {
-    Copy-Item -LiteralPath (Join-Path $configSource "sys-maintenance.json") -Destination (Join-Path $InstallRoot "config") -Force
-}
-
-$ensureScript = Join-Path $InstallRoot "scripts\\ensure-powershell-core.ps1"
-if (Test-Path -LiteralPath $ensureScript) {
-    & powershell -NoProfile -ExecutionPolicy Bypass -File $ensureScript -InstallIfMissing:$CoreInstallIfMissing -ApplyTasksCoreOnly -MonitorInstallerPath (Join-Path $InstallRoot "scripts\\install-monitor-task.ps1") -CleanupInstallerPath (Join-Path $InstallRoot "scripts\\install-cleanup-task.ps1")
-}
-
-Write-Host "Suite installed in $InstallRoot"
+& (Join-Path $scriptDir 'install-windows-app.ps1') @installArgs

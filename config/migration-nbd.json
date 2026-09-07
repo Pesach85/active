@@ -1,0 +1,255 @@
+{
+  "SchemaVersion": "MigrationNbdConfig.v1",
+  "Description": "Deterministic rubric for PowerShell to C# migration next-best-decision scoring.",
+  "Weights": {
+    "ParityFeasibility": 0.25,
+    "RegressionRiskInverse": 0.25,
+    "UserValue": 0.20,
+    "GateReadiness": 0.20,
+    "EffortInverse": 0.10
+  },
+  "PassThreshold": 70.0,
+  "MandatoryGates": [
+    "dotnet_test",
+    "core_parity",
+    "hub_smoke"
+  ],
+  "Candidates": [
+    {
+      "Id": "phase0-foundation",
+      "Phase": 0,
+      "Title": "C# core scaffold + catalog parity",
+      "Status": "done",
+      "Scores": {
+        "ParityFeasibility": 100,
+        "RegressionRiskInverse": 95,
+        "UserValue": 70,
+        "GateReadiness": 100,
+        "EffortInverse": 100
+      }
+    },
+    {
+      "Id": "phase1-resolution-advisory",
+      "Phase": 1,
+      "Title": "Port ResolutionAdvisory (read-only) to Core",
+      "Status": "done",
+      "PsOrigin": "scripts/resolve-unknown-process.ps1",
+      "CoreTarget": "ResolutionAdvisoryService",
+      "Deliverable": "hub resolve advisory --name X",
+      "Scores": {
+        "ParityFeasibility": 88,
+        "RegressionRiskInverse": 82,
+        "UserValue": 92,
+        "GateReadiness": 85,
+        "EffortInverse": 78
+      },
+      "Rationale": "Builds on ProcessNecessityResolver (Phase 0). Read-only, no HITL. Unblocks web/GUI advisory path."
+    },
+    {
+      "Id": "phase1-ppi-analyze",
+      "Phase": 1,
+      "Title": "Port PPI analyze to Core",
+      "Status": "done",
+      "PsOrigin": "scripts/analyze-process-pressure.ps1",
+      "CoreTarget": "ProcessPressureAnalyzer",
+      "Deliverable": "hub analyze pressure",
+      "Scores": {
+        "ParityFeasibility": 72,
+        "RegressionRiskInverse": 78,
+        "UserValue": 88,
+        "GateReadiness": 70,
+        "EffortInverse": 55
+      },
+      "Rationale": "High product value but IO/snapshot timing parity is harder than advisory."
+    },
+    {
+      "Id": "phase1-transparency-report",
+      "Phase": 1,
+      "Title": "Port transparency report builder to Core",
+      "Status": "done",
+      "BlockedBy": ["phase1-ppi-analyze"],
+      "PsOrigin": "scripts/build-transparency-report.ps1",
+      "CoreTarget": "TransparencyReportBuilder",
+      "Deliverable": "hub transparency report",
+      "Scores": {
+        "ParityFeasibility": 58,
+        "RegressionRiskInverse": 65,
+        "UserValue": 95,
+        "GateReadiness": 45,
+        "EffortInverse": 40
+      },
+      "Rationale": "Aggregates PPI + network + agents. Defer until upstream analyzers have Core parity."
+    },
+    {
+      "Id": "phase2-identify-catalog",
+      "Phase": 2,
+      "Title": "Identify + catalog merge with HITL auth",
+      "Status": "done",
+      "HitlRequired": false,
+      "BlockedBy": ["phase1-resolution-advisory"],
+      "PsOrigin": "scripts/identify-unknown-process.ps1",
+      "CoreTarget": "CatalogMergeService + WindowsOperatorAuth",
+      "Deliverable": "hub auth verify, hub catalog merge|merge-direct|build-entry",
+      "Scores": {
+        "ParityFeasibility": 65,
+        "RegressionRiskInverse": 55,
+        "UserValue": 90,
+        "GateReadiness": 40,
+        "EffortInverse": 35
+      },
+      "Rationale": "Requires operator auth port. Phase 2 after read-only Phase 1 stable."
+    },
+    {
+      "Id": "phase2-resolve-plan",
+      "Phase": 2,
+      "Title": "Port resolve plan (dry-run outcomes) to Core",
+      "Status": "done",
+      "HitlRequired": false,
+      "BlockedBy": ["phase1-resolution-advisory"],
+      "PsOrigin": "scripts/resolve-unknown-process.ps1",
+      "CoreTarget": "ResolutionExecutionService",
+      "Deliverable": "hub resolve plan",
+      "Scores": {
+        "ParityFeasibility": 90,
+        "RegressionRiskInverse": 88,
+        "UserValue": 85,
+        "GateReadiness": 90,
+        "EffortInverse": 75
+      },
+      "Rationale": "Read-only planning parity with PS -DryRun and ActionBlocked gates. Live apply deferred (HITL)."
+    },
+    {
+      "Id": "phase2-defender-evaluate",
+      "Phase": 2,
+      "Title": "Port Defender extreme necessity evaluation (read-only)",
+      "Status": "done",
+      "HitlRequired": false,
+      "BlockedBy": ["phase1-ppi-analyze"],
+      "PsOrigin": "scripts/evaluate-defender-extreme-necessity.ps1",
+      "CoreTarget": "DefenderExtremeNecessityEvaluator",
+      "Deliverable": "hub defender evaluate",
+      "Scores": {
+        "ParityFeasibility": 85,
+        "RegressionRiskInverse": 90,
+        "UserValue": 80,
+        "GateReadiness": 88,
+        "EffortInverse": 70
+      },
+      "Rationale": "Tier scoring read-only. Apply path (disable Defender) remains HITL-blocked."
+    },
+    {
+      "Id": "phase3-resolve-apply",
+      "Phase": 3,
+      "Title": "Live resolve apply (throttle/terminate)",
+      "Status": "done",
+      "HitlRequired": true,
+      "BlockedBy": ["phase2-resolve-plan"],
+      "PsOrigin": "scripts/resolve-unknown-process.ps1",
+      "CoreTarget": "ResolutionExecutionService.Apply",
+      "Deliverable": "hub resolve apply + session HITL",
+      "Scores": {
+        "ParityFeasibility": 70,
+        "RegressionRiskInverse": 30,
+        "UserValue": 95,
+        "GateReadiness": 25,
+        "EffortInverse": 50
+      },
+      "Rationale": "Requires password + confirm phrase + OS mutation. Operator must approve HUB_USE_CORE on production paths."
+    },
+    {
+      "Id": "phase3-defender-apply",
+      "Phase": 3,
+      "Title": "Apply Defender extreme necessity tiers",
+      "Status": "done",
+      "HitlRequired": true,
+      "BlockedBy": ["phase2-defender-evaluate"],
+      "PsOrigin": "scripts/apply-defender-extreme-necessity.ps1",
+      "CoreTarget": "DefenderExtremeNecessityApplyService",
+      "Deliverable": "hub defender apply + session HITL",
+      "Scores": {
+        "ParityFeasibility": 55,
+        "RegressionRiskInverse": 15,
+        "UserValue": 75,
+        "GateReadiness": 20,
+        "EffortInverse": 40
+      },
+      "Rationale": "Maximum risk - disables AV. Mandatory HITL, rollback JSON, Tamper Protection off."
+    },
+    {
+      "Id": "phase4-hub-use-core",
+      "Phase": 4,
+      "Title": "HUB_USE_CORE rollout (parity domains → C# CLI)",
+      "Status": "done",
+      "HitlRequired": true,
+      "BlockedBy": ["phase3-resolve-apply", "phase3-defender-apply"],
+      "PsOrigin": "scripts/lib/hub-core-routing.ps1",
+      "CoreTarget": "Hub CLI routing layer",
+      "Deliverable": "HUB_USE_CORE=1 read-only: defender evaluate (+ fallback PS)",
+      "Scores": {
+        "ParityFeasibility": 82,
+        "RegressionRiskInverse": 70,
+        "UserValue": 88,
+        "GateReadiness": 85,
+        "EffortInverse": 65
+      },
+      "Rationale": "Phase 3 HITL paths done and gated. Roll out Core routing per domain after operator enables flag in HITL panel; apply paths remain HITL-gated."
+    },
+    {
+      "Id": "phase5-network-deep-panel",
+      "Phase": 5,
+      "Title": "Network deep scan panel + hidden connection actions",
+      "Status": "done",
+      "HitlRequired": true,
+      "BlockedBy": ["phase4-hub-use-core"],
+      "PsOrigin": "scripts/lib/network-deep-scan.ps1",
+      "CoreTarget": "NetworkDeepScanService + NetworkActionService",
+      "Deliverable": "Core port + ETW/WFP admin probes + panel Kill/Block/Terminate HITL",
+      "Scores": {
+        "ParityFeasibility": 68,
+        "RegressionRiskInverse": 75,
+        "UserValue": 92,
+        "GateReadiness": 70,
+        "EffortInverse": 55
+      },
+      "Rationale": "Cybersec deep visibility delivered: Core NetworkDeepScanService, admin ETW/WFP probes, web panel HITL actions."
+    },
+    {
+      "Id": "phase6-transparency-network-parity",
+      "Phase": 6,
+      "Title": "Transparency report live network snapshot in Core",
+      "Status": "next",
+      "HitlRequired": false,
+      "BlockedBy": ["phase5-network-deep-panel"],
+      "PsOrigin": "scripts/build-transparency-report.ps1",
+      "CoreTarget": "TransparencyReportBuilder network section",
+      "Deliverable": "hub transparency report includes full Network object (parity PS)",
+      "Scores": {
+        "ParityFeasibility": 72,
+        "RegressionRiskInverse": 80,
+        "UserValue": 75,
+        "GateReadiness": 78,
+        "EffortInverse": 65
+      },
+      "Rationale": "C# transparency report still omits live network snapshot; wire NetworkTransparencyService."
+    },
+    {
+      "Id": "phase7-multi-platform-install",
+      "Phase": 7,
+      "Title": "Multi-platform install + Android APK (WebView MVP)",
+      "Status": "done",
+      "HitlRequired": false,
+      "BlockedBy": ["phase5-network-deep-panel"],
+      "PsOrigin": "scripts/install-windows-app.ps1",
+      "CoreTarget": "Hub v0.8.0 install profile + mobile/android",
+      "Deliverable": "Windows dev-sync install, Linux user install, Android transparency APK",
+      "Scores": {
+        "ParityFeasibility": 85,
+        "RegressionRiskInverse": 88,
+        "UserValue": 90,
+        "GateReadiness": 92,
+        "EffortInverse": 70
+      },
+      "Rationale": "Shipped v0.8.0: install-profile, dev-sync junction, Linux systemd, Android WebView; SDK paths from I_Tuoi_Versetti (D:\\Android\\Sdk, D:\\JDK_17)."
+    }
+  ]
+}

@@ -1,0 +1,66 @@
+using System.Text.Json.Serialization;
+
+namespace SystemOptimizerHub.Core.Models;
+
+public sealed class ProcessIntelligenceCatalog
+{
+    [JsonPropertyName("SchemaVersion")]
+    public string SchemaVersion { get; set; } = "ProcessIntelligence.v1";
+
+    [JsonPropertyName("vitalExact")]
+    public List<string> VitalExact { get; set; } = [];
+
+    [JsonPropertyName("vitalPatterns")]
+    public List<string> VitalPatterns { get; set; } = [];
+
+    [JsonPropertyName("securityExact")]
+    public List<string> SecurityExact { get; set; } = [];
+
+    [JsonPropertyName("platformServicePatterns")]
+    public List<string> PlatformServicePatterns { get; set; } = [];
+
+    [JsonPropertyName("optionalBackgroundPatterns")]
+    public List<string> OptionalBackgroundPatterns { get; set; } = [];
+
+    [JsonPropertyName("knownApplications")]
+    public Dictionary<string, KnownApplicationEntry> KnownApplications { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
+    [JsonPropertyName("extremeNecessityDefender")]
+    public ExtremeNecessityDefenderConfig? ExtremeNecessityDefender { get; set; }
+}
+
+public sealed class KnownApplicationEntry
+{
+    [JsonPropertyName("category")]
+    public string Category { get; set; } = "Unknown";
+
+    [JsonPropertyName("priority")]
+    public string Priority { get; set; } = "Review";
+
+    [JsonPropertyName("displayName")]
+    public string? DisplayName { get; set; }
+
+    [JsonPropertyName("description")]
+    public string? Description { get; set; }
+
+    [JsonPropertyName("pressureMitigations")]
+    public Dictionary<string, List<string>> PressureMitigations { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
+    [JsonPropertyName("references")]
+    public List<string> References { get; set; } = [];
+
+    [JsonPropertyName("whatItDoes")]
+    public string? WhatItDoes { get; set; }
+
+    [JsonPropertyName("resourceProfile")]
+    public string? ResourceProfile { get; set; }
+
+    [JsonPropertyName("businessHint")]
+    public string? BusinessHint { get; set; }
+
+    [JsonPropertyName("mergedAt")]
+    public string? MergedAt { get; set; }
+
+    [JsonPropertyName("mergedFrom")]
+    public List<string> MergedFrom { get; set; } = [];
+}

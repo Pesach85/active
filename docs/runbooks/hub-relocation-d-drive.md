@@ -29,6 +29,7 @@ robocopy 'C:\SystemOptimizerHub' 'D:\SystemOptimizerHub' /E /COPY:DAT /R:2 /W:2
 cd D:\SystemOptimizerHub\active
 pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\activate-hub-profile.ps1
 pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\install-suite.ps1
+pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\audit-startup-integrity.ps1 -Apply
 ```
 
 ### 3. Rebuild GUI (post-move)
@@ -54,7 +55,7 @@ Ripetere robocopy da D: a C: e reinstallare task con `activate-hub-profile.ps1 -
 
 | Sintomo | Azione |
 |---------|--------|
-| Task schedulati puntano ancora a C: | Rieseguire `install-suite.ps1` da D: |
+| Task schedulati puntano ancora a C: | `pwsh -File scripts\audit-startup-integrity.ps1 -Apply` (Admin). Health Scan finding `STARTUP-LEGACY-001`. |
 | EXE non trova script | Rigenerare con `build-gui-exe.ps1` da D: |
 | Git lock su C: | Chiudere IDE, copiare solo `.git` mancante |
 

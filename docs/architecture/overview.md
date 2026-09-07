@@ -94,7 +94,10 @@ Componenti Windows principali:
 
 ## Evoluzione prevista
 
+- **ADR-0007:** Core C# unico (`src/`) con adapter Windows/Linux — migration roadmap phased
 - Runbook per ogni script critico con rollback
 - Playbook per campagne (wave, post-reboot, WHEA)
 - Checklist pre/post apply automatizzabili
 - Agent skills Cursor per roster dominio
+
+Vedi [`migration-roadmap.md`](migration-roadmap.md) e [`cross-platform-core.md`](cross-platform-core.md).

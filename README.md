@@ -7,8 +7,9 @@ Piattaforma di manutenzione intelligente multi-piattaforma: automazioni Windows,
 | Piattaforma | Contenuto | Runtime |
 |-------------|-----------|---------|
 | **Windows 10/11** | Script PowerShell, GUI WinForms, scheduled tasks | PowerShell 7+ |
+| **Linux (desktop/server)** | PPI bash + **Hub Core CLI preview** (v0.2.0) | bash + .NET 9 |
 | **DD-WRT / Linux (router)** | Shell scripts, NVRAM tuning, WiFi watchdog | bash + SSH |
-| **Dev (qualsiasi OS)** | Documentazione, agenti, ADR, KB | Git + editor |
+| **Dev (qualsiasi OS)** | Documentazione, agenti, ADR, KB, C# core | Git + .NET 9 |
 
 ## Quick start
 
@@ -37,6 +38,7 @@ active/
 ├── docs/           # Knowledge strutturata (agenti, ADR, runbook, framework)
 ├── KB/             # Journal operativo, playbooks, architecture tecnica
 ├── scripts/        # Automazioni Windows (.ps1) e router (.sh)
+├── src/            # C# cross-platform core (migration preview v0.2.0)
 ├── config/         # Configurazione sys-maintenance.json
 ├── logs/           # Runtime (gitignored — rollback, audit live)
 ├── dist/           # Package WindowsOptimizer
