@@ -64,7 +64,9 @@ function New-Solution {
         [string]$Label,
         [string]$Command,
         [string]$Rollback,
-        [string]$RiskNote
+        [string]$RiskNote,
+        [ValidateSet('Review', 'OpenLink', 'Install', 'Script')]
+        [string]$Kind = 'Script'
     )
     return @{
         Level    = $Level
@@ -72,7 +74,25 @@ function New-Solution {
         Command  = $Command
         Rollback = $Rollback
         RiskNote = $RiskNote
+        Kind     = $Kind
     }
+}
+
+function Test-StartupEntryProtected {
+    param([string]$Name)
+    if ([string]::IsNullOrWhiteSpace($Name)) { return $false }
+    $n = $Name.ToLowerInvariant()
+    $patterns = @(
+        'securityhealth',
+        'windowsdefender',
+        'windows security',
+        'msascuil',
+        'securityhealthsystray'
+    )
+    foreach ($p in $patterns) {
+        if ($n -like "*$p*") { return $true }
+    }
+    return $false
 }
 
 function New-OfficeM365ChannelFinding {
@@ -156,6 +176,43 @@ function New-WslConfigFinding {
         -CurrentValue "Status=$Status; Distro=$DistributionName; Guid=$DefaultGuid; Zombies=$ZombieWslCount; WslService=$WslServiceStatus; Issues=$issueText" `
         -RecommendedValue 'HKLM distro registration aligned with HKCU; WslService Running; wsl -l -v responds within timeout' `
         -Impact 'Every wsl.exe invocation can block indefinitely until registry/service state is repaired.' `
+        -Solutions $solutions
+}
+
+function New-StartupLegacyFinding {
+    param(
+        [int]$NeedsRepair,
+        [int]$OneShotStale,
+        [int]$Relocatable,
+        [int]$Broken,
+        [string]$Sample,
+        [string]$RepairScriptPath
+    )
+
+    $inspectCommand = "& '$RepairScriptPath' -OutputJson (Join-Path (Split-Path '$RepairScriptPath' -Parent) '..\logs\startup-integrity-latest.json')"
+    $repairCommand = "& '$RepairScriptPath' -Apply"
+    $rollbackCommand = "& '$RepairScriptPath' -RestoreLatest"
+
+    $solutions = @(
+        (New-Solution -Level 'Safe' -Label 'Inspect leftover startup tasks/Run keys (read-only JSON)' `
+            -Command $inspectCommand `
+            -Rollback 'N/A (read-only)' `
+            -RiskNote 'Scans Task Scheduler XML, Run keys, and Startup folders. Does not change anything.'),
+        (New-Solution -Level 'Safe' -Label 'Repair hub leftovers: unregister stale one-shot tasks, retarget suite tasks to current hub' `
+            -Command $repairCommand `
+            -Rollback $rollbackCommand `
+            -RiskNote 'Exports task XML before unregister. Does not remove vendor Run keys (Adobe/VMware/Sophos/Defender). Requires Administrator.')
+    )
+
+    return New-Finding `
+        -Id 'STARTUP-LEGACY-001' `
+        -Severity 'Important' `
+        -Category 'OS' `
+        -Title 'Leftover startup entries from a previous hub install (missing script path)' `
+        -Description "Scheduled tasks or Run keys still point at an old hub root (for example C:\SystemOptimizerHub) or a script that was renamed/removed. At boot Windows shows a PowerShell -File error. Sample: $Sample" `
+        -CurrentValue "needsRepair=$NeedsRepair oneShotStale=$OneShotStale relocatable=$Relocatable broken=$Broken" `
+        -RecommendedValue 'All hub tasks/Run keys resolve under the current hub root; one-shot post-boot campaign tasks unregistered after they ran.' `
+        -Impact 'Boot-time PowerShell error dialogs; automation from a relocated clone never runs.' `
         -Solutions $solutions
 }
 
@@ -344,7 +401,8 @@ foreach ($pd in $physDisks) {
                 (New-Solution -Level 'Moderate' -Label 'Create full system backup now' `
                     -Command 'wbadmin start backup -backupTarget:D: -include:C: -quiet 2>&1' `
                     -Rollback 'N/A (backup only)' `
-                    -RiskNote 'Requires D: has free space. Long running.'),
+                    -RiskNote 'Requires D: has free space. Long running (hours). Manual/HITL only.' `
+                    -Kind 'Review'),
                 (New-Solution -Level 'Aggressive' -Label 'Plan disk replacement (manual)' `
                     -Command 'Write-Host "ACTION REQUIRED: Purchase replacement NVMe SSD and clone with Clonezilla or Macrium Reflect."' `
                     -Rollback 'N/A' `
@@ -586,17 +644,26 @@ if ($runningHeavy.Count -gt 0) {
 # ── STARTUP PROGRAMS ──────────────────────────────────────────────────────────
 Write-Progress2 "Checking startup programs..."
 $startupEntries = [System.Collections.ArrayList]::new()
+$startupProtected = [System.Collections.ArrayList]::new()
 foreach ($regPath in @('HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run', 'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run')) {
     $props = Get-ItemProperty $regPath -EA SilentlyContinue
     if ($props) {
-        $props.PSObject.Properties | Where-Object { $_.Name -notmatch '^PS|^\(default\)$|^SecurityHealth' } | ForEach-Object {
-            [void]$startupEntries.Add(@{ Name = $_.Name; Value = $_.Value; Path = $regPath })
+        $props.PSObject.Properties | Where-Object { $_.Name -notmatch '^PS|^\(default\)$' } | ForEach-Object {
+            $entry = @{ Name = $_.Name; Value = $_.Value; Path = $regPath }
+            if (Test-StartupEntryProtected -Name $_.Name) {
+                [void]$startupProtected.Add($entry)
+            } else {
+                [void]$startupEntries.Add($entry)
+            }
         }
     }
 }
 
 if ($startupEntries.Count -gt 0) {
     $startupList = ($startupEntries | ForEach-Object { "  - $($_.Name)" }) -join "`n"
+    $protectedNote = if ($startupProtected.Count -gt 0) {
+        "`nProtected (never auto-removed): " + (($startupProtected | ForEach-Object { $_.Name }) -join ', ')
+    } else { '' }
     $removeCmd = ($startupEntries | ForEach-Object {
         "Remove-ItemProperty -Path '$($_.Path)' -Name '$($_.Name)' -EA SilentlyContinue"
     }) -join "`n"
@@ -607,20 +674,22 @@ if ($startupEntries.Count -gt 0) {
         -Id 'STARTUP-001' `
         -Severity 'Moderate' `
         -Category 'OS' `
-        -Title "$($startupEntries.Count) non-essential startup programs" `
-        -Description "Programs launching at login:`n$startupList" `
-        -CurrentValue "$($startupEntries.Count) startup entries" `
-        -RecommendedValue 'Remove non-essential entries' `
-        -Impact "Faster login, lower background resource usage." `
+        -Title "$($startupEntries.Count) removable startup programs (AV/security excluded)" `
+        -Description "Non-protected programs launching at login:`n$startupList$protectedNote" `
+        -CurrentValue "$($startupEntries.Count) removable + $($startupProtected.Count) protected" `
+        -RecommendedValue 'Review then remove only non-essential third-party entries' `
+        -Impact "Faster login, lower background resource usage. Security Health / Defender entries are never removed by this finding." `
         -Solutions @(
             (New-Solution -Level 'Safe' -Label 'Review startup entries (no changes)' `
                 -Command "Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run','HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run' -EA SilentlyContinue | Format-List *" `
                 -Rollback 'N/A' `
-                -RiskNote 'Read-only review.'),
-            (New-Solution -Level 'Moderate' -Label "Remove all $($startupEntries.Count) startup entries" `
+                -RiskNote 'Read-only review.' `
+                -Kind 'Review'),
+            (New-Solution -Level 'Moderate' -Label "Remove $($startupEntries.Count) non-protected startup entries" `
                 -Command $removeCmd `
                 -Rollback $restoreCmd `
-                -RiskNote 'Programs will no longer auto-start. They can still be launched manually.')
+                -RiskNote 'Does not remove Security Health / Defender / Windows Security entries. Other programs will no longer auto-start.' `
+                -Kind 'Script')
         )))
 }
 
@@ -749,6 +818,37 @@ if (Test-Path -LiteralPath $repairWslConfigScript) {
     }
 }
 
+# ── STARTUP INTEGRITY (legacy hub paths / missing -File targets) ───────────────
+Write-Progress2 "Checking leftover hub startup tasks..."
+$startupIntegrityLib = Join-Path $PSScriptRoot 'lib\startup-integrity.ps1'
+$startupIntegrityScript = Join-Path $PSScriptRoot 'audit-startup-integrity.ps1'
+if ((Test-Path -LiteralPath $startupIntegrityLib) -and (Test-Path -LiteralPath $startupIntegrityScript)) {
+    try {
+        . $startupIntegrityLib
+        $siHub = Split-Path $PSScriptRoot -Parent
+        $siReport = Get-StartupIntegrityReport -HubRoot $siHub
+        $siNeed = 0
+        if ($siReport -and $siReport.Summary) { $siNeed = [int]$siReport.Summary.NeedsRepair }
+        if ($siNeed -gt 0) {
+            $samples = @($siReport.Items | Where-Object { $_.Classification -in @('HubOneShotStale', 'HubRelocatable', 'HubBroken') } | Select-Object -First 3 | ForEach-Object {
+                '{0} [{1}] {2}' -f $_.Name, $_.Classification, $_.TargetPath
+            })
+            $sampleText = if ($samples.Count -gt 0) { ($samples -join '; ') } else { 'n/a' }
+            [void]$findings.Add((New-StartupLegacyFinding `
+                -NeedsRepair $siNeed `
+                -OneShotStale ([int]$siReport.Summary.HubOneShotStale) `
+                -Relocatable ([int]$siReport.Summary.HubRelocatable) `
+                -Broken ([int]$siReport.Summary.HubBroken) `
+                -Sample $sampleText `
+                -RepairScriptPath $startupIntegrityScript))
+        } else {
+            [void]$positives.Add('Hub startup integrity healthy (no leftover C:\SystemOptimizerHub tasks/Run keys)')
+        }
+    } catch {
+        Write-Progress2 "Startup integrity assessment skipped: $($_.Exception.Message)"
+    }
+}
+
 # ── OFFICE UPDATE CHANNEL ─────────────────────────────────────────────────────
 Write-Progress2 "Checking Office update channel compatibility..."
 $officePolicyPath = 'HKLM:\SOFTWARE\Policies\Microsoft\office\16.0\common\officeupdate'
@@ -813,10 +913,11 @@ if (-not $wingetAvailable) {
         -RecommendedValue 'External installer path available and validated' `
         -Impact 'Store-based remediation is unavailable; use external installer flow.' `
         -Solutions @(
-            (New-Solution -Level 'Safe' -Label 'Open PowerShell release page (external installer path)' `
+            (New-Solution -Level 'Safe' -Label '[OpenLink] PowerShell release page (manual install)' `
                 -Command 'Start-Process "https://aka.ms/powershell-release?tag=stable"' `
                 -Rollback 'N/A (manual install path)' `
-                -RiskNote 'Uses external vendor installer flow without Store dependency.')
+                -RiskNote 'Opens browser only — does not install. Uses external vendor page without Store dependency.' `
+                -Kind 'OpenLink')
         )))
 }
 
@@ -825,21 +926,23 @@ if ($pwshMajor -lt 7) {
     $pwshSolutions = [System.Collections.ArrayList]::new()
     $ensureCoreScript = Join-Path $PSScriptRoot 'ensure-powershell-core.ps1'
     $ensureCoreCmd = ('powershell -NoProfile -ExecutionPolicy Bypass -File "{0}" -InstallIfMissing' -f $ensureCoreScript)
-    [void]$pwshSolutions.Add((New-Solution -Level 'Safe' -Label 'Install PowerShell 7 using external installer flow' `
+    [void]$pwshSolutions.Add((New-Solution -Level 'Safe' -Label '[Install] PowerShell 7 via ensure-powershell-core.ps1' `
         -Command $ensureCoreCmd `
         -Rollback 'Uninstall PowerShell 7 from Apps and Features if needed' `
-        -RiskNote 'Uses external vendor installer path; no Store/AppInstaller dependency.'))
-    [void]$pwshSolutions.Add((New-Solution -Level 'Safe' -Label 'Open PowerShell 7 download page' `
+        -RiskNote 'Runs installer script — installs pwsh. Prefer this over OpenLink when automation is allowed.' `
+        -Kind 'Install'))
+    [void]$pwshSolutions.Add((New-Solution -Level 'Safe' -Label '[OpenLink] PowerShell 7 download page' `
         -Command 'Start-Process "https://aka.ms/powershell-release?tag=stable"' `
         -Rollback 'N/A (manual install path)' `
-        -RiskNote 'Manual fallback when automated external install is blocked by policy.'))
+        -RiskNote 'Opens browser only — does not install. Use when automated install is blocked by policy.' `
+        -Kind 'OpenLink'))
 
     [void]$findings.Add((New-Finding `
         -Id 'PKG-CORE-002' `
         -Severity 'Critical' `
         -Category 'OS' `
         -Title 'PowerShell 7 runtime missing for core automation' `
-        -Description 'The optimization suite expects PowerShell 7 (pwsh) for core-only tasks and deterministic background workers.' `
+        -Description 'The optimization suite expects PowerShell 7 (pwsh) for core-only tasks and deterministic background workers. Prefer [Install] over [OpenLink].' `
         -CurrentValue $psCurrent `
         -RecommendedValue 'pwsh 7.x installed and resolvable' `
         -Impact 'Some always-on tasks and GUI worker orchestration may be degraded or incompatible.' `
@@ -856,15 +959,16 @@ if ($diskHealthWarning -and (-not $crystalInstalled)) {
         -Severity 'Important' `
         -Category 'Disk' `
         -Title 'CrystalDiskInfo not installed for NVMe SMART diagnostics' `
-        -Description 'Disk health warning was detected and SMART passthrough may be limited by Intel RST. CrystalDiskInfo is required for a direct diagnostic check.' `
+        -Description 'Disk health warning was detected and SMART passthrough may be limited by Intel RST. CrystalDiskInfo is required for a direct diagnostic check. Solution is OpenLink only (no silent install).' `
         -CurrentValue 'CrystalDiskInfo not installed' `
         -RecommendedValue 'CrystalDiskInfo installed' `
         -Impact 'NVMe wear/failure trend cannot be validated quickly from GUI-safe tooling.' `
         -Solutions @(
-            (New-Solution -Level 'Safe' -Label 'Open CrystalDiskInfo official download page' `
+            (New-Solution -Level 'Safe' -Label '[OpenLink] CrystalDiskInfo official download page' `
                 -Command 'Start-Process "https://crystalmark.info/en/software/crystaldiskinfo/"' `
                 -Rollback 'N/A (manual install path)' `
-                -RiskNote 'Uses external installer flow independent from Microsoft Store.')
+                -RiskNote 'Opens browser only — does not install CrystalDiskInfo.' `
+                -Kind 'OpenLink')
         )
     ))
 } elseif ($diskHealthWarning -and $crystalInstalled) {

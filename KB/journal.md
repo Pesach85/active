@@ -1,3 +1,92 @@
+## 2026-09-04 — VMware Health visible (stale EXE + primary row)
+
+### Obiettivo
+Utente non vedeva Salute VMware dopo ship: shortcut lanciava EXE PS2EXE del 31/08 senza il pulsante; script su junction erano aggiornati.
+
+### Modifiche
+- `Launch-Hub.bat` preferisce `system-optimizer-gui.ps1` live
+- Pulsante VMware su Home (azioni principali) + tab Salute; GUI v3.3.0
+- KB `vmware-health-mks-decision.md` lesson; rebuild EXE su deploy
+
+### Esito
+Verifica install: junction → dist OK; root cause stale EXE. Quality gate + deploy + push.
+
+## 2026-09-04 — VMware Health (mksSandbox)
+
+### Obiettivo
+Routine Hub per inventario/diagnosi/ripristino safe VMware Workstation (crash MKS `ISBRendererComm` / mksSandbox).
+
+### Modifiche
+- `scripts/lib/vmware-health.ps1` + `scripts/analyze-vmware-health.ps1`
+- GUI Advanced: VMware Health; catalog + locale IT/EN; smoke; package-suite
+- KB `vmware-health-mks-decision.md`
+
+### Esito
+Diagnosi Win10 LTSC: PoweredOn + mks.enable3d=TRUE + MKS crash signature; Apply rifiutato (SkippedPoweredOn). Inventario 13 VM. Smoke step `vmware-health` OK (full suite may fail on unrelated process-resolution-dryrun-missing).
+
+## 2026-09-04 — Disk occupancy GUI + CSV fix
+
+### Obiettivo
+Controlli storage coerenti (PROFONDITÀ / PULIZIA / FIX MAX), CSV sempre emesso, focus C (D intoccabile).
+
+### Modifiche
+- GUI: FIX MAX solo Salute; PULIZIA solo Altri strumenti; fallback JSON se CSV manca
+- `analyze-disk-occupancy.ps1`: CSV placeholder se Explorer vuoto
+- KB `disk-occupancy-decision.md` + runbook controlli GUI
+
+### Esito
+Occupancy Quick C → CSV_OK; ensure-transparency no longer hangs on Get-NetTCPConnection; hub-smoke storage steps OK (full smoke aborted once on web hang, then fixed).
+
+## 2026-08-28 — Bug 30 health apply wbadmin hang
+
+### Obiettivo
+Disabilitazione servizi KEEP (Defender) da GUI con wizard multi-conferma + elevazione admin.
+
+### Modifiche
+- `scripts/gui/keep-service-wizard.ps1`
+- catalog `keepExtremeDisableAllowlist`, Defender button → wizard flow
+
+### Esito
+Smoke ALL PASSED; EXE v3.5.0; push pending.
+
+## 2026-08-28 — Defender extreme necessity + UX v3.4.0
+
+### Obiettivo
+Valutazione deterministica MsMpEng/Defender (tier HITL), superamento limiti PPI (Linux apply, GUI throttle, Defender review).
+
+### Modifiche
+- `evaluate-defender-extreme-necessity.ps1`, `apply-defender-extreme-necessity.ps1`, `restore-defender-from-rollback.ps1`
+- GUI: Safe Throttle + Defender Review; post-compute prompt
+- Linux `apply-process-pressure-safe.sh`
+- catalog `extremeNecessityDefender`, smoke defender-extreme-eval
+
+### Esito
+Smoke ALL PASSED; deploy pending push.
+
+## 2026-08-28 — Process Pressure Intelligence v3.3.0 (cross-platform analyze)
+
+### Obiettivo
+Rilevamento deterministico processi hog CPU/RAM/IO, classificazione vitali vs tunable, ricerca catalogo, azioni safe vs HITL, packaging Windows + Linux.
+
+### Task
+- Core lib + catalog + analyze/apply Windows
+- Linux analyzer + package-linux-suite
+- GUI compute → analyze-process-pressure.ps1
+- Smoke gate + KB/ADR
+
+### Modifiche
+- `config/process-intelligence.json`, `scripts/lib/process-pressure-core.ps1`
+- `scripts/analyze-process-pressure.ps1`, `apply-process-pressure-safe.ps1`
+- `scripts/linux/analyze-process-pressure.sh`, `package-linux-suite.ps1`
+- GUI v3.3.0, sys-maintenance ProcessPressure section, command-catalog update
+
+### Decisioni
+- ADR-0004: layered PPI stack; live web scrape rejected (catalog/static refs)
+- Apply default Safe only (LowerProcessPriority); Keep never touched
+
+### Esito
+Smoke ALL PASSED; package Windows + Linux; EXE rebuilt local (`dist/WindowsOptimizer/WindowsOptimizer.exe` v3.3.0, gitignored). Push `454afa2`.
+
 ## 2026-06-25 — DD-WRT hotspot→switch: tuning permanente + KB + repo sync
 
 ### Obiettivo
@@ -1909,3 +1998,719 @@ Eseguito repair-wsl-config.ps1 -ValidateLaunch dopo reboot; confermato WSL_OK su
 
 ### Esito
 Completato - Status Ready, LaunchProbe WSL_OK
+
+## 2026-08-12 12:23:58
+### Obiettivo
+GUI v3.1.1 fix grafici
+
+### Task
+Add_Focus, layout scan, package-suite
+
+### Modifiche
+- command-help Click/GotFocus
+- gui pnlScanOptions v3.1.1
+- package-suite copy gui
+- lessons-learned doc
+- bugs-fixed Bug 25
+
+### Decisioni
+- Scan options panel separato
+- No Add_Focus su Button
+- Copy directory non glob
+
+### Esito
+Completato
+
+## 2026-08-27 10:30:00
+### Obiettivo
+Allineare KB allo stato reale e avviare refactor elite
+
+### Task
+Audit strutturale + sync docs + modularizzazione GUI theme/worker-helpers + smoke gate
+
+### Modifiche
+- KB architecture/task-board/bugs-fixed/codebase-health aggiornati
+- docs/product/REFACTORING-PLAN-ELITE.md + ROADMAP/ADR/ACTION-PLAN sync
+- scripts/gui/theme.ps1 e worker-helpers.ps1; GUI v3.1.3
+- scripts/test-hub-smoke.ps1; hub-common Test-HubAdmin / Assert-HubAdmin
+
+### Decisioni
+- Default AutoAnalyze=false resta prodotto
+- Refactor worker monolitici a onde (privacy first)
+- Copertura 100% solo sui path instrumentati; Fase 4 per gap OS
+
+### Esito
+Smoke ALL PASSED + package-suite OK; piano operativo documentato
+
+## 2026-08-27 10:45:00
+### Obiettivo
+Eseguire Onde 1–3 refactor elite, deploy e push
+
+### Task
+async-worker + config hub-common + efficacia STARTUP/PKG/WSL + smoke/package/commit/push
+
+### Modifiche
+- scripts/gui/async-worker.ps1; Privacy/Garbage/Health migrati
+- GUI Load/Save via Get/Save-MaintenanceConfig
+- STARTUP whitelist AV; PKG Kind; WSL synopsis; apply prefer Install>OpenLink
+- GUI v3.2.0; ACTION-PLAN 1.5.6–1.5.8 chiusi
+
+### Decisioni
+- Worker rimanenti (cleanup/nvme/deep) restano legacy fino a prossima onda
+- HITL lasciato per Tier2 D:, task orchestrator SYSTEM, WHEA DIMM, Vault/signing
+
+### Esito
+Smoke ALL PASSED + package-suite OK; commit `56589a8` pushed to origin/master
+
+## 2026-08-27 11:10:00
+### Obiettivo
+Fix EXE HubWorkers StrictMode + smoke obbligatorio + redeploy EXE
+
+### Task
+Bug 28 global HubWorkers; smoke async-worker-registry; package; build EXE; commit push
+
+### Modifiche
+- scripts/gui/async-worker.ps1 → `$global:HubWorkers` + Initialize-HubWorkerRegistry
+- GUI pre-init + v3.2.1; test-hub-smoke probe StrictMode
+- KB bugs-fixed Bug 28
+
+### Decisioni
+- Mai usare `$script:HubWorkers` con StrictMode/ps2exe; smoke gate su ogni fix GUI/EXE
+
+### Esito
+Smoke ALL PASSED (incl. async-worker-registry); package + EXE v3.2.1 ricostruito in dist/
+
+## 2026-08-29 11:30:00
+### Obiettivo
+Continuous optimization ultra-light (Tier C feather) + NBD foundation senza LLM residente
+
+### Task
+Studio budget RAM; resource-budget.ps1; build-optimization-context; orchestrator feather cadence; smoke; v3.6.0
+
+### Modifiche
+- `KB/continuous-optimization-resource-budget.md` — sizing per host 7577 e portable tier A/B/C
+- `scripts/lib/resource-budget.ps1` — Get-HostResourceSnapshot, Resolve-OptimizationProfile, Test-LlmAdvisoryAllowed
+- `scripts/build-optimization-context.ps1` — OptimizationContext.v1 da JSON esistenti (<15 MB)
+- `scripts/hub-orchestrator.ps1` — cicli profilati, PPI raro, context ogni ciclo
+- `config/sys-maintenance.json` — LoopInterval 60s, Orchestrator 600s, ContinuousOptimization + LlmAdvisory off
+- ADR-0005 + ollama-plan aggiornati; GUI v3.6.0
+
+### Decisioni
+- Tier C (16GB, C: critico): profile **feather**, LLM disabilitato; hub always-on <80 MB target
+- Ollama solo on-demand Fase 1b dopo baseline 48h; mai 3B+ su laptop 16GB
+- PPI ogni 12 cicli orchestrator (~2h), DurationSec 3, Top 5
+
+### Esito
+Smoke ALL PASSED (incl. optimization-context); package-suite OK; llm-advise.ps1 deferred Fase 1b
+
+## 2026-08-31 09:35:00
+### Obiettivo
+Pannello Controllo & Trasparenza (EXE + web) + analisi cybersecurity con contratto condiviso operatore/AI
+
+### Task
+TransparencyReport.v1, policy T0-T3, GUI tab, web localhost, KB/ADR/skill, smoke, commit push v3.7.0
+
+### Modifiche
+- `scripts/lib/transparency-policy.ps1`, `build-transparency-report.ps1`, `serve-transparency-dashboard.ps1`
+- `scripts/gui/transparency-panel.ps1` — tab Controllo in GUI
+- `web/transparency/` — dashboard read-only
+- `monitor-resources.ps1` — eventi JSONL audit throttle/terminate
+- `hub-orchestrator.ps1` — report ogni ciclo; `install-orchestrator-task.ps1`
+- ADR-0006, KB/transparency-control-plan.md, Transparency Guardian agent + skill
+- GUI v3.7.0, smoke transparency-report
+
+### Decisioni
+- T3_Unknown high-RAM: mai auto-azione; classificare in PPI catalog
+- Web solo 127.0.0.1, read-only; stesso JSON per EXE e browser
+- Posture score guida priorità operatore e AI
+- AutoTerminate monitor resta off by default; se on → T2_Review + penalty posture
+
+### Esito
+Smoke ALL PASSED; package-suite OK; commit push v3.7.0
+
+## 2026-08-31 09:50:00
+### Obiettivo
+Fix ERR_CONNECTION_REFUSED dashboard + monitor rete/processi nascosti (transparency contract)
+
+### Modifiche
+- serve-transparency-dashboard: listener immediato, /api/health, log, port reuse
+- GUI Web Dashboard: Wait-HubTcpPort 25s, no BuildReportFirst blocking
+- network-transparency.ps1: TCP Established/Listen, hidden small egress, T0-T3
+- Report + web + GUI detail sezione Network
+
+### Esito
+Smoke OK; v3.7.1
+
+## 2026-08-31 10:20:00
+### Obiettivo
+Process intelligence classifier con suggerimenti deterministici + KB cache + web/LLM incrementale
+
+### Modifiche
+- `scripts/lib/process-knowledge.ps1`, `enrich-process-classification.ps1`, `config/process-knowledge.json`
+- `KB/process-knowledge-cache.json` seed (vmware-vmx, mysqld, charon-svc, mksSandbox)
+- PPI `-IncludeClassificationHints`, TransparencyReport ClassificationHints
+- Smoke process-knowledge + process-pressure-hints; GUI/web hints panel; v3.8.0
+
+### Decisioni
+- Pipeline: catalog → cache → file metadata → KB grep → Wikipedia → Ollama (Tier B+)
+- Mai auto-merge catalogo; RequiresHumanApproval sempre true
+- Offline smoke valida cache deterministica
+
+### Esito
+Smoke ALL PASSED; commit push deploy v3.8.0
+
+## 2026-08-31 10:45:00
+### Obiettivo
+Risoluzione processi non identificati: percorso matematicamente efficiente (reversibile prima), avvertimenti chiari, decisione operatore HITL, AI-aided
+
+### Modifiche
+- `config/process-resolution.json` — soglie RAM, frasi conferma, processi protetti
+- `scripts/lib/process-resolution-policy.ps1` — ranking azioni per costo (Observe=0, Throttle=1, Terminate=10)
+- `scripts/resolve-unknown-process.ps1` — CLI Advisory/Observe/Throttle/Terminate/MarkWorkNecessary/MarkUnneeded
+- `scripts/gui/unknown-process-wizard.ps1` — wizard WinForms con summary AI + conferma frase
+- `KB/operator-process-decisions.json` — decisioni operatore (no auto-merge catalogo)
+- TransparencyReport `ProcessResolutions[]`; GUI tab Controllo pulsante Resolve…
+- Smoke process-resolution-advisory, block-terminate, known; GUI v3.9.0
+
+### Decisioni
+- ThrottleBelowNormal raccomandato per high-RAM non identificati (≥400MB) — reversibile
+- Terminate richiede `STOP UNKNOWN`; catalog Priority=Keep blocca terminate/throttle
+- MarkWorkNecessary richiede `KEEP FOR WORK`; eventi JSONL audit
+- Protected: System, lsass, MsMpEng, Cursor, pwsh, hub scripts
+
+### Esito
+Smoke ALL PASSED; commit push deploy v3.9.0
+
+## 2026-08-31 11:00:00
+### Obiettivo
+Zero terminale: wizard GUI+web per risolvere/identificare processi sconosciuti con auth password Windows
+
+### Modifiche
+- `operator-auth.ps1` — ValidateCredentials Windows locale/dominio
+- `identify-unknown-process.ps1` — identificazione manuale → KB cache + operator decisions
+- Wizard EXE: tab Identify, process picker, password dialog prima di ogni azione
+- Web dashboard: modal Risolvi/Identifica, API `/api/process/*`, `/api/operator-identity`
+- `resolve-unknown-process.ps1` — ProcessNotFound/NotRunning JSON (no throw su DryRun); auth obbligatoria
+- GUI: doppio click RAM, pulsanti Resolve/Identify; smoke identify + dryrun missing PID
+
+### Decisioni
+- Password Windows per ogni mutazione (Observe, Throttle, Terminate, Identify)
+- localhost only; password mai loggata
+- Identify → cache KB only, mai auto-merge catalogo
+
+### Esito
+Smoke ALL PASSED; v3.9.1
+
+## 2026-08-31 11:40:00
+### Obiettivo
+Fix ERR_CONNECTION_REFUSED, launcher pwsh/PATH, errori GUI scope ($reportPath, Invoke-BuildReport)
+
+### Modifiche
+- `Get-HubPwshExecutable` in `hub-common.ps1` — risolve pwsh anche se non in PATH
+- `run-transparency-web.ps1` + `run-transparency-web.bat` riscritto (no `pwsh -File *.bat`)
+- `transparency-panel.ps1` — stato su `$tab.Tag` + scriptblock (fix scope WinForms)
+- `ensure-transparency-web.ps1` — PID file, health gate; web app messaggio chiaro
+- `docs/knowledge/project-environment-awareness.md` — decisioni stabili ambiente
+
+### Decisioni
+- Dashboard :8765 resta on-demand (localhost); avvio via ensure/GUI/bat/ps1
+- Mai assumere `pwsh` in PATH; fallback `Program Files\PowerShell\7\pwsh.exe` → `powershell.exe`
+- Handler GUI: scriptblock su Tag, mai funzioni nested in Add_Click
+- Documentare: `.bat` ≠ script `-File` PowerShell
+
+### Esito
+Smoke ALL PASSED; commit push deploy v3.10.1
+
+## 2026-08-31 11:30:00
+### Obiettivo
+Hardening forensics processi/rete + fix ERR_CONNECTION_REFUSED dashboard (on-demand localhost)
+
+### Modifiche
+- `scripts/lib/process-forensics.ps1` — PE header, Authenticode, parent chain, moduli, stringhe binario, ReadProcessMemory bounded
+- `config/process-forensics.json` — limiti lettura memoria/file
+- `process-knowledge.ps1` + `network-transparency.ps1` — deep scan T3 quando conf &lt; 0.85 / hidden egress
+- `ensure-transparency-web.ps1` — avvio idempotente, PID file, health gate
+- `run-transparency-web.bat` — shortcut avvio + browser
+- Web: banner offline, API `/api/process/forensics`, forensics in hints/wizard
+- Smoke: process-forensics + transparency-web-ensure; GUI v3.10.0
+
+### Decisioni
+- Forensics read-only; memoria solo regioni committed bounded (256KB max)
+- Dashboard non residente (Tier C feather) — avvio esplicito GUI/bat/ensure
+- Port 8765 occupata: health check prima di reuse; stale PID cleanup
+
+### Esito
+Smoke ALL PASSED; commit push deploy v3.10.0
+
+## 2026-08-31 12:00:00
+### Obiettivo
+Fix identify_failed web/GUI anche con password corretta
+
+### Modifiche
+- Password HITL via file temporaneo (`-WindowsPasswordFile`) — no command line plain
+- `operator-auth.ps1`: fallback LogonUser Win32 + ValidateCredentials
+- API/web: errori dettagliati (`auth_failed` / message testuale)
+- Wizard GUI: stesso trasporto password sicuro
+
+### Decisioni
+- Mai `-WindowsPassword` su Start-Process ArgumentList (special chars/spazi)
+- File `.hub-pwd-*.tmp` in logs/ con cleanup immediato
+- LogonUser prova dominio, COMPUTERNAME e `.`
+
+### Esito
+Smoke ALL PASSED; deploy v3.10.2
+
+## 2026-08-31 12:05:00
+### Obiettivo
+Fix identify_failed reale: parser error PS 5.1 su caratteri Unicode nei lib dot-sourced
+
+### Root cause
+- `process-knowledge.ps1` / `process-resolution-policy.ps1` contenevano em-dash `—` e frecce `→`
+- Windows PowerShell 5.1 (usato da Start-Process/web) interpreta UTF-8 senza BOM come ANSI → **ParseException** prima di qualsiasi auth
+- UI mostrava solo `identify_failed` generico perché lo script non partiva
+
+### Modifiche
+- Sanitize ASCII + UTF-8 BOM su `scripts/lib/*.ps1`
+- `sanitize-ps-ascii.ps1` per manutenzione
+- Test identify vmware-vmx PID 8480 OK (SkipAuth)
+- Riavvio dashboard richiesto dopo deploy
+
+### Esito
+Smoke ALL PASSED; deploy v3.10.3
+
+## 2026-08-31 12:06:00
+### Obiettivo
+Fix identify con password contenente caratteri speciali (es. `.`) e messaggi errore specifici
+
+### Root cause
+- Anche con `-WindowsPasswordFile`, testi liberi (WhatItIs, note) e password restavano su `-ArgumentList` → parsing fragile
+- StrictMode: accesso a `$req.businessHint` su JSON senza campo opzionale → PropertyNotFoundException
+
+### Modifiche
+- `-RequestJsonPath`: intero body POST/GUI in file JSON temp, zero contenuto utente su CLI
+- `Invoke-HubProcessScriptViaRequest` in `operator-auth.ps1`
+- Web `/api/process/identify` e `/api/process/action` + wizard GUI migrati
+- Import JSON safe con `$req.PSObject.Properties.Name -contains`
+- `restart-transparency-web.ps1` per reload codice
+- Versione 3.10.4
+
+### Esito
+Test password `fake.password.with.dots` → auth_failed corretto (non parse error); SkipAuth identify vmware-vmx OK; smoke ALL PASSED; dashboard riavviata PID 14812
+
+## 2026-08-31 12:22:00
+### Obiettivo
+Fix autocompletamento wizard + dashboard che si chiude durante password
+
+### Root cause
+- Identificazione manuale sparse sovrascriveva entry kb-seed ricca in cache
+- Confidence 0.98 bloccava arricchimento forensics/metadata
+- Forensics con IncludeMemory su vmware-vmx (6GB+) poteva far crashare il server web (ErrorAction Stop)
+- Auto-refresh ogni 30s + click overlay chiudevano il wizard durante compilazione
+- Em-dash residui in resolve-unknown-process.ps1 (PS 5.1 parse error)
+
+### Modifiche
+- Merge baseline kb-seed in Build-ProcessKnowledgeHint e identify save
+- Server web: try/catch per request, forensics senza memory scan
+- Web app.js: pausa refresh con wizard aperto, no click-outside close
+- Versione 3.10.5
+
+### Esito
+Advisory vmware-vmx ripristina testi ricchi; smoke OK fino a forensics
+
+## 2026-08-31 12:27:00
+### Obiettivo
+Fix "Impossibile caricare advisory" su web dashboard wizard
+
+### Root cause
+- `Invoke-HubProcessScriptViaRequest`: `.Trim()` su stderr null quando file err vuoto → eccezione StrictMode → HTTP 500
+- `Read-RequestBodyJson`: `ContentEncoding` null su POST JSON senza charset (secondario)
+- Endpoint advisory usava ArgumentList legacy invece di RequestJsonPath
+
+### Modifiche
+- Fix null-safe stderr in `operator-auth.ps1` e `serve-transparency-dashboard.ps1`
+- Advisory API migrata a `Invoke-HubProcessScriptViaRequest`
+- UTF-8 fallback in Read-RequestBodyJson
+- Smoke: `transparency-web-advisory` POST test
+- Versione 3.10.6
+
+### Esito
+API `/api/process/advisory` → 200 + KnowledgeHint ricco vmware-vmx; smoke ALL PASSED
+
+## 2026-08-31 12:45:00
+### Obiettivo
+Auto-merge catalogo + refresh report dopo identificazione manuale (password = HITL)
+
+### Design
+- `process-catalog-merge.ps1`: arricchimento hint (KB/seed/web/metadata) → entry catalogo → rollback JSON → rebuild report
+- Gate: `RequireAuthForCatalogMerge` (SkipAuth smoke escluso)
+- Non sovrascrive entry catalogo più ricche; protegge vital/security
+- Config: `AutoMergeCatalogOnIdentify`, `AutoRebuildTransparencyReport` in process-knowledge.json
+
+### Esito
+Smoke ALL PASSED incl. process-catalog-merge; v3.11.0
+
+## 2026-08-31 12:52:00
+### Obiettivo
+Fix HubRoot param + quality gate catena identify + smoke E2E
+
+### Root cause
+- `build-transparency-report.ps1` non accettava `-HubRoot` → merge catalogo falliva dopo identify con password
+- Pattern `$PID` read-only già fixato in v3.11.1
+
+### Modifiche
+- `HubRoot` opzionale in `build-transparency-report.ps1`
+- `docs/knowledge/identify-catalog-quality-gate.md` + AGENTS.md
+- `scripts/test-identify-chain-e2e.ps1` (5 step end-to-end)
+- v3.11.2
+
+### Pattern da evitare (hint KB)
+- Non usare `$pid` come variabile locale PowerShell
+- Verificare `param()` prima di passare argomenti a script figli via pipeline/caller
+- Smoke obbligatorio: `test-hub-smoke.ps1` + `test-identify-chain-e2e.ps1` su catena identify
+
+### Esito
+E2E ALL PASSED + smoke ALL PASSED; deploy v3.11.2
+
+## 2026-08-31 13:03:00
+### Obiettivo
+Fix azioni Risolvi (Throttle/Observe) su processo live — errore NotRunning
+
+### Root cause
+- `Get-ProcessLiveSnapshot` non includeva `NotRunning`; con `Set-StrictMode Latest`, `$snap.NotRunning` su processo live (es. MsMpEng) lancia PropertyNotFoundException
+- Aggiungendo `NotRunning` dopo `Path = try { ... } catch` nel literal hashtable: parser error PS 5.1 (chiavi dopo try/catch inline)
+
+### Modifiche
+- `NotRunning = $false` in snapshot live; `Path` calcolato fuori dal literal
+- Helper `Test-ProcessSnapshotNotRunning` in `process-resolution-policy.ps1`
+- Smoke `process-resolution-live-observe` (22 step)
+- Quality gate: riga pattern NotRunning/StrictMode
+- v3.11.3
+
+### Pattern da evitare
+- Non accedere proprietà opzionali su snapshot con dot notation sotto StrictMode
+- Non mettere chiavi hashtable dopo `try/catch` inline (PS 5.1)
+
+### Esito
+MsMpEng Observe OK; smoke + E2E ALL PASSED
+
+## 2026-08-31 13:10:00
+### Obiettivo
+Fix Throttle MsMpEng Priority=Keep — errore throw invece di UX policy
+
+### Root cause
+- MsMpEng in `securityExact` → Priority=Keep (corretto)
+- Advisory mostrava Throttle/Stop come opzioni ma backend faceva `throw` → stack trace in UI
+- Inconsistenza advisory ↔ enforcement catalogo
+
+### Modifiche
+- `Get-ProcessResolutionAdvisory`: esclude Throttle/Terminate se Keep; `BlockedActionIds`
+- `Test-ProcessCatalogActionBlocked` → outcome `ActionBlocked` (exit 0, no throw)
+- Web/GUI: disabilita bottoni Throttle/Stop + messaggio operatore
+- Smoke: `process-resolution-keep-advisory`, `process-resolution-keep-blocked`
+- v3.11.4
+
+### Pattern da evitare
+- Non `throw` per policy catalogo — usare outcome strutturato
+- Advisory deve riflettere azioni realmente consentite
+
+### Esito
+ActionBlocked graceful; smoke 24/24 + E2E ALL PASSED
+
+## 2026-08-31 13:10:00
+### Obiettivo
+Fix Throttle MsMpEng Priority=Keep — errore throw invece di UX policy
+
+### Root cause
+- MsMpEng in `securityExact` → Priority=Keep (corretto)
+- Advisory mostrava Throttle/Stop come opzioni ma backend faceva `throw` → stack trace in UI
+- Inconsistenza advisory ↔ enforcement catalogo
+
+### Modifiche
+- `Get-ProcessResolutionAdvisory`: esclude Throttle/Terminate se Keep; `BlockedActionIds`
+- `Test-ProcessCatalogActionBlocked` → outcome `ActionBlocked` (exit 0, no throw)
+- Web/GUI: disabilita bottoni Throttle/Stop + messaggio operatore
+- Smoke: `process-resolution-keep-advisory`, `process-resolution-keep-blocked`
+- v3.11.4
+
+### Pattern da evitare
+- Non `throw` per policy catalogo — usare outcome strutturato
+- Advisory deve riflettere azioni realmente consentite
+
+### Esito
+ActionBlocked graceful; smoke 24/24 + E2E ALL PASSED
+
+## 2026-08-31 16:20:00
+### Obiettivo
+Fix EXE startup ParseException su transparency-panel.ps1
+
+### Root cause
+- Em-dash (U+2014), ellipsis, bullet Unicode in stringhe GUI
+- EXE (ps2exe / Windows PowerShell 5.1) interpreta mojibake come fine stringa -> parser cascade error linea 237
+
+### Modifiche
+- sanitize-ps-ascii.ps1 esteso per scripts/gui
+- Sanitize integrato in package-suite pre-copy GUI
+- Nuovo smoke test-gui-parse-ps51.ps1
+- v3.11.5 + rebuild EXE
+
+### Pattern da evitare
+- Mai Unicode smart punctuation in script dot-sourced da EXE / PS 5.1
+- Smoke obbligatorio: test-gui-parse-ps51.ps1 dopo mod GUI
+
+### Esito
+GUI-PARSE ALL OK; EXE rebuilt
+
+## 2026-08-31 17:30:00
+### Obiettivo
+ADR-0007: architettura cross-platform C# core + Linux v0.2.0
+
+### Decisione
+- C# .NET 9 scelto vs Python (Windows native, single stack, AOT CLI, Avalonia/ASP.NET path)
+- Hexagonal: Core + Abstractions + Windows/Linux + Cli
+- PowerShell resta production fino a parity gate per dominio
+
+### Deliverable Phase 0
+- src/SystemOptimizerHub.sln (Core catalog/scoring parity)
+- hub CLI preview, 5 xUnit + test-core-parity.ps1 ALL PASSED
+- Linux package 0.2.0, ADR-0007 + migration roadmap
+
+### Prossimo
+- Phase 1: PPI analyze + transparency report JSON parity
+
+## 2026-08-31 19:29:10
+### Obiettivo
+Unblock WindowsOptimizer.exe startup: unset tab variable under StrictMode/ps2exe.
+
+### Task
+Fix Control tab transparency-panel: global state, no closures over function locals.
+
+### Modifiche
+- transparency-panel.ps1 global HubTransparencyPanel
+- system-optimizer-gui.ps1 pre-init
+- theme.ps1 HubVersion v3.11.6
+- test-hub-smoke transparency-panel-registry
+- dist gui scripts copied
+
+### Decisioni
+- Same pattern as Bug 28 global not closure
+- EXE rebuild not required panel is dot-sourced
+- Smoke uses powershell.exe STA
+
+### Esito
+Smoke ALL PASSED including transparency-panel-registry; copied to dist; reopen existing EXE.
+
+## 2026-08-31 19:35:00
+### Obiettivo
+Completare NBD Phase 1 automatable: PPI analyze + transparency report in C# Core v0.4.0
+
+### Task
+- ProcessPressureAnalyzer + PressureActionResolver (parity process-pressure-core.ps1)
+- TransparencyPolicy + TransparencyReportBuilder (posture, RamConsumers, trust)
+- CLI: hub analyze pressure|measure, hub transparency build|report
+- xUnit 14 tests + test-core-parity.ps1 extended (PPI + transparency fixtures)
+
+### Modifiche
+- src/SystemOptimizerHub.Core: Pressure/, Transparency/, Models/
+- src/SystemOptimizerHub.Windows: WindowsHostResourceProvider, WindowsProcessPressureSnapshot
+- HubVersion 0.4.0, Linux package 0.4.0
+- migration-nbd.json: phase1-ppi-analyze + phase1-transparency-report → done
+
+### Decisioni
+- Parity PPI via synthetic snapshot pairs (deterministic, no sleep in gate)
+- Transparency Core = posture + trust subset; network/agents live gather deferred to Phase 3 API
+- **STOP HITL:** prossimo NBD phase2-identify-catalog (score 59.5 < 70) richiede operator auth
+
+### Esito
+dotnet test 14/14; parity ALL PASSED; smoke ALL PASSED; NBD gates PASSED; Phase 2 blocked on HITL
+
+## 2026-08-31 20:05:00
+### Obiettivo
+Phase 2 NBD: port HITL operator auth + catalog merge to C# Core v0.5.0 con quality gate completo
+
+### Task
+- WindowsOperatorAuth (LogonUser + PrincipalContext parity operator-auth.ps1)
+- CatalogMergeService (build-entry, merge fields, rollback, post-identify pipeline gate)
+- CLI: hub auth verify, hub catalog build-entry|merge|merge-direct
+- Smoke/parity estesi per ogni funzione Core nuova; dotnet build CLI pre-smoke (--no-build)
+
+### Bug incontrati e risolti
+1. **CatalogLoader.SaveToFile** serializzava solo modello C# -> rimosso `extremeNecessityDefender` dal catalogo produzione
+   - Fix: merge JsonNode preservando extension properties; test CatalogLoaderSaveTests; restore catalog da git
+2. **dotnet run** warnings MSBuild in stdout -> JSON parse fail in smoke
+   - Fix: pre-build + `--no-build` in Invoke-HubCliSmoke/Invoke-HubCli
+3. **Smoke hub-catalog-merge-direct** scriveva su catalog produzione
+   - Fix: temp catalog copy + assert extremeNecessityDefender preserved
+4. **Parity** mancava dot-source process-knowledge.ps1 (Get-JsonPropertySafe)
+5. **Program.cs** duplicate catalogCmd -> merge subcommands nel catalog esistente
+
+### Quality gate (tutti PASS)
+- dotnet test 19/19
+- test-core-parity.ps1 (catalog build-entry, merge-direct, auth verify)
+- test-hub-smoke.ps1 (+ hub-auth-verify-skip, hub-catalog-merge-direct)
+- test-identify-chain-e2e.ps1 ALL PASSED
+
+### Deliverable
+- Hub Core 0.5.0, Linux package 0.5.0
+- package-suite.ps1 publish hub CLI -> dist/WindowsOptimizer/hub/
+- migration-nbd phase2-identify-catalog -> done
+- PS identify-unknown-process.ps1 resta orchestrator; Core pronto per HUB_USE_CORE catalog path
+
+### Esito
+ALL gates PASS; deploy via package-suite pending push
+
+## 2026-09-01 08:30:00
+### Obiettivo
+Phase 2 NBD (read-only): `hub resolve plan` + `hub defender evaluate` — Hub Core v0.6.0
+
+### Task
+- ResolutionExecutionService: port planning logic da resolve-unknown-process.ps1 (dry-run, ActionBlocked, ProcessNotRunning; live apply -> HitlApplyRequired)
+- DefenderExtremeNecessityEvaluator + WindowsDefenderStatusProvider (Get-MpComputerStatus read-only)
+- CLI: hub resolve plan, hub defender evaluate
+- Parity/smoke: keep-blocked, dryrun-not-running, defender tier/composite vs PS
+- migration-nbd: phase2-resolve-plan + phase2-defender-evaluate done; phase3-resolve-apply + phase3-defender-apply blocked (HITL)
+
+### STOP HITL (non automatizzato)
+- hub resolve apply (live throttle/terminate) — password + confirm phrase + OS mutation
+- hub defender apply — disabilita Defender; Tamper Protection + rollback obbligatori
+- HUB_USE_CORE=1 su path mutanti produzione — non approvato
+
+### Quality gate
+- dotnet test 24/24 PASS
+- test-core-parity.ps1 ALL PASSED (+ resolve plan, defender evaluate)
+- test-hub-smoke.ps1 ALL PASSED (+ hub-resolve-plan-*, hub-defender-evaluate)
+- test-identify-chain-e2e.ps1 ALL PASSED
+- package-suite.ps1 -> dist/WindowsOptimizer/hub/
+
+### Esito
+ALL gates PASS; Hub Core 0.6.0 deployato in dist
+
+## 2026-09-01 09:05:00
+### Obiettivo
+Documentazione data-driven sui 3 path HITL Phase 3 per decisione operatore
+
+### Task
+- KB/hub-hitl-paths-decision.md (flussi, pro/contro, matrice NBD, checklist GO)
+- .cursor/skills/hub-hitl-migration-decision/SKILL.md (workflow agente)
+- Link da KB/README, migration-nbd-quality-gate, migration-roadmap
+
+### Decisioni
+- Path 1 (resolve apply) raccomandato prima di Path 2 (defender apply) per RegressionRisk e UserValue
+- HUB_USE_CORE è rollout per dominio, non alternativa — solo dopo parity apply
+
+### Esito
+Documentazione pronta; decision log tabella vuota in attesa scelta operatore
+
+## 2026-09-01 09:30:00
+### Obiettivo
+HITL UX: pannello 3 path, session auth once, composite max tiers, hub resolve apply
+
+### Task
+- Session HITL: Start-OperatorHitlSession (~45min), Assert-OperatorAuth (PS + Core OperatorHitlSessionStore)
+- GUI: hitl-paths-panel.ps1 + Control tab HITL Paths button; wizard usa sessionToken
+- Web: /api/operator/session/start, sessionStorage token
+- Composite tiers: 85/90/95; MinCompositeScoreForPrompt=85
+- Core: hub resolve apply, hub auth session-start (v0.7.0)
+- migration-nbd: phase3-resolve-apply done
+
+### Esito
+dotnet test 24/24; parity ALL PASSED; smoke ALL PASSED; package-suite deploy v0.7.0
+
+## 2026-09-01 11:10:00
+### Obiettivo
+Decision log strutturato per efficacia HITL + feed automatico NBD (Phase 4 readiness)
+
+### Task
+- `scripts/lib/hub-decision-log.ps1`: JSONL `logs/hub-decision-log.jsonl` + snapshot `logs/hub-decision-effectiveness-latest.json`
+- Wire: session start/end, resolve apply, identify, defender apply, NBD evaluate
+- `evaluate-migration-nbd.ps1`: include `DecisionEffectiveness` + `EffectivenessReady` on NextBestDecision
+- Fix session file-backed auth (subprocess); web UX session logged-in only
+
+### Esito
+Web HITL validato operatore; NBD next = phase4-hub-use-core con segnali effectiveness automatici
+
+## 2026-09-01 12:00:00
+### Obiettivo
+Phase 4 NBD (`HUB_USE_CORE`) + Phase 5 network deep scan panel (multi-layer cybersec)
+
+### Task
+- `hub-core-routing.ps1`: Core routing per defender evaluate quando `HUB_USE_CORE=1`
+- `network-deep-scan.ps1` + `scan-network-deep.ps1`: cross netstat, UDP, DNS, Tor heuristics, ghost PID, memory forensics
+- Web transparency: tab Connessioni/Listener/Findings + Deep scan API
+- Hub v0.7.2; migration-nbd phase4 done, phase5 next
+- Smoke: network-deep-scan + hub-use-core-defender-evaluate
+
+### Esito
+Gate completo verde: dotnet 27/27, parity, smoke (+ network-deep-scan, HUB_USE_CORE), e2e, NBD → phase5-network-deep-panel next, package dist. Hub Core v0.7.2.
+
+## 2026-09-01 12:30:00
+### Obiettivo
+Phase 5 complete: Core NetworkDeepScanService + ETW/WFP admin + panel HITL actions
+
+### Task
+- Core: NetworkTransparencyService, NetworkDeepScanService, NetworkActionService
+- Windows: WindowsNetworkProbeProvider (ETW TCPIP + netsh WFP), WindowsNetworkMutator
+- CLI: `hub network snapshot|deep-scan|action`
+- Web: Kill conn, Block IP, Terminate + GET deep-scan latest
+- Smoke: hub-network-deep-scan-cli, network-action-dryrun
+- Hub v0.7.3; NBD phase5 done, phase6 transparency network parity next
+
+### Esito
+Gate completo verde: dotnet 37/37, parity, smoke (+ network CLI/action), e2e, NBD → phase6-transparency-network-parity next, package dist. Hub Core v0.7.3.
+
+## 2026-09-01 08:41:27
+### Obiettivo
+Stop boot PowerShell error from leftover NVMe postboot task on C:\SystemOptimizerHub after hub move to D:.
+
+### Task
+Add startup-integrity audit/repair; unregister stale AtStartup task; wire Health Scan STARTUP-LEGACY-001.
+
+### Modifiche
+- audit-startup-integrity.ps1 and lib/startup-integrity.ps1
+- Health finding STARTUP-LEGACY-001
+- verify-nvme self-unregister; post-reboot-verify portable paths
+- package-suite dist; GUI v3.11.7
+
+### Decisioni
+- Unregister one-shot campaign tasks rather than retarget to boot forever
+- Never auto-remove vendor Run keys
+- Apply Safe on this host: NVMe-WriteOffload-PostBootVerify removed with XML backup
+
+### Esito
+Task gone; audit NeedsRepair=0; smoke startup-integrity OK; dist packaged. Full smoke hung on pre-existing transparency-web-ensure wait.
+
+## 2026-09-04 09:57:03
+### Obiettivo
+Ripristinare C:\DataHub come mount NTFS sul volume D: dopo il drop del reparse.
+
+### Task
+Inventario, recover TEMP su D:, staging remount Safe (pagefile/TEMP fisici + pending rename + task AtStartup S10).
+
+### Modifiche
+- Robocopy 40/42 file C:\DataHub\Temp\User -> D:\Temp\User (16.68 MB)
+- TEMP User/Machine puntati a D:\Temp\User e D:\Temp\System
+- PagingFiles -> D:\Pagefile\pagefile.sys 2048 4096 + C:\pagefile.sys 512 1024
+- MoveFileEx DELAY_UNTIL_REBOOT C:\DataHub -> C:\_DataHub_dismount_bak_reboot
+- Task DataHub-Remount-Once AtStartup + scripts/restore-datahub-mount-atstartup.ps1
+- Guard S10/S20/S30/S80: no Ensure-Dir su DataHub se non e un mount
+- KB/datahub-mount-recovery-20260904.md
+
+### Decisioni
+- Target mount = intero volume D: via Add-PartitionAccessPath (S10), non junction e non D:\DataHub
+- Pagefile non spostato a caldo: gia in uso su D:\Pagefile; registry allineato al path fisico per reboot sicuro
+- Remount live bloccato (Access denied). Staging reboot invece di kill shell Cursor / IntelGfx
+- D:\Temp\IntelGfx lasciato intatto
+
+### Esito
+Recover fatto. Remount staged: serve reboot HITL. C:\DataHub resta directory-trappola fino al boot.
+
+## 2026-09-04 — Start-Process path with spaces (CSV not found)
+
+### Obiettivo
+GUI: `Analyzer completed but output CSV was not found` + `-File 'C:\Users\Pasquale'` (username con spazio).
+
+### Causa
+`Start-Process -ArgumentList string[]` join senza quote → spezza `C:\Users\Pasquale Lombardi\...`.
+
+### Fix
+`ConvertTo-StartProcessArgumentList` + `Start-HubPowerShellProcess` in `gui/worker-helpers.ps1`; usato da async-worker e GUI workers. Smoke `start-process-spaced-path`.
+

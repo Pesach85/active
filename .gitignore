@@ -1,6 +1,8 @@
 # Build artifacts
 /dist/**/WindowsOptimizer.exe
 *.exe
+**/bin/
+**/obj/
 
 # Runtime logs and telemetry
 /logs/*.log
@@ -46,6 +48,9 @@ MANIFEST.txt
 /push-*.txt
 /tmpmsg.txt
 
-# OS noise
-Thumbs.db
-.DS_Store
+# Android / mobile build artifacts
+/mobile/android/**/build/
+/mobile/android/**/.gradle/
+/mobile/android/local.properties
+/dist/android/
+/dist/installer/

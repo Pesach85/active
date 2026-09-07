@@ -1,5 +1,75 @@
 # Bugs Fixed
 
+## 2026-09-01 - Boot: leftover NVMe postboot task on C:\ hub path
+
+### Bug 32
+- **Sintomo**: all'avvio, PowerShell Admin: `L'argomento 'C:\SystemOptimizerHub\active\scripts\verify-nvme-writeoffload-postboot.ps1' per il parametro -File non esiste`. Exit `4294770688`.
+- **Causa**: task `\NVMe-WriteOffload-PostBootVerify` (AtStartup, creato da `monitor-robocopy-pending-reboot.ps1` in Wave 3) con path assoluto sulla root C: dopo relocation ADR-0002. `activate-hub-profile` reinstallava solo monitor/cleanup.
+- **Fix**: `audit-startup-integrity.ps1` + lib (scan task XML/Run/Startup, classifica one-shot vs suite persistente); finding Health `STARTUP-LEGACY-001`; apply Safe unregister/retarget con backup XML; verify-nvme si auto-unregister; post-reboot-verify senza path C: hardcoded. GUI **v3.11.7**.
+- **Check**: smoke `startup-integrity`; apply sul task NVMe; Health Scan mostra/non mostra finding a seconda dello stato.
+
+## 2026-08-31 - EXE: $tab unset on Control tab Refresh (ps2exe)
+
+### Bug 31
+- **Sintomo**: all'apertura di `WindowsOptimizer.exe`, dialog: `Impossibile recuperare la variabile $tab perché non è stata impostata.`
+- **Causa**: `form.Shown` e `SelectedIndexChanged` invocano `$script:transparencyUi.Refresh`. Quel scriptblock (e ShowReport/click) chiudeva su `$tab` locale di `New-TransparencyTab`. Sotto ps2exe + `Set-StrictMode` la closure del file dot-sourced non esiste più.
+- **Fix**: stesso pattern di Bug 28 — `$global:HubTransparencyPanel` + `Get-HubTransparencyPanel`; colori/tema copiati nello state (niente `$clr*` in delayed scriptblocks); lingua via `Get-I18nLang`; `ShowReport` legge proprietà JSON opzionali con `Get-PsNoteValue` (StrictMode-safe). GUI **v3.11.6**.
+- **Check**: smoke `transparency-panel-registry`; l'EXE esistente carica `scripts/gui/transparency-panel.ps1` a runtime (rebuild EXE non obbligatorio).
+
+## 2026-08-27 - EXE: HubWorkers unset under StrictMode (ps2exe)
+
+### Bug 29
+- **Sintomo**: KEEP Defender wizard crash: `L'espressione che segue '&'…`
+- **Causa**: `& $OnStatus.Invoke(...)` — call operator su risultato Invoke, non su scriptblock.
+- **Fix**: `Write-KeepWizardStatus` → `& $OnStatus $Message`. GUI **v3.5.1**.
+
+### Bug 30
+- **Sintomo**: Health Scan+Apply Moderate bloccato 600s+ con label "Health Audit"; `wbadmin` backup al 20%.
+- **Causa**: `apply-safe-fixes.ps1` sceglieva soluzione **più invasiva** entro MaxLevel (wbadmin ore) invece di Safe-first; progress GUI non distingueva fase apply.
+- **Fix**: Safe-first selection; skip Review/OpenLink e `wbadmin start backup` in auto-apply; DISK-HEALTH-001 backup → Kind Review; GUI fase "Applying fixes" + timeout 600s. **v3.5.2**.
+
+### Bug 28
+- **Sintomo**: dialog all'avvio/uso EXE: `Impossibile recuperare la variabile $Script:HubWorkers perché non è stata impostata.`
+- **Causa**: `async-worker.ps1` usava `$script:HubWorkers` con check `if (-not $script:HubWorkers)` dopo `Set-StrictMode` da `hub-common`; sotto ps2exe lo scope script del file dot-sourced non coincide con l'host EXE.
+- **Fix**: registry su `$global:HubWorkers` + `Initialize-HubWorkerRegistry` / `Get-HubWorkersTable` (StrictMode-safe); pre-init in GUI; smoke `async-worker-registry`; GUI **v3.2.1**.
+- **Check**: `test-hub-smoke.ps1` include async-worker-registry OK; EXE rebuild senza dialog HubWorkers.
+
+## 2026-08-27 - Audit elite + modularizzazione GUI v3.1.3
+
+### Bug 26
+- **Sintomo**: `Health Audit completed … but parse failed: The property 'Id' cannot be found on this object`.
+- **Causa**: `AlreadyOptimized` nel JSON audit è un **array di stringhe**; la GUI faceva `$_.Id`.
+- **Fix**: `Format-AlreadyOptimizedLog` tratta ogni voce come stringa (ora in `scripts/gui/theme.ps1`).
+- **Check**: Health Scan completa senza parse failed; log mostra preview stringhe.
+
+### Bug 27
+- **Sintomo**: debito strutturale — tema/helper worker inline nel monolite GUI; KB non rifletteva v3.1.x / Privacy / AutoAnalyze=false.
+- **Fix**:
+  - estratti `scripts/gui/theme.ps1` e `scripts/gui/worker-helpers.ps1`;
+  - aggiunto `scripts/test-hub-smoke.ps1`;
+  - `Test-HubAdmin` / `Assert-HubAdmin` in `hub-common.ps1`;
+  - KB architecture/task-board/codebase-health + `docs/product/REFACTORING-PLAN-ELITE.md`.
+- **Check**: smoke exit 0; package-suite include moduli gui; version GUI **3.1.3**.
+
+## 2026-08-12 - GUI v3.1: Add_Focus su Button + combo sovrapposti + package gui
+
+
+### Bug 25
+- **Sintomo**: avvio GUI con errori ripetuti `Add_Focus` su ogni pulsante; combo PROF/DETTAGLIO/MODALITÀ con testo troncato; `package-suite.ps1` fallisce su `scripts/gui/*`.
+- **Causa**:
+  - `command-help.ps1` usava `$ctrl.Add_Focus` (metodo inesistente su WinForms Button);
+  - opzioni scan nello stesso pannello dei pulsanti con coordinate assolute in conflitto;
+  - `package-suite` duplicava copy gui con glob `*` e creava `dist/.../gui/gui/`.
+- **Fix**:
+  - `MouseEnter` + `Click` (Button) / `GotFocus` (altri) in `scripts/gui/command-help.ps1`;
+  - nuovo pannello `pnlScanOptions` separato da `pnlActions` in `system-optimizer-gui.ps1` v3.1.1;
+  - `package-suite.ps1`: copy ricorsivo directory singolo, clean target, BOM su tutti `.ps1` sotto scripts.
+- **Check anti-regressione**:
+  - GUI avvia senza errori console al hover sui pulsanti;
+  - combo mostrano testo completo (FileLevel, Safe);
+  - `package-suite.ps1` exit 0 e `dist/WindowsOptimizer/scripts/gui/i18n.ps1` presente.
+- **Doc**: `docs/lessons-learned/gui-v3.1-i18n-layout-fixes.md`
+
 ## 2026-06-23 - WSL bloccato: comandi wsl.exe in hang con 100+ processi zombie
 
 ### Bug 23

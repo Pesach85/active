@@ -1,0 +1,21 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\SystemOptimizerHub.Core\SystemOptimizerHub.Core.csproj" />
+    <ProjectReference Include="..\SystemOptimizerHub.Abstractions\SystemOptimizerHub.Abstractions.csproj" />
+    <ProjectReference Include="..\SystemOptimizerHub.Windows\SystemOptimizerHub.Windows.csproj" />
+    <ProjectReference Include="..\SystemOptimizerHub.Linux\SystemOptimizerHub.Linux.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.CommandLine" Version="2.0.0-beta4.22272.1" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>

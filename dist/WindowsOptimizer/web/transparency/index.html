@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Controllo &amp; Trasparenza — System Optimizer Hub</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <h1>Controllo &amp; Trasparenza</h1>
+      <p class="subtitle">Tutte le attività monitorabili · contratto condiviso operatore + AI</p>
+    </div>
+    <div class="topbar-actions">
+      <button id="btnRefresh" type="button">Aggiorna report</button>
+      <span id="lastUpdate" class="muted">—</span>
+    </div>
+  </header>
+
+  <div id="offlineBanner" class="offline-banner hidden" role="alert">
+    <strong>Dashboard non raggiungibile (ERR_CONNECTION_REFUSED)</strong>
+    <p>Il server web locale non è in ascolto sulla porta 8765. Avvialo prima di usare questa pagina:</p>
+    <ul>
+      <li><strong>GUI EXE</strong> → tab Control → pulsante <em>Web Dashboard</em></li>
+      <li><strong>Script</strong> → <code>scripts\run-transparency-web.bat</code> oppure <code>pwsh -File scripts\ensure-transparency-web.ps1</code></li>
+    </ul>
+    <p class="muted">Solo localhost (127.0.0.1) · nessun servizio permanente per risparmiare RAM (Tier C feather)</p>
+  </div>
+
+  <main class="grid">
+    <section class="card posture" id="cardPosture">
+      <h2>Postura sicurezza</h2>
+      <div class="score-wrap">
+        <div class="score" id="postureScore">—</div>
+        <div class="grade" id="postureGrade">—</div>
+      </div>
+      <ul id="postureNotes" class="notes"></ul>
+    </section>
+
+    <section class="card host" id="cardHost">
+      <h2>Host</h2>
+      <dl id="hostStats" class="stats"></dl>
+    </section>
+
+    <section class="card wide" id="cardRam">
+      <h2>Consumo RAM (Top processi)</h2>
+      <p class="hint">T3 = sconosciuto · da classificare prima di qualsiasi azione automatica</p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Processo</th>
+              <th>RAM MB</th>
+              <th>Trust</th>
+              <th>Motivo</th>
+              <th>Azioni</th>
+            </tr>
+          </thead>
+          <tbody id="ramBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card" id="cardAgents">
+      <h2>Agenti registrati</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Agente</th><th>Stato</th><th>Controllo</th></tr>
+          </thead>
+          <tbody id="agentsBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card" id="cardActions">
+      <h2>Azioni automatiche recenti</h2>
+      <ul id="actionsList" class="actions"></ul>
+    </section>
+
+    <section class="card" id="cardNetwork">
+      <h2>Rete (connessioni attive)</h2>
+      <p class="hint">T3 = traffico non riconducibile · hidden = processo piccolo con egress · deep scan = cross-netstat/UDP/DNS/Tor/memory</p>
+      <div class="network-toolbar">
+        <button type="button" id="btnNetworkDeepScan" class="btn-mini">Deep scan (multi-layer)</button>
+        <span id="networkDeepStatus" class="muted"></span>
+      </div>
+      <div id="networkSummary" class="stats-inline muted"></div>
+      <div class="net-tabs">
+        <button type="button" class="net-tab active" data-nettab="connections">Connessioni</button>
+        <button type="button" class="net-tab" data-nettab="listeners">Listener</button>
+        <button type="button" class="net-tab" data-nettab="findings">Findings deep</button>
+      </div>
+      <div id="networkConnectionsPanel" class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Processo</th><th>Local</th><th>Remote</th><th>Trust</th><th></th></tr>
+          </thead>
+          <tbody id="networkBody"></tbody>
+        </table>
+      </div>
+      <div id="networkListenersPanel" class="table-wrap hidden">
+        <table>
+          <thead><tr><th>Processo</th><th>Local</th><th>Trust</th></tr></thead>
+          <tbody id="networkListenersBody"></tbody>
+        </table>
+      </div>
+      <div id="networkFindingsPanel" class="hidden">
+        <ul id="networkFindingsList" class="actions"></ul>
+      </div>
+      <h3>Processi piccoli / nascosti con egress</h3>
+      <ul id="hiddenNetList" class="actions"></ul>
+    </section>
+
+    <section class="card wide" id="cardHints">
+      <h2>Suggerimenti classificazione (KB + AI assistita)</h2>
+      <p class="hint">Deterministico first · merge catalogo solo dopo approvazione umana (T2/T3)</p>
+      <ul id="hintsList" class="actions"></ul>
+    </section>
+
+    <section class="card wide policy" id="cardPolicy">
+      <h2>Contratto delega (operatore ↔ AI)</h2>
+      <div class="policy-cols">
+        <div>
+          <h3>Principi</h3>
+          <ul id="policyPrinciples"></ul>
+        </div>
+        <div>
+          <h3>Solo operatore umano</h3>
+          <ul id="policyHuman"></ul>
+        </div>
+        <div>
+          <h3>Delegato all'AI (se abilitato)</h3>
+          <ul id="policyAi"></ul>
+        </div>
+      </div>
+      <div class="levels" id="controlLevels"></div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    Solo localhost · azioni mutanti richiedono password Windows · identify autorizza merge catalogo T1
+  </footer>
+
+  <div id="wizardOverlay" class="modal-overlay hidden" aria-hidden="true">
+    <div class="modal" role="dialog" aria-labelledby="wizardTitle">
+      <header class="modal-header">
+        <h2 id="wizardTitle">Risolvi / Identifica processo</h2>
+        <button type="button" id="btnWizardClose" class="btn-muted">Chiudi</button>
+      </header>
+      <div class="modal-tabs">
+        <button type="button" class="tab active" data-tab="advisory">Advisory & azioni</button>
+        <button type="button" class="tab" data-tab="identify">Identifica manualmente</button>
+      </div>
+      <div class="modal-body">
+        <div id="tabAdvisory" class="tab-panel active">
+          <pre id="wizardAdvisory" class="advisory-box"></pre>
+          <div class="wizard-actions">
+            <button type="button" id="btnObserve" class="btn-secondary">Osserva</button>
+            <button type="button" id="btnThrottle" class="btn-secondary">Throttle</button>
+            <button type="button" id="btnKeep" class="btn-secondary">Necessario lavoro</button>
+            <button type="button" id="btnStop" class="btn-danger">Stop…</button>
+          </div>
+        </div>
+        <div id="tabIdentify" class="tab-panel">
+          <p class="hint">Descrivi il processo. Dopo il salvataggio: KB cache + merge catalogo (T1) + report aggiornato.</p>
+          <label>Cos'è <input id="idWhatIs" type="text" /></label>
+          <label>Cosa fa <textarea id="idWhatDoes" rows="3"></textarea></label>
+          <label>Suggerimento lavoro <input id="idBusiness" type="text" /></label>
+          <label>Nota <input id="idNote" type="text" /></label>
+          <div class="row-2">
+            <label>Categoria
+              <select id="idCategory">
+                <option>Unknown</option><option>Browser</option><option>Database</option>
+                <option>Virtualization</option><option>VPN</option><option>Security</option>
+                <option>IDE</option><option>Sync</option><option>Platform</option><option>DevTool</option><option>Other</option>
+              </select>
+            </label>
+            <label>Priorità
+              <select id="idPriority"><option>Review</option><option>Tune</option><option>Keep</option></select>
+            </label>
+          </div>
+          <button type="button" id="btnSaveIdentify">Salva identificazione</button>
+        </div>
+        <div class="auth-box">
+          <span id="operatorUser" class="muted">—</span>
+          <div id="authLocked">
+            <label>Sessione HITL (~45 min, password una volta)
+              <input id="operatorPassword" type="password" autocomplete="current-password" placeholder="Password Windows" />
+            </label>
+            <button type="button" id="btnUnlockSession">Sblocca sessione</button>
+          </div>
+          <div id="authLoggedIn" class="auth-logged-in hidden">
+            <span id="sessionLoggedInMsg" class="session-ok">Sessione HITL attiva</span>
+            <button type="button" id="btnEndSession" class="btn-mini">Termina sessione</button>
+          </div>
+        </div>
+        <div id="wizardStatus" class="wizard-status muted"></div>
+      </div>
+    </div>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>

@@ -125,8 +125,12 @@ try {
     Add-Finding -Severity 'Important' -Category 'EventLog' -Title 'Filesystem event query failed' -Detail $_.Exception.Message
 }
 
+if ($Execute) {
+    Write-Host '[FS-INTEGRITY] WARNING: -Execute is scan-only — no automated repair is implemented. Use vendor/chkdsk tools for remediation.' -ForegroundColor Yellow
+}
+
 $report = [ordered]@{
-    Mode           = if ($Execute) { 'execute' } else { 'scan-only' }
+    Mode           = if ($Execute) { 'scan-only-requested-execute-not-implemented' } else { 'scan-only' }
     TimestampUTC   = [DateTime]::UtcNow.ToString('o')
     HubRoot        = $hub.HubRoot
     DrivesChecked  = @($checkedPaths)

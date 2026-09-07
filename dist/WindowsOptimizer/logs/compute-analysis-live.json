@@ -1,96 +1,340 @@
 {
-  "GeneratedAt": "2026-04-30 15:03:47",
+  "SchemaVersion": "ProcessPressureReport.v1",
+  "GeneratedAt": "2026-09-01 11:03:42",
+  "Platform": "Windows",
   "DurationSec": 8,
   "LogicalProcessors": 8,
-  "TotalProcessesObserved": 217,
+  "TotalProcessesObserved": 254,
+  "CatalogPath": "D:\\SystemOptimizerHub\\active\\dist\\WindowsOptimizer\\config\\process-intelligence.json",
+  "Summary": {
+    "HighPressureCount": 0,
+    "VitalPreserved": 4,
+    "AutoEligibleCount": 4,
+    "HitlRequiredCount": 2
+  },
   "TopProcesses": [
     {
-      "Score": 38.76,
+      "Score": 27.83,
       "ProcessName": "vmware-vmx",
-      "PID": 18132,
-      "CpuPercent": 28.0,
-      "WorkingSetMB": 7652.49,
-      "PrivateMB": 161.82,
+      "PID": 17200,
+      "ImagePath": "C:\\Program Files (x86)\\VMware\\VMware Workstation\\x64\\vmware-vmx.exe",
+      "CpuPercent": 15.99,
+      "WorkingSetMB": 5416.59,
+      "PrivateMB": 118.02,
       "IoMBps": 0.0,
       "DominantPressure": "MemoryHeavy",
-      "Recommendation": "Normal"
+      "Necessity": "KnownApplication",
+      "Priority": "Keep",
+      "Category": "Virtualization",
+      "Notes": "Catalog match - review mitigations for dominant pressure.",
+      "Responding": true,
+      "Recommendation": "Normal",
+      "RecommendedActions": [
+        {
+          "Action": "ObserveOnly",
+          "Level": "Safe",
+          "RequiresHitl": false,
+          "Rationale": "Vital/security process preserved."
+        },
+        {
+          "Action": "GuidanceOnly",
+          "Level": "Safe",
+          "RequiresHitl": true,
+          "Rationale": "Review if RAM justified for active work on vmware-vmx"
+        }
+      ],
+      "AutoEligibleActions": [
+        {
+          "Action": "ObserveOnly",
+          "Level": "Safe",
+          "RequiresHitl": false,
+          "Rationale": "Vital/security process preserved."
+        }
+      ],
+      "HitlRequiredActions": [
+        {
+          "Action": "GuidanceOnly",
+          "Level": "Safe",
+          "RequiresHitl": true,
+          "Rationale": "Review if RAM justified for active work on vmware-vmx"
+        }
+      ]
     },
     {
-      "Score": 2.38,
-      "ProcessName": "dwm",
-      "PID": 1684,
-      "CpuPercent": 2.93,
-      "WorkingSetMB": 250.91,
-      "PrivateMB": 306.97,
+      "Score": 18.72,
+      "ProcessName": "System",
+      "PID": 4,
+      "ImagePath": "",
+      "CpuPercent": 37.35,
+      "WorkingSetMB": 12.4,
+      "PrivateMB": 0.06,
+      "IoMBps": 0.0,
+      "DominantPressure": "CPUBound",
+      "Necessity": "CriticalSystem",
+      "Priority": "Keep",
+      "Category": "OSCore",
+      "Notes": "Windows core / session process - never terminate or throttle aggressively.",
+      "Responding": true,
+      "Recommendation": "Normal",
+      "RecommendedActions": [
+        {
+          "Action": "ObserveOnly",
+          "Level": "Safe",
+          "RequiresHitl": false,
+          "Rationale": "Vital/security process preserved."
+        }
+      ],
+      "AutoEligibleActions": [
+        {
+          "Action": "ObserveOnly",
+          "Level": "Safe",
+          "RequiresHitl": false,
+          "Rationale": "Vital/security process preserved."
+        }
+      ],
+      "HitlRequiredActions": []
+    },
+    {
+      "Score": 18.16,
+      "ProcessName": "Cursor",
+      "PID": 15256,
+      "ImagePath": "D:\\cursor\\Cursor.exe",
+      "CpuPercent": 20.63,
+      "WorkingSetMB": 2142.9,
+      "PrivateMB": 2373.54,
       "IoMBps": 0.0,
       "DominantPressure": "MemoryHeavy",
-      "Recommendation": "Normal"
+      "Necessity": "Unknown",
+      "Priority": "Review",
+      "Category": "Unknown",
+      "Notes": "Not in catalog - classify owner and business need before any action.",
+      "Responding": true,
+      "Recommendation": "Normal",
+      "RecommendedActions": [
+        {
+          "Action": "ObserveOnly",
+          "Level": "Safe",
+          "RequiresHitl": false,
+          "Rationale": "Default safe path when classification uncertain."
+        }
+      ],
+      "AutoEligibleActions": [
+        {
+          "Action": "ObserveOnly",
+          "Level": "Safe",
+          "RequiresHitl": false,
+          "Rationale": "Default safe path when classification uncertain."
+        }
+      ],
+      "HitlRequiredActions": []
     },
     {
-      "Score": 1.93,
-      "ProcessName": "mksSandbox",
-      "PID": 21108,
-      "CpuPercent": 1.83,
-      "WorkingSetMB": 302.97,
-      "PrivateMB": 338.71,
+      "Score": 8.35,
+      "ProcessName": "Cursor",
+      "PID": 13332,
+      "ImagePath": "D:\\cursor\\Cursor.exe",
+      "CpuPercent": 11.35,
+      "WorkingSetMB": 729.45,
+      "PrivateMB": 834.36,
       "IoMBps": 0.0,
-      "DominantPressure": "MemoryHeavy",
-      "Recommendation": "Normal"
+      "DominantPressure": "CPUBound",
+      "Necessity": "Unknown",
+      "Priority": "Review",
+      "Category": "Unknown",
+      "Notes": "Not in catalog - classify owner and business need before any action.",
+      "Responding": false,
+      "Recommendation": "Normal",
+      "RecommendedActions": [
+        {
+          "Action": "ObserveOnly",
+          "Level": "Safe",
+          "RequiresHitl": false,
+          "Rationale": "Default safe path when classification uncertain."
+        }
+      ],
+      "AutoEligibleActions": [
+        {
+          "Action": "ObserveOnly",
+          "Level": "Safe",
+          "RequiresHitl": false,
+          "Rationale": "Default safe path when classification uncertain."
+        }
+      ],
+      "HitlRequiredActions": []
     },
     {
-      "Score": 1.23,
-      "ProcessName": "Taskmgr",
-      "PID": 17152,
-      "CpuPercent": 1.17,
-      "WorkingSetMB": 192.16,
-      "PrivateMB": 97.98,
-      "IoMBps": 0.0,
-      "DominantPressure": "MemoryHeavy",
-      "Recommendation": "Normal"
-    },
-    {
-      "Score": 1.15,
+      "Score": 7.05,
       "ProcessName": "MsMpEng",
-      "PID": 5844,
-      "CpuPercent": 0.29,
-      "WorkingSetMB": 324.36,
-      "PrivateMB": 307.29,
+      "PID": 5856,
+      "ImagePath": "",
+      "CpuPercent": 11.28,
+      "WorkingSetMB": 386.32,
+      "PrivateMB": 487.39,
       "IoMBps": 0.0,
-      "DominantPressure": "MemoryHeavy",
-      "Recommendation": "Normal"
+      "DominantPressure": "CPUBound",
+      "Necessity": "Security",
+      "Priority": "Keep",
+      "Category": "Security",
+      "Notes": "Security component - tune schedule/scope only; never disable without HITL security review.",
+      "Responding": true,
+      "Recommendation": "Normal",
+      "RecommendedActions": [
+        {
+          "Action": "ObserveOnly",
+          "Level": "Safe",
+          "RequiresHitl": false,
+          "Rationale": "Vital/security process preserved."
+        },
+        {
+          "Action": "GuidanceOnly",
+          "Level": "Safe",
+          "RequiresHitl": true,
+          "Rationale": "Schedule scan outside work hours"
+        },
+        {
+          "Action": "GuidanceOnly",
+          "Level": "Safe",
+          "RequiresHitl": true,
+          "Rationale": "Add build folder exclusions after review"
+        },
+        {
+          "Action": "ReferenceLinks",
+          "Level": "Safe",
+          "RequiresHitl": false,
+          "Rationale": "https://learn.microsoft.com/en-us/microsoft-365/security/defender-endpoint/"
+        }
+      ],
+      "AutoEligibleActions": [
+        {
+          "Action": "ObserveOnly",
+          "Level": "Safe",
+          "RequiresHitl": false,
+          "Rationale": "Vital/security process preserved."
+        }
+      ],
+      "HitlRequiredActions": [
+        {
+          "Action": "GuidanceOnly",
+          "Level": "Safe",
+          "RequiresHitl": true,
+          "Rationale": "Schedule scan outside work hours"
+        },
+        {
+          "Action": "GuidanceOnly",
+          "Level": "Safe",
+          "RequiresHitl": true,
+          "Rationale": "Add build folder exclusions after review"
+        }
+      ]
     },
     {
-      "Score": 1.0,
-      "ProcessName": "explorer",
-      "PID": 2020,
-      "CpuPercent": 0.1,
-      "WorkingSetMB": 310.02,
-      "PrivateMB": 196.05,
+      "Score": 3.0,
+      "ProcessName": "svchost",
+      "PID": 3396,
+      "ImagePath": "C:\\WINDOWS\\System32\\svchost.exe",
+      "CpuPercent": 5.81,
+      "WorkingSetMB": 25.76,
+      "PrivateMB": 18.3,
       "IoMBps": 0.0,
-      "DominantPressure": "MemoryHeavy",
-      "Recommendation": "Normal"
+      "DominantPressure": "CPUBound",
+      "Necessity": "CriticalSystem",
+      "Priority": "Keep",
+      "Category": "OSCore",
+      "Notes": "Windows core / session process - never terminate or throttle aggressively.",
+      "Responding": true,
+      "Recommendation": "Normal",
+      "RecommendedActions": [
+        {
+          "Action": "ObserveOnly",
+          "Level": "Safe",
+          "RequiresHitl": false,
+          "Rationale": "Vital/security process preserved."
+        }
+      ],
+      "AutoEligibleActions": [
+        {
+          "Action": "ObserveOnly",
+          "Level": "Safe",
+          "RequiresHitl": false,
+          "Rationale": "Vital/security process preserved."
+        }
+      ],
+      "HitlRequiredActions": []
     },
     {
-      "Score": 0.82,
-      "ProcessName": "WindowsOptimizer",
-      "PID": 19960,
-      "CpuPercent": 0.78,
-      "WorkingSetMB": 126.38,
-      "PrivateMB": 90.59,
+      "Score": 2.6,
+      "ProcessName": "Cursor",
+      "PID": 16108,
+      "ImagePath": "D:\\cursor\\Cursor.exe",
+      "CpuPercent": 3.47,
+      "WorkingSetMB": 236.11,
+      "PrivateMB": 313.71,
       "IoMBps": 0.0,
-      "DominantPressure": "MemoryHeavy",
-      "Recommendation": "Normal"
+      "DominantPressure": "CPUBound",
+      "Necessity": "Unknown",
+      "Priority": "Review",
+      "Category": "Unknown",
+      "Notes": "Not in catalog - classify owner and business need before any action.",
+      "Responding": true,
+      "Recommendation": "Normal",
+      "RecommendedActions": [
+        {
+          "Action": "ObserveOnly",
+          "Level": "Safe",
+          "RequiresHitl": false,
+          "Rationale": "Default safe path when classification uncertain."
+        }
+      ],
+      "AutoEligibleActions": [
+        {
+          "Action": "ObserveOnly",
+          "Level": "Safe",
+          "RequiresHitl": false,
+          "Rationale": "Default safe path when classification uncertain."
+        }
+      ],
+      "HitlRequiredActions": []
     },
     {
-      "Score": 0.53,
-      "ProcessName": "SupportAssistAgent",
-      "PID": 15700,
-      "CpuPercent": 0.0,
-      "WorkingSetMB": 174.6,
-      "PrivateMB": 112.18,
+      "Score": 2.1,
+      "ProcessName": "Cursor",
+      "PID": 14364,
+      "ImagePath": "D:\\cursor\\Cursor.exe",
+      "CpuPercent": 1.93,
+      "WorkingSetMB": 309.22,
+      "PrivateMB": 308.48,
       "IoMBps": 0.0,
       "DominantPressure": "MemoryHeavy",
-      "Recommendation": "Normal"
+      "Necessity": "Unknown",
+      "Priority": "Review",
+      "Category": "Unknown",
+      "Notes": "Not in catalog - classify owner and business need before any action.",
+      "Responding": true,
+      "Recommendation": "Normal",
+      "RecommendedActions": [
+        {
+          "Action": "ObserveOnly",
+          "Level": "Safe",
+          "RequiresHitl": false,
+          "Rationale": "Default safe path when classification uncertain."
+        }
+      ],
+      "AutoEligibleActions": [
+        {
+          "Action": "ObserveOnly",
+          "Level": "Safe",
+          "RequiresHitl": false,
+          "Rationale": "Default safe path when classification uncertain."
+        }
+      ],
+      "HitlRequiredActions": []
+    }
+  ],
+  "ResearchNotes": [
+    {
+      "ProcessName": "MsMpEng",
+      "Reference": "https://learn.microsoft.com/en-us/microsoft-365/security/defender-endpoint/",
+      "DominantPressure": "CPUBound"
     }
   ]
 }

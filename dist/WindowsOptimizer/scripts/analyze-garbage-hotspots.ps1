@@ -308,8 +308,7 @@ foreach ($path in $candidatePaths) {
 }
 
 $result = $rows |
-    Sort-Object EstimatedReclaimGB -Descending |
-    Sort-Object Score -Descending |
+    Sort-Object -Property @{ Expression = 'Score'; Descending = $true }, @{ Expression = 'EstimatedReclaimGB'; Descending = $true } |
     Select-Object -First $Top
 $result | Export-Csv -LiteralPath $OutputCsv -NoTypeInformation -Encoding UTF8
 $result

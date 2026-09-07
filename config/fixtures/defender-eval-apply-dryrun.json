@@ -1,0 +1,16 @@
+{
+  "SchemaVersion": "DefenderExtremeNecessityEvaluation.v1",
+  "GeneratedAt": "2026-09-01 00:00:00",
+  "CompositeScore": 86.0,
+  "RecommendedTier": "TuneExclusions",
+  "AllowedToProceed": true,
+  "NeverAutoApply": true,
+  "Rationale": "Fixture for dry-run parity gate.",
+  "Blockers": [],
+  "Prerequisites": [],
+  "DefenderStatus": {
+    "ModuleAvailable": true,
+    "RealTimeProtectionEnabled": true,
+    "TamperProtectionEnabled": false
+  }
+}

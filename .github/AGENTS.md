@@ -6,6 +6,22 @@ Ogni sessione opera sotto il Lead AI Engineer: coordinamento, architettura, cres
 
 **Flusso:** Analisi → Piano → Implementazione → Test → Documentazione → KB → Runbook → ADR → Suggerimenti
 
+## Cursor skills (orchestrazione)
+
+Rule always-on: [`.cursor/rules/hub-orchestration.mdc`](../.cursor/rules/hub-orchestration.mdc)  
+Catalogo e adozione: [`KB/cursor-skills-adoption.md`](../KB/cursor-skills-adoption.md)
+
+| Skill | Path |
+|-------|------|
+| HITL / NBD migration | `.cursor/skills/hub-hitl-migration-decision/` |
+| Quality gate / smoke | `.cursor/skills/hub-quality-gate/` |
+| Android on-device | `.cursor/skills/android-on-device-maintenance/` |
+| KB + commit + push | `.cursor/skills/hub-kb-commit-push/` |
+| Create new skill | `.cursor/skills/skill-creator/` |
+| Transparency control | `docs/skills/transparency-control/` |
+
+Prima di improvvisare un workflow ripetuto: carica la skill. Non installare MCP Python di terze parti salvo richiesta esplicita.
+
 ## Decision framework
 
 Prima di agire, consultare [`docs/knowledge/decision-framework.md`](../docs/knowledge/decision-framework.md):
@@ -26,6 +42,7 @@ Prima di agire, consultare [`docs/knowledge/decision-framework.md`](../docs/know
 | Hardware Health Agent | `docs/agents/hardware-health-agent.md` |
 | Automation Engineer | `docs/agents/automation-engineer.md` |
 | Security Reviewer | `docs/agents/security-reviewer.md` |
+| Transparency Guardian | `docs/agents/transparency-guardian.md` |
 | KB Curator | `docs/agents/kb-curator.md` |
 
 ## Quality gate (obbligatorio)
@@ -36,6 +53,21 @@ Per ogni richiesta di ottimizzazione/manutenzione:
 2. Anti-regression checks e fallback
 3. Audit-first prima di azioni distruttive
 4. Registra obiettivo, task, modifiche, decisioni, esito in KB
+
+Per modifiche alla catena **Identify → Catalog → Trust T1**, applicare anche [`docs/knowledge/identify-catalog-quality-gate.md`](../docs/knowledge/identify-catalog-quality-gate.md) e smoke:
+
+```powershell
+powershell -File scripts/test-hub-smoke.ps1
+powershell -File scripts/test-identify-chain-e2e.ps1
+```
+
+Per **migrazione PS → C# Core** (ADR-0007), eseguire NBD scored gate prima di ogni sprint:
+
+```powershell
+powershell -File scripts/evaluate-migration-nbd.ps1 -Apply
+```
+
+Rubrica: [`docs/knowledge/migration-nbd-quality-gate.md`](../docs/knowledge/migration-nbd-quality-gate.md) · config: `config/migration-nbd.json`
 
 ## Guardrail operativi
 
@@ -51,3 +83,4 @@ Per ogni richiesta di ottimizzazione/manutenzione:
 - Architettura: [`docs/architecture/overview.md`](../docs/architecture/overview.md)
 - ADR: [`docs/architecture/adr/`](../docs/architecture/adr/)
 - KB operativa: [`KB/README.md`](../KB/README.md)
+- Skills Cursor: [`KB/cursor-skills-adoption.md`](../KB/cursor-skills-adoption.md)

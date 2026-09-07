@@ -9,8 +9,19 @@ Knowledge base operativa giornaliera. La conoscenza strutturata permanente vive 
 | `journal.md` | Storico cronologico decisioni (auto via script) |
 | `task-board.md` | Stato task correnti (ToDo/In Progress/Done) |
 | `architecture.md` | Architettura tecnica script/GUI/pattern stabilità |
+| `hub-hitl-paths-decision.md` | **Phase 3 HITL:** resolve apply, defender apply, HUB_USE_CORE — pro/contro e matrice decisionale |
+| `network-deep-scan-design.md` | **Phase 5:** multi-layer network deep scan (cross-diff, UDP, DNS, Tor heuristics, memory forensics) |
+| `multi-platform-install-decision.md` | **Install:** Windows dev-sync, Linux user install, Android native UX |
+| `cursor-skills-adoption.md` | **Skills Cursor:** orchestrazione + catalogo skill adottate (fable/chrisboden) |
+| `disk-occupancy-decision.md` | **Storage:** classificazione granulare unità, BitLevel onesto, SafeDelete vs HITL |
+| `vmware-health-mks-decision.md` | **VMware:** inventory/diagnose MKS mksSandbox; safe 3D-off + stale locks; HITL for disk/power |
+| `datahub-mount-recovery-20260904.md` | **DataHub:** mount C:\DataHub → D: rotto il 2026-09-04; recover + remount staged reboot |
+| `../docs/checklists/hub-quality-gate-validation.md` | **Checklist deterministica** quality gate completo |
+| `codebase-health.md` | Snapshot salute codice + voti per area |
+| `bugs-fixed.md` | Incident risolti e check anti-regressione |
 | `templates/entry-template.md` | Template entry journal manuale |
 | `../docs/` | Runbook, ADR, agenti, troubleshooting, checklists |
+| `../docs/product/REFACTORING-PLAN-ELITE.md` | Piano operativo refactor onde validate |
 
 ## Mappa docs/ (knowledge permanente)
 
