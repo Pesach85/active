@@ -1,0 +1,28 @@
+---
+description: C#/.NET + Blazor stack conventions (Minimal API, Vertical Slices, thin Razor).
+globs:
+  - "**/*.cs"
+  - "**/*.razor"
+alwaysApply: false
+---
+
+# .NET / Blazor
+
+## API
+- Prefer Minimal API endpoints; group by feature (Vertical Slice), not giant controllers.
+- Keep DTOs contracted and shared; do not redefine domain models in the UI layer.
+- Validate at the boundary; return deterministic errors (IT messages if product already does).
+
+## Razor / UI
+- No heavy domain logic in `.razor` pages — extract reusable components / services.
+- Pages orchestrate; Core/Server owns parsing, COM, CIP, business rules.
+- Prefer existing design tokens/theme over inventing a second visual system.
+
+## General
+- Target the solution's TFM; do not bump SDK/package majors without KB + tests.
+- Keep secrets and plant paths out of git; use Samples/fixtures for demos.
+- Run the repo's gate (`dotnet test` / smoke) before claiming done.
+
+## KB (this repo)
+
+- Preserve hub-orchestration boundaries; avoid dumping plant IP into public commits.
