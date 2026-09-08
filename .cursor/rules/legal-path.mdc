@@ -1,0 +1,46 @@
+---
+description: Knowledge-first lawful path; EU 2009/24 interop study OK; Cursor no memory-injection; ACT only owned/write-auth.
+alwaysApply: true
+---
+
+# Legal path (founder constraint)
+
+Not a lawyer. Still follow this.
+
+## Founder split
+
+1. **Knowledge (highest for agents):** capillary understanding of hardware, software, and publicly documented techniques. Read, cite, document, explain. EU **Directive 2009/24/EC** framing: interop-oriented analysis on the founder’s analysis PC is **not** a commercial STOP. See skill `knowledge-analysis` + ADR `2026-09-08_eu-software-directive-cursor-scope.md`.
+2. **Commercial / executive:** products, money, publish, brand — strict limits (no unlicensed gambling, no KYC-evasion, no plant-IP dump, Pc Technic = no product CTA).
+3. **Intervention / reverse ACT:** allowed **only** on systems the founder **owns** or has **explicit write/modify authorization** (`config/reverse_owned_scope.json`, skill `reverse-owned`). Otherwise study ≠ ACT.
+
+## Cursor vs founder offline (diagnostics / Rockwell)
+
+- **Cursor:** Blazor, architecture, offline `.L5X`/ASCII parsers, CIP via standard libraries, **ingress** APIs/file drops for external data.
+- **Founder offline:** memory dump/scan/injection / process-attach micro-scripts (local models OK). Cursor must not generate those bodies; only exchange points.
+
+Canonical: `docs/knowledge/decisions/2026-09-04_legal-path-always.md`, `docs/knowledge/decisions/2026-09-07_knowledge-vs-act.md`, `docs/knowledge/decisions/2026-09-07_reverse-owned-scope.md`, `docs/knowledge/decisions/2026-09-08_eu-software-directive-cursor-scope.md`.
+
+## When to stop and warn (commercial + intervention)
+
+If a request (or a workaround) could involve:
+
+- Unlicensed gambling / betting / casino (crypto, Solana, VPN geo-fence, no-seat shell)
+- Tax evasion, fake invoices, hiding income as a product trick
+- Money transmission / mixer / structuring to avoid KYC
+- Publishing plant/customer IP, credentials, or personal data without a legal basis
+- **Acting on** a system that is not founder-owned and not write-authorized (`reverse_owned_scope.json`)
+- Meta/WP publish without the user's rights
+- Employment/contractor misclassification presented as a product trick
+
+Then: **do not implement the intervention or the commercial evasion**. Warn in Italian (ADM, GDPR, AML, copyright, etc.). Offer the knowledge-only alternative if one exists. Do not design evasion.
+
+Do **not** block a request that is only explanation or source-cited study of a technique (including interop RE study under the EU software-directive framing above).
+
+If asked for process memory injection/dump code: refuse the low-level script; offer Blazor/API ingress stubs instead.
+
+## In-bounds rails
+
+Gumroad/Fiverr/PayPal under brand with marketplace KYC. Pc Technic = technical projects, not product CTA. Plant repos = no public dump. Brand 9:16 shorts: `brand-short-video` + `config/short_video_jobs.json` only; free media (owned stills, Pixabay/Unsplash free keys, edge-tts/gTTS/SAPI, YAL/NCS with credit); never auto-publish TikTok/IG/YouTube; never plant HMI.
+
+Casino STOP: `docs/knowledge/decisions/2026-09-04_no-unlicensed-solana-casino.md`  
+RE/pentest **ACT** on non-owned systems: STOP. Owned/write-authorized: `docs/knowledge/decisions/2026-09-07_reverse-owned-scope.md` (`reverse-owned`). Full reverse-skill pwn/EDR/CTF pack is still not copied into trees. ReverseLab (`LING71671/open-reverselab`) is hub vendor lab + thin skill `open-reverselab` on APK/PE boards only — not a CTF dump into every repo (`2026-09-07_open-reverselab.md`).
