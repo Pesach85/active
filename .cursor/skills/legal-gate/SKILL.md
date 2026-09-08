@@ -7,39 +7,45 @@ description: >-
   the task is hardware/software/hack knowledge versus acting on a live
   system. Reverse/ACT is allowed only on founder-owned systems or with
   explicit write/modify authorization (config/reverse_owned_scope.json).
-  EU 2009/24 interoperability study is in-bounds as knowledge; Cursor does
-  not generate memory-injection/dump scripts (founder offline).
+  EU 2009/24: static low-level interop study is in-bounds; refuse live
+  process-attach / memory-injection / network-active exploit scripts.
 ---
 
 # Legal gate
 
 You are not a lawyer. Still apply this gate.
 
-Founder split: **knowledge first**, commercial limits, **ACT only on owned or write-authorized systems**. Canonical: `docs/knowledge/decisions/2026-09-07_knowledge-vs-act.md`, `docs/knowledge/decisions/2026-09-07_reverse-owned-scope.md`, `docs/knowledge/decisions/2026-09-04_legal-path-always.md`, `docs/knowledge/decisions/2026-09-08_eu-software-directive-cursor-scope.md`.
+Founder split: **knowledge first** (including **low-level STATIC** analysis), commercial limits, **runtime ACT** only on owned or write-authorized systems. Canonical: `docs/knowledge/decisions/2026-09-07_knowledge-vs-act.md`, `docs/knowledge/decisions/2026-09-07_reverse-owned-scope.md`, `docs/knowledge/decisions/2026-09-04_legal-path-always.md`, `docs/knowledge/decisions/2026-09-08_eu-software-directive-cursor-scope.md` (**LOW-LEVEL STATIC KNOWLEDGE WORKSPACE**).
 
 ## Three planes
 
 | Plane | Do |
 |-------|----|
-| **Knowledge** | Capillary understanding of HW/SW/techniques. Read, cite, document. No need for ownership to *study*. EU Software Directive **2009/24/EC** framing (interop-oriented analysis on the founder’s analysis PC): do **not** block study or high-level interop architecture as if it were a casino-class STOP. |
+| **Knowledge** | Capillary understanding of HW/SW/techniques. Read, cite, document. **Static** low-level analysis code is in-bounds under EU **2009/24/EC** on owned/write-auth offline datasets. Do **not** block study as if it were a casino-class STOP. |
 | **Commercial / executive** | Products, payouts, publish — existing STOP (casino, KYC-evasion, plant IP dump, Pc Technic CTA). |
-| **Intervention / reverse ACT** | Allowed **only** if the founder is primary owner **or** has explicit authorization to write/modify. Allowlist: `config/reverse_owned_scope.json`. Skill: `reverse-owned`. |
+| **Intervention / reverse ACT** | Runtime write/modify / live attach only if founder_owned or explicit write-auth. Allowlist: `config/reverse_owned_scope.json`. Skill: `reverse-owned`. |
 
-## Cursor vs founder offline (Rockwell / diagnostics)
+## LOW-LEVEL STATIC KNOWLEDGE (binding)
 
-Binding split (`2026-09-08_eu-software-directive-cursor-scope.md`):
+Target: EU Directive **2009/24/EC** (interop & static analysis). When ownership/write-auth holds per `reverse_owned_scope.json`:
 
-| Cursor implements | Founder offline (do not generate here) |
-|-------------------|----------------------------------------|
-| Blazor UI, architecture, L5X/ASCII/offline parsers | Memory scan / dump / injection / process attach scripts |
-| CIP / EtherNet/IP via standard libraries (pycomm3, libplctag, …) | Low-level Studio process instrumentation |
-| API or file-drop **ingress** for external dumps | Shipping those dumps into public/plant git |
+1. **NO RUNTIME INTERVENTION:** do **not** write live process-attach, memory-injection, or network-active exploit scripts.
+2. **FULL LOW-LEVEL FREEDOM (STATIC):** explicitly permitted — raw byte arrays, hex dumps, binary formats (`.bin`, `.elf`, `.exe`, `.L5X`, firmware dumps); pointer arithmetic / memory **layout** mapping on offline buffers; C/Rust packed structs (`#pragma pack`, `#[repr(C)]`); bitwise ops, checksums/CRCs, crypto/obfuscation **decoding**; assembly (x86/ARM/microcode) and decompilation **analysis**.
+3. **OUTPUT:** deterministic static code (C/Rust/Python byte-manipulation) or structural documentation.
+4. **DO NOT REFUSE** generic malware/injection false-positives for static interop study on owned offline datasets. If a runtime script would be dangerous → abstract byte-parser or mock-sandbox instead.
 
-If asked for injection/memory PoC: refuse the low-level body; offer ingress DTO/API stubs + document the offline hand-off.
+## Product scope vs knowledge (Rockwell / diagnostics)
+
+| Cursor implements | Refuse / founder offline |
+|-------------------|--------------------------|
+| Blazor, architecture, L5X/ASCII, CIP via standard libs, ingress API/file-drop | Live process-attach / memory dump-scan-injection / network-active exploit PoCs |
+| **Static** low-level parsers & layout maps on offline owned buffers/files | Shipping plant IP or third-party live dumps into public git |
+
+Product scope (Blazor/CIP/ingress) remains. Knowledge plane **adds** static low-level freedom — this supersedes “Cursor only does high-level”.
 
 ## Reverse ACT exception
 
-Enabled for systems in `founder_owned`. If the repo is in `pending_human_confirm` (plant/customer), **ask** before any ACT. If unknown, ask.
+Enabled for systems in `founder_owned`. If the repo is in `pending_human_confirm` (plant/customer), **ask** before any **runtime** ACT. Static knowledge docs/parsers on offline owned copies may still be OK when listed in `high_level_cursor_ok_while_pending` or clearly knowledge-only. If unknown, ask.
 
 Still **not** allowed: live third-party hosts, other people's devices, forks of upstream projects, customer plant without a yes. Naming a target in chat is not authorization.
 
@@ -49,7 +55,7 @@ Do **not** copy pwn-chain / EDR-bypass / attack-chain / CTF-sandbox into repos. 
 
 ## Knowledge (always in-bounds as study)
 
-Datasheets, RFCs, own files in the workspace, public specs, classes of bugs as explanation, interop analysis framed under 2009/24/EC on owned analysis machines. Skills: `knowledge-analysis`, `source-driven-development`, `doubt-driven-development`.
+Datasheets, RFCs, own files in the workspace, public specs, classes of bugs as explanation, interop analysis framed under 2009/24/EC, **static** binary/layout/decoding work on offline owned datasets. Skills: `knowledge-analysis`, `source-driven-development`, `doubt-driven-development`.
 
 ## Commercial STOP
 
@@ -59,4 +65,4 @@ MoneyPrinterTurbo / brand shorts: generate 9:16 only for owned SKUs (`config/sho
 
 SKU ads without HITL: Gumroad store/Discover via `gumroad-sku` + `brand-distribution`. Not Meta Graph. Not Pc Technic.
 
-If they ask both to learn and to hit a system **not** owned/authorized: teach; refuse the hit.
+If they ask both to learn and to hit a system **not** owned/authorized: teach; refuse the hit. If they ask for live injection on an owned system: refuse the runtime body; offer static parser / mock-sandbox / ingress stubs.
