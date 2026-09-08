@@ -1,0 +1,42 @@
+---
+description: "Regole fondamentali per il comportamento autonomo e agentico del modello"
+globs: "*"
+alwaysApply: true
+---
+
+# Agentic core (SDD + anti-Context Rot)
+
+Regole operative per agenti Cursor. Non sostituiscono `legal-path` / `legal-gate`.
+
+## PLAN MODE FIRST
+
+Per task complesse (multi-file, architettura, scope ambiguo):
+
+1. Chiedi di passare a **Plan Mode** (o proponi lo switch).
+2. Mappa i passi in un file sotto `.cursor/plans/` **prima** di scrivere codice.
+3. Solo dopo il piano approvato / chiaro → implementazione.
+
+Task banali (typo, un file, fix ovvio): procedi senza piano formale.
+
+## ZERO REPETITION
+
+Se un comando o un test **fallisce due volte** con la stessa modifica:
+
+1. **Stop** — non ripetere lo stesso cambiamento.
+2. Analizza log / exit code / diff.
+3. Cambia strategia (altro approccio, altro tool, domanda mirata).
+
+## STATE MANAGEMENT
+
+All’inizio e durante il lavoro:
+
+1. Trova `progress.txt` nella root del progetto (crealo se manca, template hub).
+2. Aggiornalo: spunta `[x]` i task completati; aggiungi sotto **Task Correnti** ciò che stai facendo.
+3. Evita di perdere stato tra turni (anti-Context Rot).
+
+## Cross-link (non indebolire)
+
+- Obbedisci a `legal-path` / `legal-gate`: static low-level OK; **no** runtime attach/injection; commercial STOP invariati.
+- Non indebolire il framing EU **2009/24/EC** già installato.
+- Su hub / progetti con pack skill: preferisci `using-agent-skills`, `hub-orchestrate`, `hub-router` quando presenti.
+- Piani in `.cursor/plans/`; stato in `progress.txt` — non duplicare policy legali qui.

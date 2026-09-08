@@ -1,0 +1,7 @@
+# Stato del Progetto Agentico
+## Architettura e Configurazione
+- [x] Inizializzazione Workspace Agentico (.cursor/rules)
+- [x] Definizione dello Stack Tecnologico
+- Stack rilevato: C#/.NET
+## Task Correnti
+- [ ] (Istruzioni: l'agente compilerà questa sezione dinamicamente in base alle richieste dell'utente)
