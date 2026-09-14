@@ -41,19 +41,43 @@ internal sealed class LinuxProcessSnapshotProvider : IProcessSnapshotProvider
 {
     public Task<ProcessSnapshot?> GetLiveSnapshotAsync(int processId, string processName, CancellationToken ct = default)
     {
+        var snap = TryReadSnapshot(processId, processName);
+        return Task.FromResult(snap);
+    }
+
+    public Task<LiveProcessHandle?> GetLiveSnapshotWithHandleAsync(
+        int processId, string processName, CancellationToken ct = default)
+    {
+        var snap = TryReadSnapshot(processId, processName);
+        if (snap is null)
+            return Task.FromResult<LiveProcessHandle?>(null);
+
+        try
+        {
+            var handle = System.Diagnostics.Process.GetProcessById(snap.Pid);
+            return Task.FromResult<LiveProcessHandle?>(new LiveProcessHandle(snap, handle));
+        }
+        catch
+        {
+            return Task.FromResult<LiveProcessHandle?>(null);
+        }
+    }
+
+    private static ProcessSnapshot? TryReadSnapshot(int processId, string processName)
+    {
         if (processId <= 0 && string.IsNullOrWhiteSpace(processName))
-            return Task.FromResult<ProcessSnapshot?>(null);
+            return null;
 
         if (processId <= 0)
         {
             // name-only lookup via /proc (minimal Phase 0)
-            return Task.FromResult<ProcessSnapshot?>(null);
+            return null;
         }
 
         var statPath = $"/proc/{processId}/stat";
         var statusPath = $"/proc/{processId}/status";
         if (!File.Exists(statPath))
-            return Task.FromResult<ProcessSnapshot?>(null);
+            return null;
 
         var comm = processName;
         double ramMb = 0;
@@ -72,16 +96,44 @@ internal sealed class LinuxProcessSnapshotProvider : IProcessSnapshotProvider
         }
         catch { }
 
-        var snap = new ProcessSnapshot(processId, comm, ramMb, 0, true, "Unknown", string.Empty, false);
-        return Task.FromResult<ProcessSnapshot?>(snap);
+        return new ProcessSnapshot(processId, comm, ramMb, 0, true, "Unknown", string.Empty, false);
     }
 }
 
 internal sealed class LinuxProcessMutator : IProcessMutator
 {
-    public Task ThrottleBelowNormalAsync(int processId, CancellationToken ct = default)
+    public Task ThrottleBelowNormalAsync(
+        System.Diagnostics.Process handle,
+        ProcessIdentity expectedIdentity,
+        CancellationToken ct = default)
     {
-        if (processId <= 0) throw new ArgumentOutOfRangeException(nameof(processId));
+        ArgumentNullException.ThrowIfNull(handle);
+        ArgumentNullException.ThrowIfNull(expectedIdentity);
+
+        if (handle.HasExited)
+            throw new InvalidOperationException("Process handle exited before throttle — abort (no Pid re-lookup).");
+        if (handle.Id != expectedIdentity.Pid)
+            throw new InvalidOperationException("Process handle Pid mismatch — abort.");
+
+        long startTicks = 0;
+        string path = string.Empty;
+        try { startTicks = handle.StartTime.ToUniversalTime().Ticks; } catch { }
+        try { path = handle.MainModule?.FileName ?? string.Empty; } catch { }
+
+        if (expectedIdentity.StartTimeUtcTicks == 0 || startTicks == 0)
+            throw new InvalidOperationException("IdentityFieldUnreadable: StartTimeUtcTicks — abort.");
+        if (startTicks != expectedIdentity.StartTimeUtcTicks)
+            throw new InvalidOperationException("Process handle StartTime mismatch — abort.");
+
+        var expectedPath = expectedIdentity.ImagePath?.Trim() ?? string.Empty;
+        var actualPath = path.Trim();
+        if (string.IsNullOrEmpty(expectedPath) || string.IsNullOrEmpty(actualPath))
+            throw new InvalidOperationException("IdentityFieldUnreadable: ImagePath — abort.");
+        if (!string.Equals(expectedPath, actualPath, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("Process handle ImagePath mismatch — abort.");
+
+        var processId = handle.Id;
+        if (processId <= 0) throw new ArgumentOutOfRangeException(nameof(handle));
         var psi = new System.Diagnostics.ProcessStartInfo("renice", $"+5 -p {processId}")
         {
             RedirectStandardOutput = true,
