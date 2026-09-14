@@ -1,3 +1,16 @@
+## 2026-09-14 — R.1 Throttle handle-stable + CLI wiring + GUI Home + EXE policy
+
+### Obiettivo
+Chiudere TOCTOU Throttle (Core handle-stable), gap wiring `resolve apply`, UX PULIZIA, e documentare che l’EXE PS2EXE va rigenerato (gitignore).
+
+### Modifiche
+- Core R.1 `8e6c1e1`; CLI snapshots `f3be49f`; dist/hub `9219fe3`; GUI script `b6499ca`
+- KB: `KB/r1-throttle-gui-session-20260914.md`
+- WIP recuperato: branch `wip/network-transparency-pre-20260914` (Program.cs dirty pre-merge)
+
+### Esito
+Smoke Throttle live/killed OK su hub `f3be49f`; EXE rebuild locale `9CA84E48…` (non in git). Master pushato a `b6499ca`.
+
 ## 2026-09-04 — VMware Health visible (stale EXE + primary row)
 
 ### Obiettivo
