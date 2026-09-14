@@ -469,6 +469,10 @@ $pnlActions.Dock      = "Top"
 $pnlActions.Height    = 80
 $pnlActions.BackColor = $clrSurface
 
+# Section divider: ~15% lighter than $clrBorderC so PRIMARY vs ADVANCED reads clearly
+$clrSectionDivider = [System.Drawing.Color]::FromArgb(48, 68, 98)
+# Advanced tools surface: ~12% lift from $clrSurface toward $clrRaised (no button recolor)
+$clrAdvancedSurface = [System.Drawing.Color]::FromArgb(19, 27, 44)
 $clrTeal = [System.Drawing.Color]::FromArgb(13, 148, 136)
 $btnAnalyze       = New-Btn "Scan Storage"   $clrAccent  144 38
 $btnQuickClean    = New-Btn "Quick Clean"    $clrGreen   132 38
@@ -516,8 +520,9 @@ $btnCancelAnalyze.Location = New-Object System.Drawing.Point(898, 30)
 
 $pnlAdvancedTools = New-Object System.Windows.Forms.Panel
 $pnlAdvancedTools.Dock      = "Top"
-$pnlAdvancedTools.Height    = 116
-$pnlAdvancedTools.BackColor = $clrSurface
+# Row1 [30..68]; row2 buttons only (PULIZIA/Safe-Radical moved to scan options row)
+$pnlAdvancedTools.Height    = 136
+$pnlAdvancedTools.BackColor = $clrAdvancedSurface
 $pnlAdvancedTools.Visible   = $false
 
 $btnHealthApply.Location   = New-Object System.Drawing.Point(12, 30)
@@ -526,36 +531,18 @@ $btnNvmePlan.Location      = New-Object System.Drawing.Point(364, 30)
 $btnDeepScanJump.Location  = New-Object System.Drawing.Point(510, 30)
 $btnPartitionPlan.Location = New-Object System.Drawing.Point(636, 30)
 $btnDiagnostics.Location   = New-Object System.Drawing.Point(792, 30)
-$btnCompute.Location       = New-Object System.Drawing.Point(12, 74)
-$btnApplyThrottle.Location = New-Object System.Drawing.Point(136, 74)
-$btnDefenderReview.Location = New-Object System.Drawing.Point(260, 74)
-$btnAudit.Location         = New-Object System.Drawing.Point(500, 74)
-$btnExecute.Location       = New-Object System.Drawing.Point(628, 74)
-
-$lblCleanupMode = New-Object System.Windows.Forms.Label
-$lblCleanupMode.Text      = "MODE"
-$lblCleanupMode.Font      = $fntSmall
-$lblCleanupMode.ForeColor = $clrMuted
-$lblCleanupMode.AutoSize  = $true
-$lblCleanupMode.Location  = New-Object System.Drawing.Point(376, 58)
-$lblCleanupMode.BackColor = [System.Drawing.Color]::Transparent
-
-$cmbCleanupMode = New-Object System.Windows.Forms.ComboBox
-$cmbCleanupMode.DropDownStyle = "DropDownList"
-$cmbCleanupMode.Items.AddRange(@("Safe", "Radical"))
-$cmbCleanupMode.SelectedItem = "Safe"
-$cmbCleanupMode.Width = 100
-$cmbCleanupMode.Location = New-Object System.Drawing.Point(376, 76)
-$cmbCleanupMode.BackColor = $clrRaised
-$cmbCleanupMode.ForeColor = $clrText
-$cmbCleanupMode.Font = $fntUI
-$cmbCleanupMode.FlatStyle = "Flat"
+# Row2: five action buttons, even gaps (no combo hole)
+$row2Y = 90
+$btnCompute.Location        = New-Object System.Drawing.Point(12, $row2Y)
+$btnApplyThrottle.Location  = New-Object System.Drawing.Point(144, $row2Y)
+$btnDefenderReview.Location = New-Object System.Drawing.Point(276, $row2Y)
+$btnAudit.Location          = New-Object System.Drawing.Point(398, $row2Y)
+$btnExecute.Location        = New-Object System.Drawing.Point(532, $row2Y)
 
 $pnlAdvancedTools.Controls.AddRange(@(
     $lblAdvancedActions,
     $btnHealthApply, $btnPkgFix, $btnNvmePlan, $btnDeepScanJump, $btnPartitionPlan, $btnDiagnostics,
-    $btnCompute, $btnApplyThrottle, $btnDefenderReview,
-    $lblCleanupMode, $cmbCleanupMode, $btnAudit, $btnExecute
+    $btnCompute, $btnApplyThrottle, $btnDefenderReview, $btnAudit, $btnExecute
 ))
 
 $btnCancelAnalyze.Enabled  = $false
@@ -640,12 +627,34 @@ $numTop.BackColor = $clrRaised
 $numTop.ForeColor = $clrText
 $numTop.Font = $fntUI
 
+# PULIZIA (Safe/Radical): 5th scan-options control after TOP (same label@Y=6 / control@Y=24 pattern)
+$lblCleanupMode = New-Object System.Windows.Forms.Label
+$lblCleanupMode.Text      = "MODE"
+$lblCleanupMode.Font      = $fntSmall
+$lblCleanupMode.ForeColor = $clrMuted
+$lblCleanupMode.AutoSize  = $true
+$lblCleanupMode.Location  = New-Object System.Drawing.Point(392, 6)
+$lblCleanupMode.BackColor = [System.Drawing.Color]::Transparent
+
+$cmbCleanupMode = New-Object System.Windows.Forms.ComboBox
+$cmbCleanupMode.DropDownStyle = "DropDownList"
+$cmbCleanupMode.Items.AddRange(@("Safe", "Radical"))
+$cmbCleanupMode.SelectedItem = "Safe"
+$cmbCleanupMode.Width = 100
+$cmbCleanupMode.BackColor = $clrRaised
+$cmbCleanupMode.ForeColor = $clrText
+$cmbCleanupMode.Font = $fntUI
+$cmbCleanupMode.FlatStyle = "Flat"
+$cmbCleanupMode.Height = $cmbCleanupMode.PreferredHeight
+$cmbCleanupMode.Location = New-Object System.Drawing.Point(392, 24)
+
 $lblExplorerHint = New-Object System.Windows.Forms.Label
 $lblExplorerHint.Text      = "Double-click a row to open the path"
 $lblExplorerHint.Font      = $fntSmall
 $lblExplorerHint.ForeColor = $clrMuted
 $lblExplorerHint.AutoSize  = $true
-$lblExplorerHint.Location  = New-Object System.Drawing.Point(392, 28)
+# After PULIZIA combo (392+100=492) leave gap so long i18n hint does not overlap
+$lblExplorerHint.Location  = New-Object System.Drawing.Point(508, 28)
 $lblExplorerHint.BackColor = [System.Drawing.Color]::Transparent
 
 $pnlScanOptionsBorder = New-Object System.Windows.Forms.Panel
@@ -655,13 +664,13 @@ $pnlScanOptionsBorder.BackColor = $clrBorderC
 
 $pnlScanOptions.Controls.AddRange(@(
     $lblDrivePick, $cmbDrive, $lblDepth, $cmbDepth, $lblAuditLevel, $cmbAuditLevel,
-    $lblTop, $numTop, $lblExplorerHint, $pnlScanOptionsBorder
+    $lblTop, $numTop, $lblCleanupMode, $cmbCleanupMode, $lblExplorerHint, $pnlScanOptionsBorder
 ))
 
 $pnlActionsBorder = New-Object System.Windows.Forms.Panel
 $pnlActionsBorder.Dock      = "Bottom"
-$pnlActionsBorder.Height    = 1
-$pnlActionsBorder.BackColor = $clrBorderC
+$pnlActionsBorder.Height    = 2
+$pnlActionsBorder.BackColor = $clrSectionDivider
 
 $pnlActions.Controls.AddRange(@(
     $lblPrimaryActions,
