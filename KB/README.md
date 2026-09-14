@@ -13,7 +13,7 @@ Knowledge base operativa giornaliera. La conoscenza strutturata permanente vive 
 | `network-deep-scan-design.md` | **Phase 5:** multi-layer network deep scan (cross-diff, UDP, DNS, Tor heuristics, memory forensics) |
 | `multi-platform-install-decision.md` | **Install:** Windows dev-sync, Linux user install, Android native UX |
 | `cursor-skills-adoption.md` | **Skills Cursor:** matrice A/E/V/R, catalogo Hub + routing amplificatori Cursor |
-| `disk-occupancy-decision.md` | **Storage:** classificazione granulare unità, BitLevel onesto, SafeDelete vs HITL |
+| `r1-throttle-gui-session-20260914.md` | **2026-09-14:** R.1 Throttle handle-stable, wiring CLI, GUI PULIZIA, policy EXE PS2EXE |
 | `vmware-health-mks-decision.md` | **VMware:** inventory/diagnose MKS mksSandbox; safe 3D-off + stale locks; HITL for disk/power |
 | `datahub-mount-recovery-20260904.md` | **DataHub:** mount C:\DataHub → D: rotto il 2026-09-04; recover + remount staged reboot |
 | `../docs/checklists/hub-quality-gate-validation.md` | **Checklist deterministica** quality gate completo |
