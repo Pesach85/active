@@ -22,6 +22,30 @@ internal sealed class WindowsProcessSnapshotProvider : IProcessSnapshotProvider
 {
     public Task<ProcessSnapshot?> GetLiveSnapshotAsync(int processId, string processName, CancellationToken ct = default)
     {
+        var held = TryOpen(processId, processName);
+        if (held is null)
+            return Task.FromResult<ProcessSnapshot?>(null);
+        try
+        {
+            return Task.FromResult<ProcessSnapshot?>(held.Value.Snapshot);
+        }
+        finally
+        {
+            held.Value.Handle.Dispose();
+        }
+    }
+
+    public Task<LiveProcessHandle?> GetLiveSnapshotWithHandleAsync(
+        int processId, string processName, CancellationToken ct = default)
+    {
+        var held = TryOpen(processId, processName);
+        if (held is null)
+            return Task.FromResult<LiveProcessHandle?>(null);
+        return Task.FromResult<LiveProcessHandle?>(new LiveProcessHandle(held.Value.Snapshot, held.Value.Handle));
+    }
+
+    private static (ProcessSnapshot Snapshot, Process Handle)? TryOpen(int processId, string processName)
+    {
         Process? proc = null;
         try
         {
@@ -40,10 +64,12 @@ internal sealed class WindowsProcessSnapshotProvider : IProcessSnapshotProvider
         }
 
         if (proc is null)
-            return Task.FromResult<ProcessSnapshot?>(null);
+            return null;
 
         string path = string.Empty;
+        long startTicks = 0;
         try { path = proc.MainModule?.FileName ?? string.Empty; } catch { }
+        try { startTicks = proc.StartTime.ToUniversalTime().Ticks; } catch { }
 
         var snap = new ProcessSnapshot(
             proc.Id,
@@ -53,19 +79,45 @@ internal sealed class WindowsProcessSnapshotProvider : IProcessSnapshotProvider
             proc.Responding,
             proc.PriorityClass.ToString(),
             path,
-            NotRunning: false);
-        proc.Dispose();
-        return Task.FromResult<ProcessSnapshot?>(snap);
+            NotRunning: false,
+            StartTimeUtcTicks: startTicks);
+        return (snap, proc);
     }
 }
 
 internal sealed class WindowsProcessMutator : IProcessMutator
 {
-    public Task ThrottleBelowNormalAsync(int processId, CancellationToken ct = default)
+    public Task ThrottleBelowNormalAsync(Process handle, ProcessIdentity expectedIdentity, CancellationToken ct = default)
     {
-        var proc = Process.GetProcessById(processId);
-        proc.PriorityClass = ProcessPriorityClass.BelowNormal;
-        proc.Dispose();
+        ArgumentNullException.ThrowIfNull(handle);
+        ArgumentNullException.ThrowIfNull(expectedIdentity);
+
+        // Fail-closed: never re-open by Pid. Ambiguity / exit → abort.
+        if (handle.HasExited)
+            throw new InvalidOperationException("Process handle exited before throttle — abort (no Pid re-lookup).");
+
+        string path = string.Empty;
+        long startTicks = 0;
+        try { path = handle.MainModule?.FileName ?? string.Empty; } catch { }
+        try { startTicks = handle.StartTime.ToUniversalTime().Ticks; } catch { }
+
+        if (handle.Id != expectedIdentity.Pid)
+            throw new InvalidOperationException("Process handle Pid mismatch — abort.");
+
+        // Fail-closed: unreadable identity fields must not soft-skip.
+        if (expectedIdentity.StartTimeUtcTicks == 0 || startTicks == 0)
+            throw new InvalidOperationException("IdentityFieldUnreadable: StartTimeUtcTicks — abort.");
+        if (startTicks != expectedIdentity.StartTimeUtcTicks)
+            throw new InvalidOperationException("Process handle StartTime mismatch — abort.");
+
+        var expectedPath = expectedIdentity.ImagePath?.Trim() ?? string.Empty;
+        var actualPath = path.Trim();
+        if (string.IsNullOrEmpty(expectedPath) || string.IsNullOrEmpty(actualPath))
+            throw new InvalidOperationException("IdentityFieldUnreadable: ImagePath — abort.");
+        if (!string.Equals(expectedPath, actualPath, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("Process handle ImagePath mismatch — abort.");
+
+        handle.PriorityClass = ProcessPriorityClass.BelowNormal;
         return Task.CompletedTask;
     }
 
