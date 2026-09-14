@@ -374,7 +374,8 @@ internal static class Program
                 confirmPhrase, skipAuth, authVerified: authOk, rollbackDir,
                 snapshots: platform.ProcessSnapshots);
             Console.WriteLine(JsonSerializer.Serialize(result, JsonOut));
-            if (result.Outcome is "AuthRequired" or "ConfirmPhraseRequired" or "TerminateBlocked" or "ActionBlocked")
+            if (result.Outcome is "AuthRequired" or "ConfirmPhraseRequired" or "TerminateBlocked"
+                or "ActionBlocked" or "PidIdentityMismatch" or "SnapshotRequired")
                 Environment.ExitCode = 1;
         });
         resolveCmd.AddCommand(applyCmd);
@@ -473,7 +474,7 @@ internal static class Program
         var topRamOpt = new Option<int>("--top", () => 15, "Top RAM consumers");
         reportCmd.AddOption(topRamOpt);
         reportCmd.AddOption(outOpt);
-        reportCmd.SetHandler((topRam, output) =>
+        reportCmd.SetHandler(async (topRam, output) =>
         {
             if (!OperatingSystem.IsWindows())
             {
@@ -489,6 +490,22 @@ internal static class Program
             var catalog = CatalogLoader.LoadFromFile(catalogPath);
             var catalogNames = CatalogLoader.ExtractProcessNames(catalog);
 
+            // Phase6: live Network object parity with PS build-transparency-report.ps1 (read-only).
+            NetworkTransparencySnapshot? networkSnap = null;
+            try
+            {
+                var capture = await WindowsNetworkProbeProvider.CaptureAsync(false);
+                networkSnap = NetworkTransparencyService.BuildSnapshot(capture, catalogNames);
+            }
+            catch (Exception ex)
+            {
+                networkSnap = new NetworkTransparencySnapshot
+                {
+                    Available = false,
+                    Error = ex.Message
+                };
+            }
+
             var input = new TransparencyBuildInput
             {
                 HostSnapshot = host,
@@ -503,7 +520,11 @@ internal static class Program
                         TaskState = "OnDemand",
                         ControlLevel = a.ControlLevel
                     }).ToList(),
-                CatalogNames = catalogNames
+                CatalogNames = catalogNames,
+                Network = networkSnap,
+                NetworkAvailable = networkSnap?.Available ?? false,
+                NetworkUnknownTrustCount = networkSnap?.Summary.UnknownTrustCount ?? 0,
+                NetworkHiddenProcessCount = networkSnap?.Summary.HiddenNetworkProcessCount ?? 0
             };
 
             var report = TransparencyReportBuilder.Build(input);
