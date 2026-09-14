@@ -371,7 +371,8 @@ internal static class Program
             var platform = WindowsPlatform.CreateServices();
             var result = await ResolutionExecutionService.ApplyAsync(
                 action, snap, adv, nec, resCfg, platform.ProcessMutator,
-                confirmPhrase, skipAuth, authVerified: authOk, rollbackDir);
+                confirmPhrase, skipAuth, authVerified: authOk, rollbackDir,
+                snapshots: platform.ProcessSnapshots);
             Console.WriteLine(JsonSerializer.Serialize(result, JsonOut));
             if (result.Outcome is "AuthRequired" or "ConfirmPhraseRequired" or "TerminateBlocked" or "ActionBlocked")
                 Environment.ExitCode = 1;
