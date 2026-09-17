@@ -1,13 +1,12 @@
 ---
-description: Route non-trivial work through addyosmani agent-skills plus hub legal-path.
-alwaysApply: true
+description: Agent skills available in this repo (addyosmani/agent-skills + heygen-com/hyperframes)
+alwaysApply: false
 ---
 
-# Agent skills routing
+# Agent skills
 
-Upstream: https://github.com/addyosmani/agent-skills (subset installed in `.cursor/skills/`).
+This repo includes Cursor skills under `.cursor/skills/` (and `.agents/skills/`).
 
-1. Read `.cursor/skills/using-agent-skills/SKILL.md` for phase routing.
-2. Follow the matching skill in `.cursor/skills/<name>/`.
-3. Do not paste full SKILL.md into rules.
-4. This repo still follows lawful-path / no plant-IP dump / no unlicensed gambling.
+- Prefer **spec / plan / TDD / review / ship** workflows from agent-skills for feature work.
+- Use **HyperFrames** (`hyperframes`, `hyperframes-cli`, …) for HTML→MP4 demo/marketing videos.
+- Lockfile: `skills-lock.json`.
