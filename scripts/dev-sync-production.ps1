@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param(
     [string]$HubRoot = '',
+    [string]$InstallRoot = '',
     [switch]$BuildGui,
     [switch]$RegisterTasks
 )
@@ -13,7 +14,11 @@ if (-not $HubRoot) { $HubRoot = Split-Path -Parent $scriptDir }
 
 . (Join-Path $scriptDir 'lib\windows-app-install.ps1')
 $profile = Get-InstallProfile -HubRoot $HubRoot
-$installRoot = Expand-InstallProfilePath -Template $profile.Windows.DefaultInstallRoot
+if ($InstallRoot) {
+    $installRoot = $InstallRoot
+} else {
+    $installRoot = Expand-InstallProfilePath -Template $profile.Windows.DefaultInstallRoot
+}
 $manifest = Read-HubInstallManifest -InstallRoot $installRoot
 
 if (-not $manifest) {
