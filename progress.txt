@@ -4,6 +4,7 @@
 - [x] Definizione dello Stack Tecnologico
 - Stack rilevato: C#/.NET
 ## Task Correnti
+- [x] Read-only NVML GPU evidence, no GPU diagnosis and no AUTO_CANDIDATE
 - [x] Domain evidence for process I/O, page faults, and pagefile
 - [x] Four-sample / three-interval performance persistence window
 - [x] TuneExclusions post-state verification

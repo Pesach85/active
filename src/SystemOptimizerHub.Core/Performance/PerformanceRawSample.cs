@@ -102,6 +102,8 @@ public sealed class PerformanceRawSample
 
     public MetricAvailability ProcessPageFaultReader { get; init; } = MetricAvailability.NotSupported;
 
+    public GpuRawSample Gpu { get; init; } = GpuRawSample.NotSupported();
+
     public int IdentityUnreadableSkipped { get; init; }
 }
 

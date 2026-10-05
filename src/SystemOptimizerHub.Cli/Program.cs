@@ -875,12 +875,20 @@ internal static class Program
             IPerformanceSampleSource source = OperatingSystem.IsWindows()
                 ? new WindowsPerformanceSampleSource()
                 : new LinuxPerformanceSampleSource();
-            var snapshot = await PerformanceEvidenceCollector.CollectAsync(
-                source,
-                TimeSpan.FromMilliseconds(intervalMs),
-                maxProcesses,
-                CancellationToken.None);
-            Console.WriteLine(JsonSerializer.Serialize(snapshot, JsonOut));
+            try
+            {
+                var snapshot = await PerformanceEvidenceCollector.CollectAsync(
+                    source,
+                    TimeSpan.FromMilliseconds(intervalMs),
+                    maxProcesses,
+                    CancellationToken.None);
+                Console.WriteLine(JsonSerializer.Serialize(snapshot, JsonOut));
+            }
+            finally
+            {
+                if (source is IDisposable disposable)
+                    disposable.Dispose();
+            }
         }, intervalOpt, maxProcessesOpt);
         performanceCmd.AddCommand(performanceSnapshotCmd);
 
@@ -902,13 +910,21 @@ internal static class Program
             IPerformanceSampleSource source = OperatingSystem.IsWindows()
                 ? new WindowsPerformanceSampleSource()
                 : new LinuxPerformanceSampleSource();
-            var snapshot = await PerformanceEvidenceCollector.CollectAsync(
-                source,
-                TimeSpan.FromMilliseconds(intervalMs),
-                maxProcesses,
-                CancellationToken.None);
-            var diagnosis = PerformanceDiagnosisEngine.Diagnose(snapshot);
-            Console.WriteLine(JsonSerializer.Serialize(diagnosis, JsonOut));
+            try
+            {
+                var snapshot = await PerformanceEvidenceCollector.CollectAsync(
+                    source,
+                    TimeSpan.FromMilliseconds(intervalMs),
+                    maxProcesses,
+                    CancellationToken.None);
+                var diagnosis = PerformanceDiagnosisEngine.Diagnose(snapshot);
+                Console.WriteLine(JsonSerializer.Serialize(diagnosis, JsonOut));
+            }
+            finally
+            {
+                if (source is IDisposable disposable)
+                    disposable.Dispose();
+            }
         }, diagnoseIntervalOpt, diagnoseMaxProcessesOpt);
         performanceGuardCmd.AddCommand(performanceDiagnoseCmd);
         performanceCmd.AddCommand(performanceGuardCmd);
