@@ -4,4 +4,9 @@
 - [x] Definizione dello Stack Tecnologico
 - Stack rilevato: C#/.NET
 ## Task Correnti
-- [ ] (Istruzioni: l'agente compilerà questa sezione dinamicamente in base alle richieste dell'utente)
+- [x] TuneExclusions post-state verification
+- [x] TuneExclusions fail-closed when the initial exclusion read fails
+- [x] ThrottleBelowNormal reports Throttled only after proven BelowNormal post-state
+- [x] KillConnection reports ConnectionReset only when the exact target is absent after the attempt
+- [x] BlockRemoteIp and TerminateProcess prove post-state before success
+- [x] TerminateProcess network kill pins the open process handle before Kill

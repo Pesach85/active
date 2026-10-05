@@ -165,6 +165,9 @@ internal sealed class LinuxProcessMutator : IProcessMutator
         proc.WaitForExit();
         return Task.CompletedTask;
     }
+
+    public Task TerminateOpenProcessAsync(System.Diagnostics.Process handle, ProcessIdentity expectedIdentity, CancellationToken ct = default) =>
+        throw new PlatformNotSupportedException("Handle-stable terminate requires Windows.");
 }
 
 internal sealed class LinuxDefenderPolicyMutatorStub : IDefenderPolicyMutator
@@ -172,6 +175,7 @@ internal sealed class LinuxDefenderPolicyMutatorStub : IDefenderPolicyMutator
     private static Exception Ex() => new PlatformNotSupportedException("Defender apply requires Windows.");
 
     public Task AddExclusionPathAsync(string path, CancellationToken ct = default) => throw Ex();
+    public Task<IReadOnlyList<string>?> TryGetExclusionPathsAsync(CancellationToken ct = default) => throw Ex();
     public Task SetRealtimeMonitoringAsync(bool enabled, CancellationToken ct = default) => throw Ex();
     public Task<DefenderServiceState?> GetWinDefendServiceStateAsync(CancellationToken ct = default) => throw Ex();
     public Task StopWinDefendServiceAsync(CancellationToken ct = default) => throw Ex();

@@ -380,6 +380,11 @@ function New-TransparencyTab {
         if (-not $tail -and (Test-Path -LiteralPath $st.WebLogPath)) {
             $tail = (Get-Content -LiteralPath $st.WebLogPath -Tail 6 -ErrorAction SilentlyContinue) -join [Environment]::NewLine
         }
+        # Strip VT/ANSI so WinForms MessageBox stays readable (PS7 colored errors).
+        if ($tail) {
+            $tail = [regex]::Replace($tail, '\x1B\[[0-9;]*[A-Za-z]', '')
+            $tail = [regex]::Replace($tail, '\x1B\].*?\x07', '')
+        }
         throw ("Dashboard did not start on port 8765 within 25s.{0}{1}" -f [Environment]::NewLine, $tail)
     }
 

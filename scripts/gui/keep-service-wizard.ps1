@@ -1,6 +1,59 @@
 ﻿# Multi-step HITL wizard for extreme apply on catalog-allowlisted KEEP services (Defender first).
 # Dot-sourced from system-optimizer-gui.ps1 after theme.ps1.
 
+function Get-KeepApplyOperatorMessage {
+    param(
+        [string]$Outcome,
+        [string]$Tier,
+        [bool]$DryRun,
+        [bool]$Italian,
+        [int]$ExitCode,
+        [bool]$HasResult
+    )
+
+    if ($DryRun -and $ExitCode -eq 0) {
+        if ($Italian) { return @{ Text = 'Dry-run completato. Nessuna modifica al sistema.'; Icon = 'Information'; Success = $true; Reason = 'DryRun' } }
+        return @{ Text = 'Dry-run completed. No system changes.'; Icon = 'Information'; Success = $true; Reason = 'DryRun' }
+    }
+
+    $known = @('Applied', 'StateUnverified', 'StateMismatch', 'Failed', 'DryRunApplied', 'InterceptedNoOsMutation', 'PreStateUnavailable')
+    if (-not $HasResult -or [string]::IsNullOrWhiteSpace($Outcome) -or ($known -notcontains $Outcome -and $ExitCode -ne 0)) {
+        if ($Italian) { return @{ Text = "Apply fallito (exit $ExitCode). Vedi log."; Icon = 'Error'; Success = $false; Reason = 'Failed' } }
+        return @{ Text = "Apply failed (exit $ExitCode). See logs."; Icon = 'Error'; Success = $false; Reason = 'Failed' }
+    }
+
+    switch ($Outcome) {
+        'Applied' {
+            if ($Tier -eq 'TuneExclusions') {
+                if ($Italian) { return @{ Text = "L'esclusione è attiva."; Icon = 'Information'; Success = $true; Reason = 'Applied' } }
+                return @{ Text = 'The exclusion is active.'; Icon = 'Information'; Success = $true; Reason = 'Applied' }
+            }
+            if ($Italian) { return @{ Text = 'Apply completato. Verifica Windows Security e conserva il rollback JSON.'; Icon = 'Information'; Success = $true; Reason = 'Applied' } }
+            return @{ Text = 'Apply completed. Verify Windows Security and keep the rollback JSON.'; Icon = 'Information'; Success = $true; Reason = 'Applied' }
+        }
+        'PreStateUnavailable' {
+            if ($Italian) { return @{ Text = "Non posso modificare Defender in sicurezza perché non riesco a determinare lo stato attuale. Nessuna esclusione è stata cambiata. Riprova quando Windows può mostrare le esclusioni."; Icon = 'Warning'; Success = $false; Reason = 'PreStateUnavailable' } }
+            return @{ Text = 'The current Defender exclusion state could not be read, so no exclusion was changed. Retry when Windows can report Defender exclusions.'; Icon = 'Warning'; Success = $false; Reason = 'PreStateUnavailable' }
+        }
+        'StateUnverified' {
+            if ($Tier -eq 'TuneExclusions') {
+                if ($Italian) { return @{ Text = "Il comando di esclusione è terminato, ma Windows non ha fornito uno stato sufficiente per confermarlo."; Icon = 'Warning'; Success = $false; Reason = 'StateUnverified' } }
+                return @{ Text = 'The exclusion command completed, but Windows did not provide enough state to confirm it.'; Icon = 'Warning'; Success = $false; Reason = 'StateUnverified' }
+            }
+            if ($Italian) { return @{ Text = "La modifica è terminata, ma Windows non ha fornito uno stato sufficiente per confermarla."; Icon = 'Warning'; Success = $false; Reason = 'StateUnverified' } }
+            return @{ Text = 'The change completed, but Windows did not provide enough state to confirm it.'; Icon = 'Warning'; Success = $false; Reason = 'StateUnverified' }
+        }
+        default {
+            if ($Tier -eq 'TuneExclusions') {
+                if ($Italian) { return @{ Text = "L'esclusione non può essere applicata."; Icon = 'Error'; Success = $false; Reason = 'Failed' } }
+                return @{ Text = 'The exclusion could not be applied.'; Icon = 'Error'; Success = $false; Reason = 'Failed' }
+            }
+            if ($Italian) { return @{ Text = "La modifica non può essere applicata."; Icon = 'Error'; Success = $false; Reason = 'Failed' } }
+            return @{ Text = 'The change could not be applied.'; Icon = 'Error'; Success = $false; Reason = 'Failed' }
+        }
+    }
+}
+
 function Write-KeepWizardStatus {
     param(
         [scriptblock]$OnStatus,
@@ -389,28 +442,19 @@ function Show-KeepServiceExtremeWizard {
             $exitCode = [int]$elev.ExitCode
         }
 
-        if ($exitCode -ne 0) {
-            [void][System.Windows.Forms.MessageBox]::Show(
-                $(if ($it) { "Apply fallito (exit $exitCode). Vedi log." } else { "Apply failed (exit $exitCode). See logs." }),
-                'KEEP Apply', 'OK', 'Error')
-            Write-KeepWizardStatus -OnStatus $OnStatus -Message ("KEEP extreme apply failed exit=$exitCode")
-            return
-        }
-
+        $res = $null
         if (Test-Path -LiteralPath $applyOut) {
             $res = Get-Content -LiteralPath $applyOut -Raw | ConvertFrom-Json
-            Write-KeepWizardStatus -OnStatus $OnStatus -Message ("KEEP extreme apply OK tier=$tier rollback=$($res.RollbackPath)")
         }
+        $outcome = ''
+        if ($res -and $res.PSObject.Properties['Outcome']) { $outcome = [string]$res.Outcome }
+        $view = Get-KeepApplyOperatorMessage -Outcome $outcome -Tier $tier -DryRun $DryRun -Italian $it -ExitCode $exitCode -HasResult ($null -ne $res)
+        $icon = [System.Windows.Forms.MessageBoxIcon]([string]$view.Icon)
+        [void][System.Windows.Forms.MessageBox]::Show([string]$view.Text, 'KEEP Apply', 'OK', $icon)
+        Write-KeepWizardStatus -OnStatus $OnStatus -Message ("KEEP extreme apply outcome=$outcome exit=$exitCode")
+        if (-not $view.Success) { return }
 
-        [void][System.Windows.Forms.MessageBox]::Show(
-            $(if ($DryRun) {
-                if ($it) { 'Dry-run completato. Nessuna modifica al sistema.' } else { 'Dry-run completed. No system changes.' }
-            } else {
-                if ($it) { 'Apply completato. Verifica Windows Security e conserva il rollback JSON.' } else { 'Apply completed. Verify Windows Security and keep the rollback JSON.' }
-            }),
-            'KEEP Apply', 'OK', 'Information')
-
-        $script:keepWizardResult = @{ Ok = $true; Reason = if ($DryRun) { 'DryRun' } else { 'Applied' }; Tier = $tier }
+        $script:keepWizardResult = @{ Ok = $true; Reason = [string]$view.Reason; Tier = $tier }
         $dlg.DialogResult = [System.Windows.Forms.DialogResult]::OK
         $dlg.Close()
     }

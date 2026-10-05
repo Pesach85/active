@@ -2318,6 +2318,7 @@ function Poll-CleanupOperation {
         return
     }
 
+    $cleanupVerified = $false
     if (Wait-ForOutputFile -Path $script:cleanupJson -TimeoutMs 4000) {
         try {
             $cleanupResult = Get-Content -LiteralPath $script:cleanupJson -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
@@ -2329,17 +2330,28 @@ function Poll-CleanupOperation {
                 [int]$cleanupResult.DeletedFiles,
                 [decimal]$cleanupResult.DeletedGB
             Append-Status $cleanupSummary
-            Show-Toast -Title "Cleanup Done" -Body ("Mode=$([string]$cleanupResult.Mode)  Deleted $([int]$cleanupResult.DeletedFiles) files ($([decimal]$cleanupResult.DeletedGB) GB)") -Level "Success"
+            $cleanupVerified = $true
+            $toastLevel = "Success"
+            $toastTitle = "Cleanup Done"
+            if ([string]$cleanupResult.Mode -ne "EXECUTE") {
+                $toastLevel = "Info"
+                $toastTitle = "Cleanup audit only"
+            }
+            Show-Toast -Title $toastTitle -Body ("Mode=$([string]$cleanupResult.Mode)  Deleted $([int]$cleanupResult.DeletedFiles) files ($([decimal]$cleanupResult.DeletedGB) GB)") -Level $toastLevel
         } catch {
-            Append-Status ("Cleanup completed in {0}s but result parse failed: {1}" -f $durationSec, $_.Exception.Message)
+            Append-Status ("Cleanup finished in {0}s but result parse failed: {1}" -f $durationSec, $_.Exception.Message)
         }
     } else {
-        Append-Status ("Cleanup completed in {0}s but output JSON was not found." -f $durationSec)
+        Append-Status ("Cleanup finished in {0}s but output JSON was not found." -f $durationSec)
     }
 
     Refresh-Drives
     $progressAnalysis.Value = 100
-    $lblAnalysisState.Text = ("Cleanup completed in {0}s." -f $durationSec)
+    if ($cleanupVerified) {
+        $lblAnalysisState.Text = ("Cleanup completed in {0}s." -f $durationSec)
+    } else {
+        $lblAnalysisState.Text = ("Cleanup not confirmed ({0}s). Result file missing or unreadable." -f $durationSec)
+    }
 
     $rerunAnalyze = $script:cleanupRunAnalyzeAfter
     $script:cleanupProcess = $null
@@ -2385,11 +2397,13 @@ function Poll-ComputeAnalysis {
         return
     }
 
+    $computeVerified = $false
     if (Wait-ForOutputFile -Path $script:computeJson -TimeoutMs 4000) {
         try {
             $computeResult = Get-Content -LiteralPath $script:computeJson -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
             $topRows = @($computeResult.TopProcesses)
             Append-Status ("Compute analysis completed in {0}s. Observed={1} Top={2}" -f $durationSec, [int]$computeResult.TotalProcessesObserved, $topRows.Count)
+            $computeVerified = $true
             Show-Toast -Title "Compute Done" -Body ("Observed $([int]$computeResult.TotalProcessesObserved) processes in ${durationSec}s") -Level "Success"
 
             foreach ($proc in ($topRows | Select-Object -First 5)) {
@@ -2431,14 +2445,18 @@ function Poll-ComputeAnalysis {
                     [decimal]$defRow.Score, [decimal]$defRow.CpuPercent, [decimal]$defRow.IoMBps)
             }
         } catch {
-            Append-Status ("Compute analysis completed in {0}s but result parse failed: {1}" -f $durationSec, $_.Exception.Message)
+            Append-Status ("Compute analysis finished in {0}s but result parse failed: {1}" -f $durationSec, $_.Exception.Message)
         }
     } else {
-        Append-Status ("Compute analysis completed in {0}s but output JSON was not found." -f $durationSec)
+        Append-Status ("Compute analysis finished in {0}s but output JSON was not found." -f $durationSec)
     }
 
     $progressAnalysis.Value = 100
-    $lblAnalysisState.Text = ("Compute analysis completed in {0}s." -f $durationSec)
+    if ($computeVerified) {
+        $lblAnalysisState.Text = ("Compute analysis completed in {0}s." -f $durationSec)
+    } else {
+        $lblAnalysisState.Text = ("Compute analysis not confirmed ({0}s). Result file missing or unreadable." -f $durationSec)
+    }
     $script:computeProcess = $null
     $script:computeStartedAt = $null
     $script:computeSoftTimeoutWarned = $false
@@ -2476,6 +2494,7 @@ function Poll-QuickCleanup {
         return
     }
 
+    $quickVerified = $false
     if (Wait-ForOutputFile -Path $script:quickCleanupJson -TimeoutMs 4000) {
         try {
             $quickResult = Get-Content -LiteralPath $script:quickCleanupJson -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
@@ -2487,17 +2506,28 @@ function Poll-QuickCleanup {
                 [int]$quickResult.DeletedFiles,
                 [decimal]$quickResult.DeletedGB
             Append-Status $quickSummary
-            Show-Toast -Title "Quick Clean Done" -Body ("Deleted $([int]$quickResult.DeletedFiles) files ($([decimal]$quickResult.DeletedGB) GB) in ${durationSec}s") -Level "Success"
+            $quickVerified = $true
+            $toastLevel = "Success"
+            $toastTitle = "Quick Clean Done"
+            if ([string]$quickResult.Mode -ne "EXECUTE") {
+                $toastLevel = "Info"
+                $toastTitle = "Quick Clean audit only"
+            }
+            Show-Toast -Title $toastTitle -Body ("Mode=$([string]$quickResult.Mode)  Deleted $([int]$quickResult.DeletedFiles) files ($([decimal]$quickResult.DeletedGB) GB) in ${durationSec}s") -Level $toastLevel
         } catch {
-            Append-Status ("Quick cleanup completed in {0}s but result parse failed: {1}" -f $durationSec, $_.Exception.Message)
+            Append-Status ("Quick cleanup finished in {0}s but result parse failed: {1}" -f $durationSec, $_.Exception.Message)
         }
     } else {
-        Append-Status ("Quick cleanup completed in {0}s but output JSON was not found." -f $durationSec)
+        Append-Status ("Quick cleanup finished in {0}s but output JSON was not found." -f $durationSec)
     }
 
     Refresh-Drives
     $progressAnalysis.Value = 100
-    $lblAnalysisState.Text = ("Quick cleanup completed in {0}s." -f $durationSec)
+    if ($quickVerified) {
+        $lblAnalysisState.Text = ("Quick cleanup completed in {0}s." -f $durationSec)
+    } else {
+        $lblAnalysisState.Text = ("Quick cleanup not confirmed ({0}s). Result file missing or unreadable." -f $durationSec)
+    }
     $script:quickCleanupProcess = $null
     $script:quickCleanupStartedAt = $null
     $script:quickCleanupSoftTimeoutWarned = $false
@@ -2587,6 +2617,7 @@ function Poll-HealthAudit {
     $applyPackagesOnly = $script:healthAuditApplyPackagesOnly
     $applyFindingIds = @()
 
+    $healthAuditVerified = $false
     if (Wait-ForOutputFile -Path $script:healthAuditJson -TimeoutMs 4000) {
         try {
             $auditResult = Get-Content -LiteralPath $script:healthAuditJson -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
@@ -2594,6 +2625,7 @@ function Poll-HealthAudit {
             $optimizedCount = @($auditResult.AlreadyOptimized).Count
             $critCount = [int]$auditResult.Summary.Critical
             $impCount  = [int]$auditResult.Summary.Important
+            $healthAuditVerified = $true
             Append-Status ("Health Audit completed in {0}s. Findings={1} (Critical={2} Important={3}) AlreadyOK={4}" -f $durationSec, $findingsCount, $critCount, $impCount, $optimizedCount)
             Show-Toast -Title "Health Audit Done" -Body ("{0} findings, {1} already optimized ({2}s)" -f $findingsCount, $optimizedCount, $durationSec) -Level $(if ($critCount -gt 0) { "Warning" } else { "Success" })
 
@@ -2615,16 +2647,20 @@ function Poll-HealthAudit {
                 }
             }
         } catch {
-            Append-Status ("Health Audit completed in {0}s but parse failed: {1}" -f $durationSec, $_.Exception.Message)
+            Append-Status ("Health Audit finished in {0}s but parse failed: {1}" -f $durationSec, $_.Exception.Message)
             $shouldApply = $false
         }
     } else {
-        Append-Status ("Health Audit completed in {0}s but output JSON was not found." -f $durationSec)
+        Append-Status ("Health Audit finished in {0}s but output JSON was not found." -f $durationSec)
         $shouldApply = $false
     }
 
     $progressAnalysis.Value = 100
-    $lblAnalysisState.Text = ("Health Audit completed in {0}s." -f $durationSec)
+    if ($healthAuditVerified) {
+        $lblAnalysisState.Text = ("Health Audit completed in {0}s." -f $durationSec)
+    } else {
+        $lblAnalysisState.Text = ("Health Audit not confirmed ({0}s). Result file missing or unreadable." -f $durationSec)
+    }
     $script:healthAuditProcess = $null
     $script:healthAuditStartedAt = $null
     $script:healthAuditSoftTimeoutWarned = $false
@@ -2798,14 +2834,22 @@ function Poll-HealthApply {
         Set-AnalysisUiState -IsBusy:$false -StateText "Apply fixes idle"
         return
     }
+    $healthApplyVerified = $false
+    $healthApplyState = ("Fixes not confirmed ({0}s). Result file missing or unreadable." -f $durationSec)
     if (Wait-ForOutputFile -Path $script:healthApplyJson -TimeoutMs 4000) {
         try {
             $applyResult = Get-Content -LiteralPath $script:healthApplyJson -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
             $applied = [int]$applyResult.Summary.Applied
             $failed  = [int]$applyResult.Summary.Failed
             $skipped = [int]$applyResult.Summary.Skipped
+            $healthApplyVerified = $true
+            if ($failed -gt 0) {
+                $healthApplyState = ("Fixes finished with failures in {0}s. Applied={1} Failed={2}" -f $durationSec, $applied, $failed)
+            } else {
+                $healthApplyState = ("Fixes applied in {0}s. Applied={1} Failed={2}" -f $durationSec, $applied, $failed)
+            }
             Append-Status ("Fixes applied in {0}s: Applied={1} Failed={2} Skipped={3}" -f $durationSec, $applied, $failed, $skipped)
-            Show-Toast -Title "Fixes Applied" -Body ("Applied={0} Failed={1} ({2}s)" -f $applied, $failed, $durationSec) -Level $(if ($failed -gt 0) { "Warning" } else { "Success" })
+            Show-Toast -Title $(if ($failed -gt 0) { "Fixes incomplete" } else { "Fixes Applied" }) -Body ("Applied={0} Failed={1} ({2}s)" -f $applied, $failed, $durationSec) -Level $(if ($failed -gt 0) { "Warning" } else { "Success" })
             foreach ($r in $applyResult.Results) {
                 if ($r.Status -eq 'Applied') {
                     Append-Status ("  APPLIED [{0}] {1} — {2}" -f $r.Level, $r.FindingId, $r.Label)
@@ -2814,10 +2858,12 @@ function Poll-HealthApply {
                 }
             }
         } catch {
-            Append-Status ("Apply completed in {0}s but parse failed: {1}" -f $durationSec, $_.Exception.Message)
+            Append-Status ("Apply finished in {0}s but parse failed: {1}" -f $durationSec, $_.Exception.Message)
+            $healthApplyState = ("Fixes not confirmed ({0}s). Result could not be read." -f $durationSec)
         }
     } else {
-        Append-Status ("Apply completed in {0}s but output JSON was not found." -f $durationSec)
+        Append-Status ("Apply finished in {0}s but output JSON was not found." -f $durationSec)
+        $healthApplyState = ("Fixes not confirmed ({0}s). Result file missing." -f $durationSec)
     }
     Refresh-Drives
     $progressAnalysis.Value = 100
@@ -2825,7 +2871,7 @@ function Poll-HealthApply {
     $script:healthAuditStartedAt = $null
     $script:healthAuditSoftTimeoutWarned = $false
     $script:healthApplyInProgress = $false
-    Set-AnalysisUiState -IsBusy:$false -StateText ("Fixes applied in {0}s." -f $durationSec)
+    Set-AnalysisUiState -IsBusy:$false -StateText $healthApplyState
 }
 
 function Update-NvmeAdvisorProgress {
@@ -2888,6 +2934,7 @@ function Poll-NvmeAdvisor {
         return
     }
 
+    $nvmeVerified = $false
     if (Wait-ForOutputFile -Path $script:nvmeAdvisorJson -TimeoutMs 4000) {
         try {
             $advisor = Get-Content -LiteralPath $script:nvmeAdvisorJson -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
@@ -2895,6 +2942,7 @@ function Poll-NvmeAdvisor {
             $decision = [string]$advisor.BestNextDecision
             $targetDrive = [string]$advisor.TargetDrive
             $writeDrive = [string]$advisor.RecommendedWriteDrive
+            $nvmeVerified = $true
             Append-Status ("NVMe Plan completed in {0}s. Risk={1}. Target={2} WriteDrive={3}" -f $durationSec, $risk, $targetDrive, $writeDrive)
             Append-Status ("  Best next decision: {0}" -f $decision)
             if ($advisor.WriteOffloadPlan -and $advisor.WriteOffloadPlan.Steps) {
@@ -2906,14 +2954,18 @@ function Poll-NvmeAdvisor {
             $toastLevel = if ($risk -eq 'Critical') { 'Warning' } else { 'Success' }
             Show-Toast -Title "NVMe Plan Ready" -Body ("Risk {0} - see status feed ({1}s)" -f $risk, $durationSec) -Level $toastLevel
         } catch {
-            Append-Status ("NVMe Plan completed in {0}s but parse failed: {1}" -f $durationSec, $_.Exception.Message)
+            Append-Status ("NVMe Plan finished in {0}s but parse failed: {1}" -f $durationSec, $_.Exception.Message)
         }
     } else {
-        Append-Status ("NVMe Plan completed in {0}s but output JSON was not found." -f $durationSec)
+        Append-Status ("NVMe Plan finished in {0}s but output JSON was not found." -f $durationSec)
     }
 
     $progressAnalysis.Value = 100
-    $lblAnalysisState.Text = ("NVMe Plan completed in {0}s." -f $durationSec)
+    if ($nvmeVerified) {
+        $lblAnalysisState.Text = ("NVMe Plan completed in {0}s." -f $durationSec)
+    } else {
+        $lblAnalysisState.Text = ("NVMe Plan not confirmed ({0}s). Result file missing or unreadable." -f $durationSec)
+    }
     $script:nvmeAdvisorProcess = $null
     $script:nvmeAdvisorStartedAt = $null
     $script:nvmeAdvisorSoftTimeoutWarned = $false
@@ -2983,6 +3035,7 @@ function Poll-VmwareHealth {
         return
     }
 
+    $vmwareVerified = $false
     if (Wait-ForOutputFile -Path $script:vmwareHealthJson -TimeoutMs 4000) {
         try {
             $report = Get-Content -LiteralPath $script:vmwareHealthJson -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
@@ -2991,6 +3044,7 @@ function Poll-VmwareHealth {
             $mks = [int]$report.Summary.MksCrashVmCount
             $stale = [int]$report.Summary.StaleLockVmCount
             $mode = [string]$report.Mode
+            $vmwareVerified = $true
             Append-Status ("VMware Health completed in {0}s ({1}). VMs={2} Critical={3} MksCrash={4} StaleLocks={5}" -f $durationSec, $mode, $vmCount, $crit, $mks, $stale)
             Append-Status ("  Best next: {0}" -f [string]$report.BestNextDecision)
             Append-Status ("  Report: {0}" -f $script:vmwareHealthJson)
@@ -3001,14 +3055,18 @@ function Poll-VmwareHealth {
             $toastLevel = if ($crit -gt 0 -or $mks -gt 0) { 'Warning' } else { 'Success' }
             Show-Toast -Title "VMware Health Done" -Body ("{0} VMs, {1} MKS crash(es) ({2}s)" -f $vmCount, $mks, $durationSec) -Level $toastLevel
         } catch {
-            Append-Status ("VMware Health completed in {0}s but parse failed: {1}" -f $durationSec, $_.Exception.Message)
+            Append-Status ("VMware Health finished in {0}s but parse failed: {1}" -f $durationSec, $_.Exception.Message)
         }
     } else {
-        Append-Status ("VMware Health completed in {0}s but output JSON was not found." -f $durationSec)
+        Append-Status ("VMware Health finished in {0}s but output JSON was not found." -f $durationSec)
     }
 
     $progressAnalysis.Value = 100
-    $lblAnalysisState.Text = ("VMware Health completed in {0}s." -f $durationSec)
+    if ($vmwareVerified) {
+        $lblAnalysisState.Text = ("VMware Health completed in {0}s." -f $durationSec)
+    } else {
+        $lblAnalysisState.Text = ("VMware Health not confirmed ({0}s). Result file missing or unreadable." -f $durationSec)
+    }
     $script:vmwareHealthProcess = $null
     $script:vmwareHealthStartedAt = $null
     $script:vmwareHealthSoftTimeoutWarned = $false
@@ -3286,6 +3344,7 @@ function Poll-PartitionLegacy {
         return
     }
 
+    $partitionVerified = $false
     if (Wait-ForOutputFile -Path $script:partitionLegacyJson -TimeoutMs 4000) {
         try {
             $plan = Get-Content -LiteralPath $script:partitionLegacyJson -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
@@ -3293,6 +3352,7 @@ function Poll-PartitionLegacy {
             $class = [string]$plan.Assessment.Classification
             $decision = [string]$plan.Assessment.BestNextDecision
             $applied = [bool]$plan.Remediation.Applied
+            $partitionVerified = $true
             Append-Status ("Partition Plan completed in {0}s. Classification={1} DeterministicLegacy={2} Applied={3}" -f $durationSec, $class, $isLegacy, $applied)
             Append-Status ("  Best next decision: {0}" -f $decision)
             foreach ($ev in $plan.Assessment.Evidence) {
@@ -3311,15 +3371,19 @@ function Poll-PartitionLegacy {
             if ($applied) { $toastLevel = "Success" }
             Show-Toast -Title "Partition Plan Done" -Body ("{0} (Applied={1})" -f $class, $applied) -Level $toastLevel
         } catch {
-            Append-Status ("Partition Plan completed in {0}s but parse failed: {1}" -f $durationSec, $_.Exception.Message)
+            Append-Status ("Partition Plan finished in {0}s but parse failed: {1}" -f $durationSec, $_.Exception.Message)
         }
     } else {
-        Append-Status ("Partition Plan completed in {0}s but output JSON was not found." -f $durationSec)
+        Append-Status ("Partition Plan finished in {0}s but output JSON was not found." -f $durationSec)
     }
 
     Refresh-Drives
     $progressAnalysis.Value = 100
-    $lblAnalysisState.Text = ("Partition Plan completed in {0}s." -f $durationSec)
+    if ($partitionVerified) {
+        $lblAnalysisState.Text = ("Partition Plan completed in {0}s." -f $durationSec)
+    } else {
+        $lblAnalysisState.Text = ("Partition Plan not confirmed ({0}s). Result file missing or unreadable." -f $durationSec)
+    }
     $script:partitionLegacyProcess = $null
     $script:partitionLegacyStartedAt = $null
     $script:partitionLegacySoftTimeoutWarned = $false
@@ -3970,35 +4034,52 @@ function Poll-DeepScanApply {
         return
     }
 
+    $deepApplyVerified = $false
+    $deepApplyState = ("Fix not confirmed ({0}s). Result file missing or unreadable." -f $durationSec)
     if (Wait-ForOutputFile -Path $script:deepScanApplyJson -TimeoutMs 4000) {
         try {
             $applyResult = Get-Content -LiteralPath $script:deepScanApplyJson -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
             $applied = [int]$applyResult.Summary.Applied
             $failed  = [int]$applyResult.Summary.Failed
-            $msg = ("Fix applied in {0}s: Applied={1} Failed={2}" -f $durationSec, $applied, $failed)
+            $deepApplyVerified = $true
+            if ($failed -gt 0) {
+                $msg = ("Fix incomplete in {0}s: Applied={1} Failed={2}" -f $durationSec, $applied, $failed)
+            } else {
+                $msg = ("Fix applied in {0}s: Applied={1} Failed={2}" -f $durationSec, $applied, $failed)
+            }
+            $deepApplyState = $msg
             Append-Status $msg
             $lblDeepApplyState.Text = $msg
-            Show-Toast -Title "Fix Applied" -Body ("{0} [{1}]  Applied={2}  Failed={3}" -f $script:deepScanApplyFindingId, $script:deepScanApplyLevel, $applied, $failed) -Level $(if ($failed -gt 0) { "Warning" } else { "Success" })
-            # Mark the finding row visually as applied
+            Show-Toast -Title $(if ($failed -gt 0) { "Fix incomplete" } else { "Fix Applied" }) -Body ("{0} [{1}]  Applied={2}  Failed={3}" -f $script:deepScanApplyFindingId, $script:deepScanApplyLevel, $applied, $failed) -Level $(if ($failed -gt 0) { "Warning" } else { "Success" })
             foreach ($item in $listDeepFindings.Items) {
                 if ($item.SubItems[2].Text -eq $script:deepScanApplyFindingId) {
-                    $item.SubItems[3].Text = "[APPLIED] " + $item.SubItems[3].Text
-                    $item.ForeColor = $clrGreen
+                    if ($failed -eq 0 -and $applied -gt 0) {
+                        $item.SubItems[3].Text = "[APPLIED] " + $item.SubItems[3].Text
+                        $item.ForeColor = $clrGreen
+                    } elseif ($failed -gt 0 -and $applied -gt 0) {
+                        $item.SubItems[3].Text = "[PARTIAL] " + $item.SubItems[3].Text
+                        $item.ForeColor = $clrTxtAmber
+                    } else {
+                        $item.SubItems[3].Text = "[FAILED] " + $item.SubItems[3].Text
+                        $item.ForeColor = $clrTxtHigh
+                    }
                     break
                 }
             }
         } catch {
-            Append-Status ("Apply completed in {0}s but parse failed: {1}" -f $durationSec, $_.Exception.Message)
-            $lblDeepApplyState.Text = "Apply parse error."
+            Append-Status ("Apply finished in {0}s but parse failed: {1}" -f $durationSec, $_.Exception.Message)
+            $lblDeepApplyState.Text = "Apply result unreadable."
+            $deepApplyState = ("Fix not confirmed ({0}s). Result could not be read." -f $durationSec)
         }
     } else {
-        Append-Status ("Apply completed in {0}s but output JSON not found." -f $durationSec)
-        $lblDeepApplyState.Text = "Apply output missing."
+        Append-Status ("Apply finished in {0}s but output JSON not found." -f $durationSec)
+        $lblDeepApplyState.Text = "Apply result missing."
+        $deepApplyState = ("Fix not confirmed ({0}s). Result file missing." -f $durationSec)
     }
 
     $script:deepScanApplyProcess = $null
     $script:deepScanApplyStartedAt = $null
-    Set-AnalysisUiState -IsBusy:$false -StateText ("Fix applied in {0}s." -f $durationSec)
+    Set-AnalysisUiState -IsBusy:$false -StateText $deepApplyState
 }
 
 function Run-GarbageAnalysis {
