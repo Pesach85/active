@@ -25,7 +25,11 @@ public static class PerformanceDiagnosisEngine
         else
             evidence.Add("windowObserved");
 
-        if (snapshot.AbsentFromCurrentSample.Count > 0)
+        if (snapshot.SampleCount < PerformanceDiagnosisPolicy.ApprovedMinimumSamples
+            || snapshot.PositiveIntervalCount < PerformanceDiagnosisPolicy.ApprovedMinimumPositiveIntervals)
+            evidence.Add("INSUFFICIENT_PERSISTENCE");
+
+        if (snapshot.AbsentFromCurrentSample.Count > 0 || snapshot.AbsentFromIntermediateSample.Count > 0)
             evidence.Add("absentFromRetainedWindowIsNotTermination");
 
         if (snapshot.IdentityDrift.Count > 0)

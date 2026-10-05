@@ -112,6 +112,8 @@ public sealed class ProcessIdentityDrift
 
     public long CurrentStartTimeUtcTicks { get; init; }
 
+    public int ReplacementSampleIndex { get; init; }
+
     public string? BaselineImagePath { get; init; }
 
     public string? CurrentImagePath { get; init; }
@@ -176,6 +178,8 @@ public sealed class PerformanceSnapshot
     public IReadOnlyList<ProcessPerformanceEvidence> ProcessTopConsumers { get; init; } = [];
 
     public IReadOnlyList<string> AbsentFromCurrentSample { get; init; } = [];
+
+    public IReadOnlyList<string> AbsentFromIntermediateSample { get; init; } = [];
 
     public IReadOnlyList<string> AppearedInCurrentSample { get; init; } = [];
 

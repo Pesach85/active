@@ -858,8 +858,8 @@ internal static class Program
         root.AddCommand(networkCmd);
 
         var performanceCmd = new Command("performance", "Read-only performance evidence");
-        var performanceSnapshotCmd = new Command("snapshot", "Capture a bounded two-sample performance snapshot");
-        var intervalOpt = new Option<int>("--interval-ms", () => 1000, "Milliseconds between sample A and sample B");
+        var performanceSnapshotCmd = new Command("snapshot", "Capture a bounded four-sample performance snapshot");
+        var intervalOpt = new Option<int>("--interval-ms", () => 1000, "Milliseconds between consecutive samples");
         var maxProcessesOpt = new Option<int>("--max-processes", () => PerformanceEvidenceLimits.DefaultMaxProcesses, "Maximum identified processes retained");
         performanceSnapshotCmd.AddOption(intervalOpt);
         performanceSnapshotCmd.AddOption(maxProcessesOpt);
@@ -885,8 +885,8 @@ internal static class Program
         performanceCmd.AddCommand(performanceSnapshotCmd);
 
         var performanceGuardCmd = new Command("guard", "Read-only performance diagnosis");
-        var performanceDiagnoseCmd = new Command("diagnose", "Diagnose a bounded two-sample snapshot and exit");
-        var diagnoseIntervalOpt = new Option<int>("--interval-ms", () => 1000, "Milliseconds between sample A and sample B");
+        var performanceDiagnoseCmd = new Command("diagnose", "Diagnose a bounded four-sample snapshot and exit");
+        var diagnoseIntervalOpt = new Option<int>("--interval-ms", () => 1000, "Milliseconds between consecutive samples");
         var diagnoseMaxProcessesOpt = new Option<int>("--max-processes", () => PerformanceEvidenceLimits.DefaultMaxProcesses, "Maximum identified processes retained");
         performanceDiagnoseCmd.AddOption(diagnoseIntervalOpt);
         performanceDiagnoseCmd.AddOption(diagnoseMaxProcessesOpt);

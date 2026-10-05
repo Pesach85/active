@@ -242,7 +242,9 @@ public class PerformanceCpuPolicyTests
         var files = new[]
         {
             Repo("src", "SystemOptimizerHub.Core", "Performance", "PerformanceDiagnosis.cs"),
-            Repo("src", "SystemOptimizerHub.Core", "Performance", "PerformanceDiagnosisEngine.cs")
+            Repo("src", "SystemOptimizerHub.Core", "Performance", "PerformanceDiagnosisEngine.cs"),
+            Repo("src", "SystemOptimizerHub.Core", "Performance", "PerformanceEvidenceCollector.cs"),
+            Repo("src", "SystemOptimizerHub.Core", "Performance", "PerformanceEvidenceBuilder.cs")
         };
         var forbidden = new[] { "SetPriorityClass", "PriorityClass =", "ApplyThrottleAsync", "Kill(", "TerminateAsync", "--apply" };
         foreach (var file in files)

@@ -5,41 +5,36 @@ public static class PerformanceEvidenceBuilder
     public static PerformanceSnapshot Build(
         PerformanceRawSample baseline,
         PerformanceRawSample current,
+        int maxProcesses) =>
+        Build([baseline, current], maxProcesses);
+
+    public static PerformanceSnapshot Build(
+        IReadOnlyList<PerformanceRawSample> samples,
         int maxProcesses)
     {
-        ArgumentNullException.ThrowIfNull(baseline);
-        ArgumentNullException.ThrowIfNull(current);
+        ArgumentNullException.ThrowIfNull(samples);
+        if (samples.Count < 1)
+            throw new ArgumentException("At least one captured sample is required.", nameof(samples));
+        foreach (var sample in samples)
+            ArgumentNullException.ThrowIfNull(sample);
         if (maxProcesses < 1 || maxProcesses > PerformanceEvidenceLimits.HardMaxProcesses)
             throw new ArgumentOutOfRangeException(nameof(maxProcesses));
 
+        var baseline = samples[0];
+        var current = samples[^1];
         var duration = Duration(baseline.TimestampUtc, current.TimestampUtc);
         var processors = Processors(current.LogicalProcessors, baseline.LogicalProcessors);
-        var retainedCurrent = SelectBounded(current.Processes, maxProcesses);
-        var retainedBaseline = SelectBounded(baseline.Processes, maxProcesses);
-        var baselineByKey = Index(retainedBaseline);
-        var currentByKey = Index(retainedCurrent);
-        var baselineByPid = IndexPid(retainedBaseline);
-        var currentByPid = IndexPid(retainedCurrent);
-
-        var drift = new List<ProcessIdentityDrift>();
-        foreach (var (pid, baselineRow) in baselineByPid.OrderBy(p => p.Key))
-        {
-            if (!currentByPid.TryGetValue(pid, out var currentRow))
-                continue;
-            if (baselineRow.StartTimeUtcTicks == currentRow.StartTimeUtcTicks)
-                continue;
-            drift.Add(new ProcessIdentityDrift
-            {
-                Pid = pid,
-                BaselineStartTimeUtcTicks = baselineRow.StartTimeUtcTicks!.Value,
-                CurrentStartTimeUtcTicks = currentRow.StartTimeUtcTicks!.Value,
-                BaselineImagePath = baselineRow.ImagePath,
-                CurrentImagePath = currentRow.ImagePath
-            });
-        }
-
+        var retained = samples.Select(sample => SelectBounded(sample.Processes, maxProcesses)).ToArray();
+        var keySets = retained.Select(rows => Index(rows)).ToArray();
+        var baselineByKey = keySets[0];
+        var currentByKey = keySets[^1];
+        var drift = IdentityDrift(retained);
         var absent = baselineByKey.Keys.Except(currentByKey.Keys, StringComparer.Ordinal).OrderBy(k => k, StringComparer.Ordinal).ToArray();
         var appeared = currentByKey.Keys.Except(baselineByKey.Keys, StringComparer.Ordinal).OrderBy(k => k, StringComparer.Ordinal).ToArray();
+        var intermediateGaps = currentByKey.Keys
+            .Where(key => keySets.Any(set => !set.ContainsKey(key)))
+            .OrderBy(key => key, StringComparer.Ordinal)
+            .ToArray();
 
         var rows = new List<ProcessPerformanceEvidence>();
         foreach (var key in currentByKey.Keys.OrderBy(k => k, StringComparer.Ordinal))
@@ -55,7 +50,7 @@ public static class PerformanceEvidenceBuilder
                 current.ProcessPriorityReader));
         }
 
-        var enumeration = CombineEnumeration(baseline.ProcessEnumeration, current.ProcessEnumeration);
+        var enumeration = CombineEnumeration(samples.Select(sample => sample.ProcessEnumeration));
         var progress = new ProgressEvidence
         {
             ElapsedSeconds = duration,
@@ -80,8 +75,8 @@ public static class PerformanceEvidenceBuilder
         {
             BaselineTimestampUtc = baseline.TimestampUtc,
             TimestampUtc = current.TimestampUtc,
-            SampleCount = 2,
-            PositiveIntervalCount = duration.Availability == MetricAvailability.Observed && duration.Value is > 0 ? 1 : 0,
+            SampleCount = samples.Count,
+            PositiveIntervalCount = CountPositiveIntervals(samples),
             SampleDurationSeconds = duration,
             Window = duration.Availability == MetricAvailability.Observed
                 ? MetricAvailability.Observed
@@ -91,9 +86,10 @@ public static class PerformanceEvidenceBuilder
             Io = io,
             Gpu = gpu,
             ProcessEnumeration = enumeration,
-            ProcessPriorityReader = CombinePriorityReader(baseline.ProcessPriorityReader, current.ProcessPriorityReader),
+            ProcessPriorityReader = CombinePriorityReader(samples.Select(sample => sample.ProcessPriorityReader)),
             ProcessTopConsumers = rows,
             AbsentFromCurrentSample = absent,
+            AbsentFromIntermediateSample = intermediateGaps,
             AppearedInCurrentSample = appeared,
             IdentityDrift = drift,
             Progress = progress,
@@ -104,7 +100,7 @@ public static class PerformanceEvidenceBuilder
                 io,
                 gpu,
                 enumeration,
-                CombinePriorityReader(baseline.ProcessPriorityReader, current.ProcessPriorityReader),
+                CombinePriorityReader(samples.Select(sample => sample.ProcessPriorityReader)),
                 rows),
             MaxProcesses = maxProcesses,
             BaselineIdentityUnreadableSkipped = baseline.IdentityUnreadableSkipped,
@@ -139,19 +135,6 @@ public static class PerformanceEvidenceBuilder
             if (row.StartTimeUtcTicks is not > 0)
                 continue;
             map[PerformanceIdentity.Key(row.Pid, row.StartTimeUtcTicks.Value)] = row;
-        }
-
-        return map;
-    }
-
-    private static Dictionary<int, ProcessRawObservation> IndexPid(IReadOnlyList<ProcessRawObservation> rows)
-    {
-        var map = new Dictionary<int, ProcessRawObservation>();
-        foreach (var row in rows)
-        {
-            if (row.StartTimeUtcTicks is not > 0)
-                continue;
-            map[row.Pid] = row;
         }
 
         return map;
@@ -241,8 +224,65 @@ public static class PerformanceEvidenceBuilder
         return PerformanceMetric<bool>.Unknown();
     }
 
-    private static MetricAvailability CombinePriorityReader(MetricAvailability baseline, MetricAvailability current) =>
-        baseline == current ? baseline : MetricAvailability.Unknown;
+    private static MetricAvailability CombinePriorityReader(IEnumerable<MetricAvailability> states)
+    {
+        MetricAvailability? combined = null;
+        foreach (var state in states)
+        {
+            if (combined is null)
+                combined = state;
+            else if (combined != state)
+                return MetricAvailability.Unknown;
+        }
+
+        return combined ?? MetricAvailability.Unknown;
+    }
+
+    private static int CountPositiveIntervals(IReadOnlyList<PerformanceRawSample> samples)
+    {
+        var positive = 0;
+        for (var index = 1; index < samples.Count; index++)
+        {
+            var step = Duration(samples[index - 1].TimestampUtc, samples[index].TimestampUtc);
+            if (step.Availability == MetricAvailability.Observed && step.Value is > 0)
+                positive++;
+        }
+
+        return positive;
+    }
+
+    private static List<ProcessIdentityDrift> IdentityDrift(IReadOnlyList<IReadOnlyList<ProcessRawObservation>> retained)
+    {
+        var latestTicks = new Dictionary<int, long>();
+        var latestPath = new Dictionary<int, string?>();
+        var drift = new List<ProcessIdentityDrift>();
+        for (var index = 0; index < retained.Count; index++)
+        {
+            foreach (var row in retained[index].OrderBy(item => item.Pid))
+            {
+                if (row.StartTimeUtcTicks is not > 0)
+                    continue;
+                var ticks = row.StartTimeUtcTicks.Value;
+                if (latestTicks.TryGetValue(row.Pid, out var previous) && previous != ticks)
+                {
+                    drift.Add(new ProcessIdentityDrift
+                    {
+                        Pid = row.Pid,
+                        BaselineStartTimeUtcTicks = previous,
+                        CurrentStartTimeUtcTicks = ticks,
+                        ReplacementSampleIndex = index + 1,
+                        BaselineImagePath = latestPath[row.Pid],
+                        CurrentImagePath = row.ImagePath
+                    });
+                }
+
+                latestTicks[row.Pid] = ticks;
+                latestPath[row.Pid] = row.ImagePath;
+            }
+        }
+
+        return drift;
+    }
 
     private static PerformanceMetric<double> MetricDouble(double? value) =>
         value is null ? PerformanceMetric<double>.Unavailable() : PerformanceMetric<double>.Observed(value.Value);
@@ -328,13 +368,22 @@ public static class PerformanceEvidenceBuilder
     private static long Busy(SystemCpuRaw sample) =>
         (sample.Kernel100Ns - sample.Idle100Ns) + sample.User100Ns;
 
-    private static MetricAvailability CombineEnumeration(MetricAvailability baseline, MetricAvailability current)
+    private static MetricAvailability CombineEnumeration(IEnumerable<MetricAvailability> states)
     {
-        if (baseline == MetricAvailability.NotSupported || current == MetricAvailability.NotSupported)
-            return MetricAvailability.NotSupported;
-        if (baseline == MetricAvailability.Unavailable || current == MetricAvailability.Unavailable)
-            return MetricAvailability.Unavailable;
-        return MetricAvailability.Observed;
+        var sawSample = false;
+        var unavailable = false;
+        foreach (var state in states)
+        {
+            sawSample = true;
+            if (state == MetricAvailability.NotSupported)
+                return MetricAvailability.NotSupported;
+            if (state == MetricAvailability.Unavailable)
+                unavailable = true;
+        }
+
+        if (!sawSample)
+            return MetricAvailability.Unknown;
+        return unavailable ? MetricAvailability.Unavailable : MetricAvailability.Observed;
     }
 }
 
