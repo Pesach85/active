@@ -12,6 +12,41 @@ public sealed class WindowsDefenderPolicyMutator : IDefenderPolicyMutator
         return Task.CompletedTask;
     }
 
+    public Task<IReadOnlyList<string>?> TryGetExclusionPathsAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            var json = RunPs(
+                "$p = Get-MpPreference -ErrorAction Stop; " +
+                "$paths = @(); if ($null -ne $p.ExclusionPath) { $paths = @($p.ExclusionPath) }; " +
+                "@{ ok = $true; paths = $paths } | ConvertTo-Json -Compress -Depth 4");
+            if (string.IsNullOrWhiteSpace(json))
+                return Task.FromResult<IReadOnlyList<string>?>(null);
+
+            using var doc = JsonDocument.Parse(json);
+            if (!doc.RootElement.TryGetProperty("paths", out var paths) || paths.ValueKind == JsonValueKind.Null)
+                return Task.FromResult<IReadOnlyList<string>?>(Array.Empty<string>());
+
+            if (paths.ValueKind == JsonValueKind.String)
+                return Task.FromResult<IReadOnlyList<string>?>(new[] { paths.GetString() ?? string.Empty });
+
+            var list = new List<string>();
+            if (paths.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var item in paths.EnumerateArray())
+                {
+                    if (item.ValueKind == JsonValueKind.String)
+                        list.Add(item.GetString() ?? string.Empty);
+                }
+            }
+            return Task.FromResult<IReadOnlyList<string>?>(list);
+        }
+        catch
+        {
+            return Task.FromResult<IReadOnlyList<string>?>(null);
+        }
+    }
+
     public Task SetRealtimeMonitoringAsync(bool enabled, CancellationToken ct = default)
     {
         var val = enabled ? "$false" : "$true";

@@ -67,13 +67,13 @@ $cliArgs = @(
     'network', 'action',
     '--action', $Action,
     '--pid', [string]$ProcessId,
-    '--process-name', $ProcessName,
-    '--local-address', $LocalAddress,
     '--local-port', [string]$LocalPort,
-    '--remote-address', $RemoteAddress,
     '--remote-port', [string]$RemotePort,
     '--output', $OutputJson
 )
+if ($ProcessName) { $cliArgs += @('--process-name', $ProcessName) }
+if ($LocalAddress) { $cliArgs += @('--local-address', $LocalAddress) }
+if ($RemoteAddress) { $cliArgs += @('--remote-address', $RemoteAddress) }
 if ($DryRun) { $cliArgs += '--dry-run' }
 if ($IUnderstandRisk) { $cliArgs += '--understand-risk' }
 if ($ConfirmPhrase) { $cliArgs += @('--confirm-phrase', $ConfirmPhrase) }
@@ -86,7 +86,13 @@ if ($ec -ne 0 -and -not (Test-Path -LiteralPath $OutputJson)) {
 }
 
 $result = Get-Content -LiteralPath $OutputJson -Raw | ConvertFrom-Json
-$success = [string]$result.Outcome -notin @('AuthRequired', 'RiskAckRequired', 'ConfirmPhraseRequired', 'BlockDenied', 'InvalidTarget', 'UnsupportedAction')
+# Proven live results and dry-run plans are success. ReadyToApply is not a live success.
+$success = [string]$result.Outcome -notin @(
+    'AuthRequired', 'RiskAckRequired', 'ConfirmPhraseRequired', 'BlockDenied', 'InvalidTarget', 'InvalidPid', 'UnsupportedAction',
+    'ReadyToApply',
+    'StateMismatch', 'StateUnverified', 'TargetAbsent', 'TargetAmbiguous', 'SnapshotUnavailable', 'ResetFailed',
+    'BlockFailed', 'TerminateFailed', 'ProcessNotRunning', 'PidIdentityMismatch'
+)
 
 $actionContext = @{
     Action   = [string]$Action

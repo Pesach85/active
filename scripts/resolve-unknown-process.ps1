@@ -57,7 +57,23 @@ if (Test-Path -LiteralPath $hub.ConfigFile) {
     $maintenanceConfig = Get-MaintenanceConfig -ConfigPath $hub.ConfigFile
 }
 
-$snap = Get-ProcessLiveSnapshot -ProcessId $ProcessId -ProcessName $ProcessName
+$throttleSim = $null
+$simPath = [string]$env:HUB_THROTTLE_SIMULATION
+if (-not [string]::IsNullOrWhiteSpace($simPath)) {
+    $throttleSim = Get-Content -LiteralPath $simPath -Raw | ConvertFrom-Json
+    $snap = [ordered]@{
+        PID = [int]$throttleSim.pid
+        ProcessName = [string]$throttleSim.name
+        RamMb = 1.0
+        CpuSec = 0.0
+        Responding = $true
+        PriorityClass = [string]$throttleSim.beforePriority
+        Path = [string]$throttleSim.path
+        NotRunning = $false
+    }
+} else {
+    $snap = Get-ProcessLiveSnapshot -ProcessId $ProcessId -ProcessName $ProcessName
+}
 if (-not $snap) {
     $syntheticName = if ($ProcessName) { ($ProcessName -replace '\.exe$','') } else { "PID$ProcessId" }
     if ($Action -eq 'Advisory' -or ($DryRun -and $Action -ne 'Observe')) {
@@ -198,17 +214,72 @@ else {
             if ($DryRun) {
                 $result.Outcome = 'DryRunThrottle'
                 $result.Message = 'Would set BelowNormal priority'
+            } elseif ($null -ne $throttleSim) {
+                ($rollback | ConvertTo-Json -Depth 4) | Out-File -LiteralPath $rollbackPath -Encoding utf8 -Force
+                $result.RollbackPath = $rollbackPath
+                if ([bool]$throttleSim.mutateFails) {
+                    $result.Outcome = 'PidIdentityMismatch'
+                    $result.Message = 'Throttle aborted (handle identity/exit): simulated mutation failure'
+                } elseif (-not [bool]$throttleSim.postOk) {
+                    $result.Outcome = 'StateUnverified'
+                    $result.Message = 'The priority change was requested, but the final process state could not be confirmed.'
+                } elseif (-not [bool]$throttleSim.identityMatch) {
+                    $result.Outcome = 'PidIdentityMismatch'
+                    $result.Message = 'The process that now uses this PID is not the process that was throttled.'
+                } elseif ([string]$throttleSim.priority -ne 'BelowNormal') {
+                    $result.Outcome = 'StateMismatch'
+                    $result.Message = 'The process priority did not reach the requested state.'
+                } else {
+                    $result.Outcome = 'Throttled'
+                    $result.Message = "Process priority was changed to Below Normal. Rollback: $rollbackPath"
+                }
             } else {
                 $proc = Get-Process -Id ([int]$snap.PID) -ErrorAction Stop
                 $rollback.PreviousPriority = [string]$proc.PriorityClass
-                $proc.PriorityClass = [System.Diagnostics.ProcessPriorityClass]::BelowNormal
+                $beforePid = [int]$proc.Id
+                $beforeStart = [int64]0
+                $beforePath = ''
+                try { $beforeStart = $proc.StartTime.ToUniversalTime().Ticks } catch { }
+                try { $beforePath = [string]$proc.Path } catch { }
+                try {
+                    $proc.PriorityClass = [System.Diagnostics.ProcessPriorityClass]::BelowNormal
+                } catch {
+                    $result.Outcome = 'PidIdentityMismatch'
+                    $result.Message = "Throttle aborted (handle identity/exit): $($_.Exception.Message)"
+                    break
+                }
                 ($rollback | ConvertTo-Json -Depth 4) | Out-File -LiteralPath $rollbackPath -Encoding utf8 -Force
-                Write-TransparencyEvent -EventsPath $eventsPath -Action 'ThrottleBelowNormal' `
-                    -Detail ("PID={0} Name={1}" -f $snap.PID, $snap.ProcessName) `
-                    -AgentId 'process-resolution' -ControlLevel 'T1_Delegated'
-                $result.Outcome = 'Throttled'
-                $result.Message = "Priority set BelowNormal. Rollback: $rollbackPath"
                 $result.RollbackPath = $rollbackPath
+                $after = $null
+                try { $after = Get-Process -Id $beforePid -ErrorAction Stop } catch { $after = $null }
+                if ($null -eq $after) {
+                    $result.Outcome = 'StateUnverified'
+                    $result.Message = 'The priority change was requested, but the final process state could not be confirmed.'
+                } else {
+                    $afterStart = [int64]0
+                    $afterPath = ''
+                    try { $afterStart = $after.StartTime.ToUniversalTime().Ticks } catch { }
+                    try { $afterPath = [string]$after.Path } catch { }
+                    $identityOk = ($after.Id -eq $beforePid)
+                    if ($beforeStart -gt 0 -and $afterStart -gt 0 -and $beforeStart -ne $afterStart) { $identityOk = $false }
+                    if (-not [string]::IsNullOrWhiteSpace($beforePath) -and -not [string]::IsNullOrWhiteSpace($afterPath) -and
+                        -not [string]::Equals($beforePath, $afterPath, [StringComparison]::OrdinalIgnoreCase)) {
+                        $identityOk = $false
+                    }
+                    if (-not $identityOk) {
+                        $result.Outcome = 'PidIdentityMismatch'
+                        $result.Message = 'The process that now uses this PID is not the process that was throttled.'
+                    } elseif ([string]$after.PriorityClass -ne 'BelowNormal') {
+                        $result.Outcome = 'StateMismatch'
+                        $result.Message = 'The process priority did not reach the requested state.'
+                    } else {
+                        Write-TransparencyEvent -EventsPath $eventsPath -Action 'ThrottleBelowNormal' `
+                            -Detail ("PID={0} Name={1}" -f $snap.PID, $snap.ProcessName) `
+                            -AgentId 'process-resolution' -ControlLevel 'T1_Delegated'
+                        $result.Outcome = 'Throttled'
+                        $result.Message = "Process priority was changed to Below Normal. Rollback: $rollbackPath"
+                    }
+                }
             }
         }
         'Terminate' {
@@ -244,7 +315,9 @@ $dir = Split-Path -Parent $OutputJson
 if ($dir -and -not (Test-Path -LiteralPath $dir)) { New-Item -Path $dir -ItemType Directory -Force | Out-Null }
 ($result | ConvertTo-Json -Depth 12) | Out-File -LiteralPath $OutputJson -Encoding utf8 -Force
 
-$resolveSuccess = [string]$result.Outcome -notin @('ActionBlocked', 'ProcessNotRunning', 'AuthRequired', 'ConfirmPhraseRequired', 'TerminateBlocked')
+$resolveSuccess = [string]$result.Outcome -notin @(
+    'ActionBlocked', 'ProcessNotRunning', 'AuthRequired', 'ConfirmPhraseRequired', 'TerminateBlocked',
+    'StateMismatch', 'StateUnverified', 'PidIdentityMismatch', 'Failed')
 $resolveContext = @{
     ProcessName = [string]$snap.ProcessName
     ProcessId   = [int]$snap.PID
@@ -269,7 +342,7 @@ Clear-OperatorPasswordFile -PasswordFile $WindowsPasswordFile
 
 # Keep default PowerShell success (0) for catalog/not-running JSON outcomes.
 # Only force non-zero when HITL confirm/auth gates intentionally fail.
-if ([string]$result.Outcome -in @('ConfirmPhraseRequired', 'TerminateBlocked', 'AuthRequired')) {
+if ([string]$result.Outcome -in @('ConfirmPhraseRequired', 'TerminateBlocked', 'AuthRequired', 'StateMismatch', 'StateUnverified', 'PidIdentityMismatch', 'Failed')) {
     exit 1
 }
 exit 0

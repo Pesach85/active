@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
     [string]$ConfigPath = '',
     [int]$Port = 0,
@@ -94,11 +94,11 @@ if (Test-PortInUse -Address $BindAddress -ListenPort $Port) {
         $existingHealthy = ($healthCheck.StatusCode -eq 200)
     } catch { }
     if ($existingHealthy) {
-        Write-WebLog "Port $Port already serving hub dashboard — reusing."
+        Write-WebLog "Port $Port already serving hub dashboard - reusing."
         if ($OpenBrowser) { Start-Process $prefix | Out-Null }
         exit 0
     }
-    Write-WebLog "Port $Port occupied but not hub health — attempting bind anyway."
+    Write-WebLog "Port $Port occupied but not hub health - attempting bind anyway."
 }
 
 $pidFile = Join-Path $hub.Logs 'transparency-web.pid'

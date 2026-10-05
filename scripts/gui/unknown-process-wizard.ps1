@@ -1,5 +1,35 @@
 ﻿# HITL wizard: resolve + manually identify unknown processes - no terminal required.
 
+function Get-ThrottleApplyOperatorMessage {
+    param(
+        [string]$Outcome,
+        [bool]$Italian
+    )
+
+    switch ($Outcome) {
+        'Throttled' {
+            if ($Italian) { return @{ Text = 'La priorità del processo è stata impostata su Below Normal.'; Icon = 'Information'; Success = $true } }
+            return @{ Text = 'Process priority was changed to Below Normal.'; Icon = 'Information'; Success = $true }
+        }
+        'StateUnverified' {
+            if ($Italian) { return @{ Text = 'La modifica della priorità è stata richiesta, ma lo stato finale del processo non può essere confermato.'; Icon = 'Warning'; Success = $false } }
+            return @{ Text = 'The priority change was requested, but the final process state could not be confirmed.'; Icon = 'Warning'; Success = $false }
+        }
+        'StateMismatch' {
+            if ($Italian) { return @{ Text = 'La priorità del processo non ha raggiunto lo stato richiesto.'; Icon = 'Error'; Success = $false } }
+            return @{ Text = 'The process priority did not reach the requested state.'; Icon = 'Error'; Success = $false }
+        }
+        'PidIdentityMismatch' {
+            if ($Italian) { return @{ Text = 'Il processo che ora usa questo PID non è quello originale, quindi la priorità non è stata confermata.'; Icon = 'Error'; Success = $false } }
+            return @{ Text = 'The process that now uses this PID is not the original process, so the priority change was not confirmed.'; Icon = 'Error'; Success = $false }
+        }
+        default {
+            if ($Italian) { return @{ Text = 'La priorità del processo non può essere cambiata.'; Icon = 'Error'; Success = $false } }
+            return @{ Text = 'The process priority could not be changed.'; Icon = 'Error'; Success = $false }
+        }
+    }
+}
+
 function Show-UnknownProcessResolutionWizard {
     param(
         [System.Windows.Forms.Form]$Owner,
@@ -259,6 +289,13 @@ function Show-UnknownProcessResolutionWizard {
             if (Get-Command Invoke-HubProcessScriptViaRequest -ErrorAction SilentlyContinue) {
                 $run = Invoke-HubProcessScriptViaRequest -ScriptPath $resolveScript -RequestBody $body `
                     -LogsDir (Join-Path $HubRoot 'logs') -PwshExe $PsHost -HubRoot $HubRoot
+                if ($ActionName -eq 'ThrottleBelowNormal' -and $run.Payload -and $run.Payload.PSObject.Properties['Outcome']) {
+                    $view = Get-ThrottleApplyOperatorMessage -Outcome ([string]$run.Payload.Outcome) -Italian $it
+                    $icon = [System.Windows.Forms.MessageBoxIcon]([string]$view.Icon)
+                    [void][System.Windows.Forms.MessageBox]::Show([string]$view.Text, 'Throttle', 'OK', $icon)
+                    if ($OnStatus) { & $OnStatus ([string]$view.Text) }
+                    return [bool]$view.Success
+                }
                 if ($run.ExitCode -ne 0) {
                     $msg = if ($run.Payload -and $run.Payload.Message) { [string]$run.Payload.Message }
                            elseif ($run.Stderr) { [string]$run.Stderr }

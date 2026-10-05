@@ -5,6 +5,10 @@ using SystemOptimizerHub.Core.Resolution;
 
 namespace SystemOptimizerHub.Core.Tests;
 
+[CollectionDefinition("ApplyEnvironment")]
+public sealed class ApplyEnvironmentCollection;
+
+[Collection("ApplyEnvironment")]
 public class CrashSafeApplyContractTests
 {
     private static ProcessResolutionConfig Config() => new()
@@ -18,11 +22,22 @@ public class CrashSafeApplyContractTests
     {
         public ProcessSnapshot? Current { get; set; }
         public ProcessSnapshot? Recheck { get; set; }
+        public ProcessSnapshot? PostState { get; set; }
+        public bool FailPostRead { get; set; }
         public int Calls { get; private set; }
+        private int _liveReads;
 
         public Task<ProcessSnapshot?> GetLiveSnapshotAsync(int processId, string processName, CancellationToken ct = default)
         {
             Calls++;
+            _liveReads++;
+            if (_liveReads > 1)
+            {
+                if (FailPostRead)
+                    return Task.FromResult<ProcessSnapshot?>(null);
+                if (PostState is not null)
+                    return Task.FromResult<ProcessSnapshot?>(PostState);
+            }
             return Task.FromResult(Current);
         }
 
@@ -42,12 +57,15 @@ public class CrashSafeApplyContractTests
     {
         public int ThrottleCalls { get; private set; }
         public int TerminateCalls { get; private set; }
+        public bool FailThrottle { get; set; }
 
         public Task ThrottleBelowNormalAsync(Process handle, ProcessIdentity expectedIdentity, CancellationToken ct = default)
         {
             ArgumentNullException.ThrowIfNull(handle);
             ArgumentNullException.ThrowIfNull(expectedIdentity);
             ThrottleCalls++;
+            if (FailThrottle)
+                throw new InvalidOperationException("priority api failed");
             return Task.CompletedTask;
         }
 
@@ -56,6 +74,9 @@ public class CrashSafeApplyContractTests
             TerminateCalls++;
             return Task.CompletedTask;
         }
+
+        public Task TerminateOpenProcessAsync(Process handle, ProcessIdentity expectedIdentity, CancellationToken ct = default) =>
+            throw new NotSupportedException();
     }
 
     [Fact]
@@ -135,7 +156,8 @@ public class CrashSafeApplyContractTests
         try
         {
             var live = new ProcessSnapshot(55, "ok", 10, 1, true, "AboveNormal", @"C:\ok.exe", false, 555);
-            var snapProvider = new FakeSnap { Current = live, Recheck = live };
+            var after = new ProcessSnapshot(55, "ok", 10, 1, true, "BelowNormal", @"C:\ok.exe", false, 555);
+            var snapProvider = new FakeSnap { Current = live, Recheck = live, PostState = after };
             var mutator = new FakeMutator();
             var input = new ProcessSnapshotInput(55, "ok", 10);
             var nec = new ProcessNecessity("Unknown", "Review", "Unknown", "");
@@ -149,10 +171,102 @@ public class CrashSafeApplyContractTests
             Assert.Equal(1, mutator.ThrottleCalls);
             var json = await File.ReadAllTextAsync(result.RollbackPath!);
             Assert.Contains("\"PreviousPriority\": \"AboveNormal\"", json);
+            Assert.Contains("Process priority was changed to Below Normal.", result.Message);
         }
         finally
         {
             try { Directory.Delete(dir, true); } catch { }
         }
+    }
+
+    [Fact]
+    public async Task Throttle_PostState_Normal_Is_Not_Throttled()
+    {
+        var live = Snap(77, "Normal");
+        var (result, mutator) = await Apply(live, Snap(77, "Normal"));
+        Assert.Equal(1, mutator.ThrottleCalls);
+        Assert.Equal("StateMismatch", result.Outcome);
+        Assert.NotEqual("Throttled", result.Outcome);
+    }
+
+    [Fact]
+    public async Task Throttle_PostRead_Failure_Is_Not_Throttled()
+    {
+        var (result, mutator) = await Apply(Snap(77, "Normal"), post: null, failPostRead: true);
+        Assert.Equal(1, mutator.ThrottleCalls);
+        Assert.Equal("StateUnverified", result.Outcome);
+        Assert.NotEqual("Throttled", result.Outcome);
+    }
+
+    [Fact]
+    public async Task Throttle_Process_Exit_Before_Proof_Is_Not_Throttled()
+    {
+        var (result, mutator) = await Apply(Snap(77, "Normal"), Snap(77, "BelowNormal", notRunning: true));
+        Assert.Equal(1, mutator.ThrottleCalls);
+        Assert.Equal("StateUnverified", result.Outcome);
+        Assert.NotEqual("Throttled", result.Outcome);
+    }
+
+    [Fact]
+    public async Task Throttle_Pid_Reuse_Is_Rejected()
+    {
+        var live = Snap(77, "Normal");
+        var reused = new ProcessSnapshot(77, "other", 10, 1, true, "BelowNormal", @"C:\other.exe", false, 999);
+        var (result, mutator) = await Apply(live, reused);
+        Assert.Equal(1, mutator.ThrottleCalls);
+        Assert.Equal("PidIdentityMismatch", result.Outcome);
+        Assert.NotEqual("Throttled", result.Outcome);
+    }
+
+    [Fact]
+    public async Task Throttle_Mutation_Failure_Keeps_Existing_Failure_Outcome()
+    {
+        var (result, mutator) = await Apply(Snap(77, "Normal"), Snap(77, "BelowNormal"), failThrottle: true);
+        Assert.Equal(1, mutator.ThrottleCalls);
+        Assert.Equal("PidIdentityMismatch", result.Outcome);
+        Assert.Contains("priority api failed", result.Message);
+        Assert.NotEqual("Throttled", result.Outcome);
+    }
+
+    [Fact]
+    public async Task Throttle_Already_BelowNormal_Still_Requires_Proof()
+    {
+        var (result, mutator) = await Apply(Snap(77, "BelowNormal"), Snap(77, "BelowNormal"));
+        Assert.Equal(1, mutator.ThrottleCalls);
+        Assert.Equal("Throttled", result.Outcome);
+    }
+
+    [Fact]
+    public async Task Throttle_Unknown_Priority_Is_Not_Proof()
+    {
+        var (result, _) = await Apply(Snap(77, "Normal"), Snap(77, "Unknown"));
+        Assert.Equal("StateMismatch", result.Outcome);
+        Assert.NotEqual("Throttled", result.Outcome);
+    }
+
+    private static ProcessSnapshot Snap(int pid, string priority, bool notRunning = false) =>
+        new(pid, "ok", 10, 1, true, priority, @"C:\ok.exe", notRunning, 555);
+
+    private static async Task<(ProcessResolutionResult Result, FakeMutator Mutator)> Apply(
+        ProcessSnapshot before,
+        ProcessSnapshot? post,
+        bool failPostRead = false,
+        bool failThrottle = false)
+    {
+        var snaps = new FakeSnap
+        {
+            Current = before,
+            Recheck = before,
+            PostState = post,
+            FailPostRead = failPostRead
+        };
+        var mutator = new FakeMutator { FailThrottle = failThrottle };
+        var input = new ProcessSnapshotInput(before.Pid, before.ProcessName, before.RamMb);
+        var nec = new ProcessNecessity("Unknown", "Review", "Unknown", "");
+        var adv = ResolutionAdvisoryService.BuildAdvisory(input, new KnowledgeHintInput(), Config(), nec);
+        var result = await ResolutionExecutionService.ApplyAsync(
+            "ThrottleBelowNormal", input, adv, nec, Config(), mutator,
+            skipAuth: true, authVerified: true, snapshots: snaps);
+        return (result, mutator);
     }
 }

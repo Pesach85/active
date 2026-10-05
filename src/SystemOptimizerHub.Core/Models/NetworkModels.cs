@@ -178,6 +178,23 @@ public sealed class NetworkActionResult
     public string Outcome { get; set; } = "";
     public string Message { get; set; } = "";
     public string? RollbackPath { get; set; }
+
+    /// <summary>
+    /// Post-action evidence. Absence or a blocked rule proves the requested state
+    /// was observed after the attempt. It does not prove the command caused it.
+    /// </summary>
+    public string PostState { get; set; } = "";
+}
+
+/// <summary>One outbound firewall rule read back by display name.</summary>
+public sealed class FirewallBlockObservation
+{
+    public bool Found { get; init; }
+    public string RuleName { get; init; } = "";
+    public string RemoteAddress { get; init; } = "";
+    public string Direction { get; init; } = "";
+    public string Action { get; init; } = "";
+    public bool Enabled { get; init; }
 }
 
 public sealed class NetworkProbeCapture

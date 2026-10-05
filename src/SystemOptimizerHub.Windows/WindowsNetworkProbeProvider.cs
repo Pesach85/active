@@ -25,7 +25,7 @@ public static class WindowsNetworkProbeProvider
         };
 
         capture.NetstatTcp = ParseNetstat(await RunNetstatAsync("-ano -p tcp", ct));
-        capture.PowerShellTcp = await CapturePowerShellTcpAsync(ct);
+        capture.PowerShellTcp = await CapturePowerShellTcpAsync(ct) ?? [];
         capture.UdpEndpoints = await CaptureUdpAsync(ct);
         capture.DnsCache = await CaptureDnsCacheAsync(ct);
         capture.ProcessInfoByPid = await CaptureProcessInfoAsync(ct);
@@ -72,7 +72,23 @@ public static class WindowsNetworkProbeProvider
         return rows;
     }
 
-    private static async Task<List<NetworkTcpMapRow>> CapturePowerShellTcpAsync(CancellationToken ct)
+    /// <summary>
+    /// TCP rows from Get-NetTCPConnection. Null means the read failed.
+    /// An empty list means the read succeeded and returned no rows.
+    /// </summary>
+    public static async Task<IReadOnlyList<NetworkTcpMapRow>?> TryGetTcpConnectionsAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            return await CapturePowerShellTcpAsync(ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return null;
+        }
+    }
+
+    private static async Task<List<NetworkTcpMapRow>?> CapturePowerShellTcpAsync(CancellationToken ct)
     {
         var script = @"
 Get-NetTCPConnection -ErrorAction SilentlyContinue |
@@ -81,7 +97,7 @@ Get-NetTCPConnection -ErrorAction SilentlyContinue |
   ConvertTo-Json -Compress
 ";
         var json = await RunPowerShellAsync(script, ct);
-        if (string.IsNullOrWhiteSpace(json)) return [];
+        if (string.IsNullOrWhiteSpace(json)) return null;
         try
         {
             using var doc = System.Text.Json.JsonDocument.Parse(json);
@@ -105,7 +121,7 @@ Get-NetTCPConnection -ErrorAction SilentlyContinue |
         }
         catch
         {
-            return [];
+            return null;
         }
     }
 
@@ -393,6 +409,79 @@ try {
     {
         var idx = endpoint.LastIndexOf(':');
         return idx > 0 && int.TryParse(endpoint[(idx + 1)..], out var p) ? p : 0;
+    }
+
+    /// <summary>
+    /// Reads the named firewall rule. Null means the read failed.
+    /// Found false means the read succeeded and that rule is absent.
+    /// </summary>
+    public static async Task<FirewallBlockObservation?> TryReadOutboundBlockRuleAsync(
+        string ruleName, CancellationToken ct = default)
+    {
+        try
+        {
+            var safeName = (ruleName ?? "").Replace("'", "''");
+            var script = $@"
+$ErrorActionPreference = 'Stop'
+$rules = @(Get-NetFirewallRule -DisplayName '{safeName}' -ErrorAction SilentlyContinue)
+if ($rules.Count -ne 1) {{ '{{""found"":false}}'; exit 0 }}
+$rule = $rules[0]
+$remote = @(($rule | Get-NetFirewallAddressFilter).RemoteAddress)
+[pscustomobject]@{{
+  found = $true
+  ruleName = [string]$rule.DisplayName
+  direction = [string]$rule.Direction
+  action = [string]$rule.Action
+  enabled = [string]$rule.Enabled
+  remoteAddress = ((@($remote) | ForEach-Object {{ [string]$_ }}) -join ',')
+}} | ConvertTo-Json -Compress
+";
+            var json = await RunPowerShellCheckedAsync(script, ct);
+            if (string.IsNullOrWhiteSpace(json))
+                return null;
+            using var doc = System.Text.Json.JsonDocument.Parse(json);
+            var root = doc.RootElement;
+            if (!root.TryGetProperty("found", out var found) || found.ValueKind != System.Text.Json.JsonValueKind.True)
+                return new FirewallBlockObservation { Found = false, RuleName = ruleName ?? "" };
+            var enabledText = root.TryGetProperty("enabled", out var enabled) ? enabled.GetString() ?? "" : "";
+            return new FirewallBlockObservation
+            {
+                Found = true,
+                RuleName = root.TryGetProperty("ruleName", out var name) ? name.GetString() ?? "" : "",
+                Direction = root.TryGetProperty("direction", out var direction) ? direction.GetString() ?? "" : "",
+                Action = root.TryGetProperty("action", out var action) ? action.GetString() ?? "" : "",
+                Enabled = enabledText.Equals("True", StringComparison.OrdinalIgnoreCase),
+                RemoteAddress = root.TryGetProperty("remoteAddress", out var remote) ? remote.GetString() ?? "" : ""
+            };
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static async Task<string> RunPowerShellCheckedAsync(string script, CancellationToken ct)
+    {
+        var exe = File.Exists(@"C:\Program Files\PowerShell\7\pwsh.exe")
+            ? @"C:\Program Files\PowerShell\7\pwsh.exe"
+            : "powershell.exe";
+        var psi = new ProcessStartInfo(exe, $"-NoProfile -NonInteractive -Command \"{script.Replace("\"", "\\\"")}\"")
+        {
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true
+        };
+        using var proc = Process.Start(psi)!;
+        var output = await proc.StandardOutput.ReadToEndAsync(ct);
+        await proc.WaitForExitAsync(ct);
+        if (proc.ExitCode != 0)
+            throw new InvalidOperationException("Firewall rule read failed.");
+        return output;
     }
 }
 

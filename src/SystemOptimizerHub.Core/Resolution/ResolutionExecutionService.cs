@@ -332,6 +332,39 @@ public static class ResolutionExecutionService
 
             var expected = new ProcessIdentity(pid, processName, imagePath, startTicks);
             await mutator.ThrottleBelowNormalAsync(held, expected, ct);
+
+            var after = await snapshots.GetLiveSnapshotAsync(pid, processName, ct);
+            if (after is null || after.NotRunning)
+            {
+                return BuildResult(action, false, snapshot, advisory, catalogNecessity,
+                    "StateUnverified",
+                    "The priority change was requested, but the final process state could not be confirmed.",
+                    rollbackPath);
+            }
+
+            if (!CrashSafeApplyContract.IdentityMatches(pid, startTicks, imagePath, after))
+            {
+                return BuildResult(action, false, snapshot, advisory, catalogNecessity,
+                    "PidIdentityMismatch",
+                    "The process that now uses this PID is not the process that was throttled.",
+                    rollbackPath);
+            }
+
+            if (!string.Equals(after.PriorityClass, nameof(System.Diagnostics.ProcessPriorityClass.BelowNormal),
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                return BuildResult(action, false, snapshot, advisory, catalogNecessity,
+                    "StateMismatch",
+                    "The process priority did not reach the requested state.",
+                    rollbackPath);
+            }
+
+            return BuildResult(action, false, snapshot, advisory, catalogNecessity,
+                "Throttled",
+                rollbackPath is null
+                    ? "Process priority was changed to Below Normal."
+                    : $"Process priority was changed to Below Normal. Rollback: {rollbackPath}",
+                rollbackPath);
         }
         catch (InvalidOperationException ex)
         {
@@ -344,11 +377,6 @@ public static class ResolutionExecutionService
         {
             held?.Dispose();
         }
-
-        return BuildResult(action, false, snapshot, advisory, catalogNecessity,
-            "Throttled",
-            rollbackPath is null ? "Priority set BelowNormal" : $"Priority set BelowNormal. Rollback: {rollbackPath}",
-            rollbackPath);
     }
 
     private static async Task<ProcessResolutionResult> ApplyTerminateAsync(

@@ -58,12 +58,25 @@ public interface IProcessMutator
     Task ThrottleBelowNormalAsync(Process handle, ProcessIdentity expectedIdentity, CancellationToken ct = default);
 
     Task TerminateAsync(int processId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Terminate this already-open process object. Must not call GetProcessById.
+    /// Re-check identity on this handle and abort without killing if it does not match.
+    /// </summary>
+    Task TerminateOpenProcessAsync(Process handle, ProcessIdentity expectedIdentity, CancellationToken ct = default);
 }
 
 /// <summary>Port of apply-defender-extreme-necessity.ps1 OS mutations (Windows Defender module).</summary>
 public interface IDefenderPolicyMutator
 {
     Task AddExclusionPathAsync(string path, CancellationToken ct = default);
+
+    /// <summary>
+    /// Live exclusion paths. Null means the platform read failed.
+    /// An empty list means the read succeeded and no exclusions are present.
+    /// </summary>
+    Task<IReadOnlyList<string>?> TryGetExclusionPathsAsync(CancellationToken ct = default);
+
     Task SetRealtimeMonitoringAsync(bool enabled, CancellationToken ct = default);
     Task<DefenderServiceState?> GetWinDefendServiceStateAsync(CancellationToken ct = default);
     Task StopWinDefendServiceAsync(CancellationToken ct = default);

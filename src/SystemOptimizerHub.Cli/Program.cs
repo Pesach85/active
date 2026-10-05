@@ -374,8 +374,11 @@ internal static class Program
                 confirmPhrase, skipAuth, authVerified: authOk, rollbackDir,
                 snapshots: platform.ProcessSnapshots);
             Console.WriteLine(JsonSerializer.Serialize(result, JsonOut));
-            if (result.Outcome is "AuthRequired" or "ConfirmPhraseRequired" or "TerminateBlocked" or "ActionBlocked")
+            if (result.Outcome is not ("Throttled" or "Terminated" or "Observed"))
+            {
+                ctx.ExitCode = 1;
                 Environment.ExitCode = 1;
+            }
         });
         resolveCmd.AddCommand(applyCmd);
         root.AddCommand(resolveCmd);
@@ -718,10 +721,16 @@ internal static class Program
                     await File.WriteAllTextAsync(output.FullName, json);
                 }
                 Console.WriteLine(json);
+                if (result.Outcome is not ("Applied" or "DryRunApplied"))
+                {
+                    ctx.ExitCode = 1;
+                    Environment.ExitCode = 1;
+                }
             }
             catch (Exception ex)
             {
                 Console.Error.WriteLine(ex.Message);
+                ctx.ExitCode = 1;
                 Environment.ExitCode = 1;
             }
         });
@@ -828,16 +837,28 @@ internal static class Program
                 result = NetworkActionService.Plan(req, authOk, skipAuth);
             else
                 result = await NetworkActionService.ApplyAsync(
-                    req, platform.NetworkMutator, platform.ProcessMutator, authOk, skipAuth, logs);
+                    req, platform.NetworkMutator, platform.ProcessMutator, authOk, skipAuth, logs,
+                    WindowsNetworkProbeProvider.TryGetTcpConnectionsAsync,
+                    WindowsNetworkProbeProvider.TryReadOutboundBlockRuleAsync,
+                    platform.ProcessSnapshots.GetLiveSnapshotAsync,
+                    platform.ProcessSnapshots.GetLiveSnapshotWithHandleAsync);
 
             WriteJsonOut(result, output);
-            if (result.Outcome is "AuthRequired" or "RiskAckRequired" or "ConfirmPhraseRequired" or "BlockDenied")
+            var networkOk = req.DryRun
+                ? result.Outcome is "DryRunKillConnection" or "DryRunBlockRemoteIp" or "DryRunTerminateProcess"
+                : result.Outcome is "ConnectionReset" or "RemoteIpBlocked" or "ProcessTerminated";
+            if (!networkOk)
+            {
+                ctx.ExitCode = 1;
                 Environment.ExitCode = 1;
+            }
         });
         networkCmd.AddCommand(netActionCmd);
         root.AddCommand(networkCmd);
 
-        return await root.InvokeAsync(args);
+        var invokeCode = await root.InvokeAsync(args);
+        // Handlers set Environment.ExitCode, but InvokeAsync's return value is the process exit code.
+        return Environment.ExitCode != 0 ? Environment.ExitCode : invokeCode;
     }
 
     private static IPlatformServices ResolvePlatform()
