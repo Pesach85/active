@@ -9,6 +9,7 @@ using SystemOptimizerHub.Core.Config;
 using SystemOptimizerHub.Core.Defender;
 using SystemOptimizerHub.Core.Identify;
 using SystemOptimizerHub.Core.Network;
+using SystemOptimizerHub.Core.Performance;
 using SystemOptimizerHub.Core.Pressure;
 using SystemOptimizerHub.Core.Transparency;
 using SystemOptimizerHub.Core.Resolution;
@@ -855,6 +856,63 @@ internal static class Program
         });
         networkCmd.AddCommand(netActionCmd);
         root.AddCommand(networkCmd);
+
+        var performanceCmd = new Command("performance", "Read-only performance evidence");
+        var performanceSnapshotCmd = new Command("snapshot", "Capture a bounded two-sample performance snapshot");
+        var intervalOpt = new Option<int>("--interval-ms", () => 1000, "Milliseconds between sample A and sample B");
+        var maxProcessesOpt = new Option<int>("--max-processes", () => PerformanceEvidenceLimits.DefaultMaxProcesses, "Maximum identified processes retained");
+        performanceSnapshotCmd.AddOption(intervalOpt);
+        performanceSnapshotCmd.AddOption(maxProcessesOpt);
+        performanceSnapshotCmd.SetHandler(async (int intervalMs, int maxProcesses) =>
+        {
+            if (intervalMs < 0 || maxProcesses < 1 || maxProcesses > PerformanceEvidenceLimits.HardMaxProcesses)
+            {
+                Console.Error.WriteLine("performance snapshot requires interval-ms >= 0 and max-processes from 1 to 30.");
+                Environment.ExitCode = 2;
+                return;
+            }
+
+            IPerformanceSampleSource source = OperatingSystem.IsWindows()
+                ? new WindowsPerformanceSampleSource()
+                : new LinuxPerformanceSampleSource();
+            var snapshot = await PerformanceEvidenceCollector.CollectAsync(
+                source,
+                TimeSpan.FromMilliseconds(intervalMs),
+                maxProcesses,
+                CancellationToken.None);
+            Console.WriteLine(JsonSerializer.Serialize(snapshot, JsonOut));
+        }, intervalOpt, maxProcessesOpt);
+        performanceCmd.AddCommand(performanceSnapshotCmd);
+
+        var performanceGuardCmd = new Command("guard", "Read-only performance diagnosis");
+        var performanceDiagnoseCmd = new Command("diagnose", "Diagnose a bounded two-sample snapshot and exit");
+        var diagnoseIntervalOpt = new Option<int>("--interval-ms", () => 1000, "Milliseconds between sample A and sample B");
+        var diagnoseMaxProcessesOpt = new Option<int>("--max-processes", () => PerformanceEvidenceLimits.DefaultMaxProcesses, "Maximum identified processes retained");
+        performanceDiagnoseCmd.AddOption(diagnoseIntervalOpt);
+        performanceDiagnoseCmd.AddOption(diagnoseMaxProcessesOpt);
+        performanceDiagnoseCmd.SetHandler(async (int intervalMs, int maxProcesses) =>
+        {
+            if (intervalMs < 0 || maxProcesses < 1 || maxProcesses > PerformanceEvidenceLimits.HardMaxProcesses)
+            {
+                Console.Error.WriteLine("performance guard diagnose requires interval-ms >= 0 and max-processes from 1 to 30.");
+                Environment.ExitCode = 2;
+                return;
+            }
+
+            IPerformanceSampleSource source = OperatingSystem.IsWindows()
+                ? new WindowsPerformanceSampleSource()
+                : new LinuxPerformanceSampleSource();
+            var snapshot = await PerformanceEvidenceCollector.CollectAsync(
+                source,
+                TimeSpan.FromMilliseconds(intervalMs),
+                maxProcesses,
+                CancellationToken.None);
+            var diagnosis = PerformanceDiagnosisEngine.Diagnose(snapshot);
+            Console.WriteLine(JsonSerializer.Serialize(diagnosis, JsonOut));
+        }, diagnoseIntervalOpt, diagnoseMaxProcessesOpt);
+        performanceGuardCmd.AddCommand(performanceDiagnoseCmd);
+        performanceCmd.AddCommand(performanceGuardCmd);
+        root.AddCommand(performanceCmd);
 
         var invokeCode = await root.InvokeAsync(args);
         // Handlers set Environment.ExitCode, but InvokeAsync's return value is the process exit code.
