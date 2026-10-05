@@ -47,16 +47,6 @@ public sealed class IoEvidence
     public MetricAvailability ProcessIoBytes { get; init; } = MetricAvailability.NotSupported;
 }
 
-public sealed class GpuEvidence
-{
-    public MetricAvailability Utilization { get; init; } = MetricAvailability.NotSupported;
-
-    public MetricAvailability Memory { get; init; } = MetricAvailability.NotSupported;
-
-    public MetricAvailability Engine { get; init; } = MetricAvailability.NotSupported;
-
-    public MetricAvailability Thermal { get; init; } = MetricAvailability.NotSupported;
-}
 
 public sealed class ProcessPerformanceEvidence
 {

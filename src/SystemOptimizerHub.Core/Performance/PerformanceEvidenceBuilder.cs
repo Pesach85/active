@@ -77,7 +77,7 @@ public static class PerformanceEvidenceBuilder
         {
             ProcessIoBytes = CombineReader(samples.Select(sample => sample.ProcessIoReader))
         };
-        var gpu = new GpuEvidence();
+        var gpu = GpuEvidenceFactory.Build(samples);
         return new PerformanceSnapshot
         {
             BaselineTimestampUtc = baseline.TimestampUtc,
@@ -540,10 +540,40 @@ static class EvidenceQualityCounter
         AddState(io.DiskLatency);
         AddState(io.QueueDepth);
         AddState(io.ProcessIoBytes);
+        AddState(gpu.Reader);
         AddState(gpu.Utilization);
         AddState(gpu.Memory);
         AddState(gpu.Engine);
         AddState(gpu.Thermal);
+        foreach (var device in gpu.Devices)
+        {
+            AddState(device.Identity);
+            AddState(device.Pci);
+            Add(device.UtilizationPercent);
+            Add(device.MemoryTotalBytes);
+            Add(device.MemoryUsedBytes);
+            Add(device.TemperatureCelsius);
+            Add(device.PowerDrawMilliwatts);
+            Add(device.PerformanceState);
+            Add(device.EncoderUtilizationPercent);
+            Add(device.DecoderUtilizationPercent);
+            Add(device.EncoderSamplingPeriodMicroseconds);
+            Add(device.DecoderSamplingPeriodMicroseconds);
+            Add(device.JpegUtilizationPercent);
+            AddState(device.ProcessUtilizationQuery);
+            AddState(device.ProcessMemoryQuery);
+        }
+
+        foreach (var process in gpu.Processes)
+        {
+            AddState(process.Identity);
+            Add(process.SmUtilizationPercent);
+            Add(process.MemoryUtilizationPercent);
+            Add(process.EncoderUtilizationPercent);
+            Add(process.DecoderUtilizationPercent);
+            Add(process.ProcessMemoryBytes);
+            Add(process.DriverTimestampAdvanced);
+        }
         AddState(processEnumeration);
         AddState(processPriorityReader);
         AddState(processPageFaultReader);

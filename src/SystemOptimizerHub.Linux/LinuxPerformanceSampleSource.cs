@@ -19,6 +19,7 @@ public sealed class LinuxPerformanceSampleSource : IPerformanceSampleSource
             ProcessPriorityReader = MetricAvailability.NotSupported,
             ProcessIoReader = MetricAvailability.NotSupported,
             ProcessPageFaultReader = MetricAvailability.NotSupported,
+            Gpu = GpuRawSample.NotSupported(),
             IdentityUnreadableSkipped = 0
         };
     }

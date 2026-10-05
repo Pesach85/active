@@ -245,7 +245,9 @@ public class PerformanceCpuPolicyTests
             Repo("src", "SystemOptimizerHub.Core", "Performance", "PerformanceDiagnosisEngine.cs"),
             Repo("src", "SystemOptimizerHub.Core", "Performance", "PerformanceEvidenceCollector.cs"),
             Repo("src", "SystemOptimizerHub.Core", "Performance", "PerformanceEvidenceBuilder.cs"),
-            Repo("src", "SystemOptimizerHub.Windows", "WindowsDomainEvidenceReaders.cs")
+            Repo("src", "SystemOptimizerHub.Windows", "WindowsDomainEvidenceReaders.cs"),
+            Repo("src", "SystemOptimizerHub.Windows", "WindowsNvmlGpuReader.cs"),
+            Repo("src", "SystemOptimizerHub.Core", "Performance", "GpuEvidence.cs")
         };
         var forbidden = new[] { "SetPriorityClass", "PriorityClass =", "ApplyThrottleAsync", "Kill(", "TerminateAsync", "--apply" };
         foreach (var file in files)

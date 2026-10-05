@@ -6,25 +6,52 @@ using SystemOptimizerHub.Core.Performance;
 namespace SystemOptimizerHub.Windows;
 
 [SupportedOSPlatform("windows")]
-public sealed class WindowsPerformanceSampleSource : IPerformanceSampleSource
+public sealed class WindowsPerformanceSampleSource : IPerformanceSampleSource, IDisposable
 {
+    private readonly IGpuRawReader _gpu;
+
+    public WindowsPerformanceSampleSource()
+        : this(new WindowsNvmlGpuReader())
+    {
+    }
+
+    public WindowsPerformanceSampleSource(IGpuRawReader gpu)
+    {
+        _gpu = gpu ?? throw new ArgumentNullException(nameof(gpu));
+    }
+
+    public long GpuReadMillisecondsTotal { get; private set; }
+
+    public int GpuReadCount { get; private set; }
+
+    public void Dispose() => _gpu.Dispose();
+
     public PerformanceRawSample Capture(int maxProcesses, CancellationToken cancellationToken)
     {
         if (maxProcesses < 1 || maxProcesses > PerformanceEvidenceLimits.HardMaxProcesses)
             throw new ArgumentOutOfRangeException(nameof(maxProcesses));
         cancellationToken.ThrowIfCancellationRequested();
+        var timestamp = DateTimeOffset.UtcNow;
+        var processes = ReadProcesses(maxProcesses, cancellationToken, out var skipped);
+        cancellationToken.ThrowIfCancellationRequested();
+        var gpuWatch = Stopwatch.StartNew();
+        var gpu = _gpu.Read(cancellationToken, WindowsGpuProcessIdentity.Lookup);
+        gpuWatch.Stop();
+        GpuReadCount++;
+        GpuReadMillisecondsTotal += gpuWatch.ElapsedMilliseconds;
 
         return new PerformanceRawSample
         {
-            TimestampUtc = DateTimeOffset.UtcNow,
+            TimestampUtc = timestamp,
             LogicalProcessors = Environment.ProcessorCount > 0 ? Environment.ProcessorCount : null,
             Ram = WindowsMemoryStatusMapper.Read(),
             SystemCpu = WindowsSystemCpuReader.Read(),
-            Processes = ReadProcesses(maxProcesses, cancellationToken, out var skipped),
+            Processes = processes,
             ProcessEnumeration = MetricAvailability.Observed,
             ProcessPriorityReader = MetricAvailability.Observed,
             ProcessIoReader = MetricAvailability.Observed,
             ProcessPageFaultReader = MetricAvailability.Observed,
+            Gpu = gpu,
             IdentityUnreadableSkipped = skipped
         };
     }
