@@ -17,6 +17,8 @@ public sealed class LinuxPerformanceSampleSource : IPerformanceSampleSource
             Processes = [],
             ProcessEnumeration = MetricAvailability.NotSupported,
             ProcessPriorityReader = MetricAvailability.NotSupported,
+            ProcessIoReader = MetricAvailability.NotSupported,
+            ProcessPageFaultReader = MetricAvailability.NotSupported,
             IdentityUnreadableSkipped = 0
         };
     }

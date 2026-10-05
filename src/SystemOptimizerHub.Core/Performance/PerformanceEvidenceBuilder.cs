@@ -47,7 +47,11 @@ public static class PerformanceEvidenceBuilder
                 duration,
                 processors,
                 baseline.ProcessPriorityReader,
-                current.ProcessPriorityReader));
+                current.ProcessPriorityReader,
+                baseline.ProcessIoReader,
+                current.ProcessIoReader,
+                baseline.ProcessPageFaultReader,
+                current.ProcessPageFaultReader));
         }
 
         var enumeration = CombineEnumeration(samples.Select(sample => sample.ProcessEnumeration));
@@ -69,7 +73,10 @@ public static class PerformanceEvidenceBuilder
             LogicalProcessors = processors,
             SystemUtilizationPercent = SystemUtilization(baseline.SystemCpu, current.SystemCpu, duration, processors)
         };
-        var io = new IoEvidence();
+        var io = new IoEvidence
+        {
+            ProcessIoBytes = CombineReader(samples.Select(sample => sample.ProcessIoReader))
+        };
         var gpu = new GpuEvidence();
         return new PerformanceSnapshot
         {
@@ -87,6 +94,8 @@ public static class PerformanceEvidenceBuilder
             Gpu = gpu,
             ProcessEnumeration = enumeration,
             ProcessPriorityReader = CombinePriorityReader(samples.Select(sample => sample.ProcessPriorityReader)),
+            ProcessIoReader = CombineReader(samples.Select(sample => sample.ProcessIoReader)),
+            ProcessPageFaultReader = CombineReader(samples.Select(sample => sample.ProcessPageFaultReader)),
             ProcessTopConsumers = rows,
             AbsentFromCurrentSample = absent,
             AbsentFromIntermediateSample = intermediateGaps,
@@ -101,6 +110,7 @@ public static class PerformanceEvidenceBuilder
                 gpu,
                 enumeration,
                 CombinePriorityReader(samples.Select(sample => sample.ProcessPriorityReader)),
+                CombineReader(samples.Select(sample => sample.ProcessPageFaultReader)),
                 rows),
             MaxProcesses = maxProcesses,
             BaselineIdentityUnreadableSkipped = baseline.IdentityUnreadableSkipped,
@@ -146,7 +156,11 @@ public static class PerformanceEvidenceBuilder
         PerformanceMetric<double> duration,
         PerformanceMetric<int> processors,
         MetricAvailability baselinePriorityReader,
-        MetricAvailability currentPriorityReader)
+        MetricAvailability currentPriorityReader,
+        MetricAvailability baselineIoReader,
+        MetricAvailability currentIoReader,
+        MetricAvailability baselinePageFaultReader,
+        MetricAvailability currentPageFaultReader)
     {
         var start = now.StartTimeUtcTicks!.Value;
         var baselineCpu = MetricDouble(before?.CpuTimeSeconds);
@@ -179,6 +193,21 @@ public static class PerformanceEvidenceBuilder
             WorkingSetBytesBaseline = MetricLong(before?.WorkingSetBytes),
             WorkingSetBytes = MetricLong(now.WorkingSetBytes),
             PrivateBytes = MetricLong(now.PrivateBytes),
+            IoReadBytesBaseline = Cumulative(before?.IoReadBytes, baselineIoReader),
+            IoReadBytesCurrent = Cumulative(now.IoReadBytes, currentIoReader),
+            IoReadBytesDelta = DeltaLong(Cumulative(before?.IoReadBytes, baselineIoReader), Cumulative(now.IoReadBytes, currentIoReader)),
+            IoWriteBytesBaseline = Cumulative(before?.IoWriteBytes, baselineIoReader),
+            IoWriteBytesCurrent = Cumulative(now.IoWriteBytes, currentIoReader),
+            IoWriteBytesDelta = DeltaLong(Cumulative(before?.IoWriteBytes, baselineIoReader), Cumulative(now.IoWriteBytes, currentIoReader)),
+            IoReadOperationsBaseline = Cumulative(before?.IoReadOperations, baselineIoReader),
+            IoReadOperationsCurrent = Cumulative(now.IoReadOperations, currentIoReader),
+            IoReadOperationsDelta = DeltaLong(Cumulative(before?.IoReadOperations, baselineIoReader), Cumulative(now.IoReadOperations, currentIoReader)),
+            IoWriteOperationsBaseline = Cumulative(before?.IoWriteOperations, baselineIoReader),
+            IoWriteOperationsCurrent = Cumulative(now.IoWriteOperations, currentIoReader),
+            IoWriteOperationsDelta = DeltaLong(Cumulative(before?.IoWriteOperations, baselineIoReader), Cumulative(now.IoWriteOperations, currentIoReader)),
+            PageFaultCountBaseline = Cumulative(before?.PageFaultCount, baselinePageFaultReader),
+            PageFaultCountCurrent = Cumulative(now.PageFaultCount, currentPageFaultReader),
+            PageFaultCountDelta = DeltaLong(Cumulative(before?.PageFaultCount, baselinePageFaultReader), Cumulative(now.PageFaultCount, currentPageFaultReader)),
             Responding = now.Responding is null
                 ? PerformanceMetric<bool>.Unavailable()
                 : PerformanceMetric<bool>.Observed(now.Responding.Value),
@@ -289,6 +318,37 @@ public static class PerformanceEvidenceBuilder
 
     private static PerformanceMetric<long> MetricLong(long? value) =>
         value is null ? PerformanceMetric<long>.Unavailable() : PerformanceMetric<long>.Observed(value.Value);
+
+    private static PerformanceMetric<long> Cumulative(long? value, MetricAvailability reader)
+    {
+        if (reader == MetricAvailability.NotSupported)
+            return PerformanceMetric<long>.NotSupported();
+        if (reader == MetricAvailability.Unknown)
+            return PerformanceMetric<long>.Unknown();
+        if (reader == MetricAvailability.Unavailable || value is null)
+            return PerformanceMetric<long>.Unavailable();
+        return PerformanceMetric<long>.Observed(value.Value);
+    }
+
+    private static PerformanceMetric<long> DeltaLong(
+        PerformanceMetric<long> baseline,
+        PerformanceMetric<long> current)
+    {
+        if (baseline.Availability == MetricAvailability.NotSupported
+            && current.Availability == MetricAvailability.NotSupported)
+            return PerformanceMetric<long>.NotSupported();
+        if (baseline.Availability == MetricAvailability.Unknown || current.Availability == MetricAvailability.Unknown)
+            return PerformanceMetric<long>.Unknown();
+        if (baseline.Availability != MetricAvailability.Observed || current.Availability != MetricAvailability.Observed)
+            return PerformanceMetric<long>.Unavailable();
+        var delta = current.Value!.Value - baseline.Value!.Value;
+        if (delta < 0)
+            return PerformanceMetric<long>.Unknown();
+        return PerformanceMetric<long>.Observed(delta);
+    }
+
+    private static MetricAvailability CombineReader(IEnumerable<MetricAvailability> states) =>
+        CombinePriorityReader(states);
 
     private static PerformanceMetric<double> Delta(
         PerformanceMetric<double> baseline,
@@ -459,6 +519,7 @@ static class EvidenceQualityCounter
         GpuEvidence gpu,
         MetricAvailability processEnumeration,
         MetricAvailability processPriorityReader,
+        MetricAvailability processPageFaultReader,
         IReadOnlyList<ProcessPerformanceEvidence> processes)
     {
         var counts = new int[4];
@@ -485,6 +546,7 @@ static class EvidenceQualityCounter
         AddState(gpu.Thermal);
         AddState(processEnumeration);
         AddState(processPriorityReader);
+        AddState(processPageFaultReader);
         foreach (var row in processes)
         {
             AddState(row.ImagePathState);
@@ -496,6 +558,21 @@ static class EvidenceQualityCounter
             Add(row.WorkingSetBytesBaseline);
             Add(row.WorkingSetBytes);
             Add(row.PrivateBytes);
+            Add(row.IoReadBytesBaseline);
+            Add(row.IoReadBytesCurrent);
+            Add(row.IoReadBytesDelta);
+            Add(row.IoWriteBytesBaseline);
+            Add(row.IoWriteBytesCurrent);
+            Add(row.IoWriteBytesDelta);
+            Add(row.IoReadOperationsBaseline);
+            Add(row.IoReadOperationsCurrent);
+            Add(row.IoReadOperationsDelta);
+            Add(row.IoWriteOperationsBaseline);
+            Add(row.IoWriteOperationsCurrent);
+            Add(row.IoWriteOperationsDelta);
+            Add(row.PageFaultCountBaseline);
+            Add(row.PageFaultCountCurrent);
+            Add(row.PageFaultCountDelta);
             Add(row.Responding);
             Add(row.PriorityBaseline);
             Add(row.PriorityCurrent);

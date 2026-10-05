@@ -23,6 +23,8 @@ public sealed class WindowsPerformanceSampleSource : IPerformanceSampleSource
             Processes = ReadProcesses(maxProcesses, cancellationToken, out var skipped),
             ProcessEnumeration = MetricAvailability.Observed,
             ProcessPriorityReader = MetricAvailability.Observed,
+            ProcessIoReader = MetricAvailability.Observed,
+            ProcessPageFaultReader = MetricAvailability.Observed,
             IdentityUnreadableSkipped = skipped
         };
     }
@@ -177,6 +179,7 @@ public sealed class WindowsPerformanceSampleSource : IPerformanceSampleSource
         }
 
         var priority = WindowsProcessPriorityReader.Read(process);
+        var counters = WindowsProcessCounterReader.Read(process);
 
         string name;
         try
@@ -198,6 +201,11 @@ public sealed class WindowsPerformanceSampleSource : IPerformanceSampleSource
             WorkingSetBytes = workingSet,
             PrivateBytes = privateBytes,
             Responding = responding,
+            IoReadBytes = counters.ReadBytes,
+            IoWriteBytes = counters.WriteBytes,
+            IoReadOperations = counters.ReadOperations,
+            IoWriteOperations = counters.WriteOperations,
+            PageFaultCount = counters.PageFaults,
             Priority = priority.Availability,
             PriorityValue = priority.Value
         };
@@ -231,6 +239,23 @@ public static class WindowsMemoryStatusMapper
         };
     }
 
+    public static RamSample WithPagefile(RamSample mapped, PagefileObservation pagefile)
+    {
+        ArgumentNullException.ThrowIfNull(mapped);
+        return new RamSample
+        {
+            PhysicalObserved = mapped.PhysicalObserved,
+            TotalBytes = mapped.TotalBytes,
+            AvailableBytes = mapped.AvailableBytes,
+            CommitObserved = mapped.CommitObserved,
+            CommitLimitBytes = mapped.CommitLimitBytes,
+            CommitAvailableBytes = mapped.CommitAvailableBytes,
+            Pagefile = pagefile.Availability,
+            PagefileTotalBytes = pagefile.Availability == MetricAvailability.Observed ? pagefile.TotalBytes : 0,
+            PagefileAvailableBytes = pagefile.Availability == MetricAvailability.Observed ? pagefile.AvailableBytes : 0
+        };
+    }
+
     [SupportedOSPlatform("windows")]
     public static RamSample Read()
     {
@@ -238,12 +263,13 @@ public static class WindowsMemoryStatusMapper
         if (!GlobalMemoryStatusEx(ref status))
             return Map(new WindowsMemoryStatus(false, 0, 0, 0, 0));
 
-        return Map(new WindowsMemoryStatus(
+        var mapped = Map(new WindowsMemoryStatus(
             true,
             status.ullTotalPhys,
             status.ullAvailPhys,
             status.ullTotalPageFile,
             status.ullAvailPageFile));
+        return WithPagefile(mapped, WindowsPagefileReader.Read());
     }
 
     [StructLayout(LayoutKind.Sequential)]

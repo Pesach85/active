@@ -90,6 +90,36 @@ public sealed class ProcessPerformanceEvidence
 
     public PerformanceMetric<long> PrivateBytes { get; init; } = PerformanceMetric<long>.Unavailable();
 
+    public PerformanceMetric<long> IoReadBytesBaseline { get; init; } = PerformanceMetric<long>.NotSupported();
+
+    public PerformanceMetric<long> IoReadBytesCurrent { get; init; } = PerformanceMetric<long>.NotSupported();
+
+    public PerformanceMetric<long> IoReadBytesDelta { get; init; } = PerformanceMetric<long>.NotSupported();
+
+    public PerformanceMetric<long> IoWriteBytesBaseline { get; init; } = PerformanceMetric<long>.NotSupported();
+
+    public PerformanceMetric<long> IoWriteBytesCurrent { get; init; } = PerformanceMetric<long>.NotSupported();
+
+    public PerformanceMetric<long> IoWriteBytesDelta { get; init; } = PerformanceMetric<long>.NotSupported();
+
+    public PerformanceMetric<long> IoReadOperationsBaseline { get; init; } = PerformanceMetric<long>.NotSupported();
+
+    public PerformanceMetric<long> IoReadOperationsCurrent { get; init; } = PerformanceMetric<long>.NotSupported();
+
+    public PerformanceMetric<long> IoReadOperationsDelta { get; init; } = PerformanceMetric<long>.NotSupported();
+
+    public PerformanceMetric<long> IoWriteOperationsBaseline { get; init; } = PerformanceMetric<long>.NotSupported();
+
+    public PerformanceMetric<long> IoWriteOperationsCurrent { get; init; } = PerformanceMetric<long>.NotSupported();
+
+    public PerformanceMetric<long> IoWriteOperationsDelta { get; init; } = PerformanceMetric<long>.NotSupported();
+
+    public PerformanceMetric<long> PageFaultCountBaseline { get; init; } = PerformanceMetric<long>.NotSupported();
+
+    public PerformanceMetric<long> PageFaultCountCurrent { get; init; } = PerformanceMetric<long>.NotSupported();
+
+    public PerformanceMetric<long> PageFaultCountDelta { get; init; } = PerformanceMetric<long>.NotSupported();
+
     public PerformanceMetric<bool> Responding { get; init; } = PerformanceMetric<bool>.Unavailable();
 
     public PerformanceMetric<ObservedProcessPriority> PriorityBaseline { get; init; } =
@@ -174,6 +204,10 @@ public sealed class PerformanceSnapshot
     public MetricAvailability ProcessEnumeration { get; init; }
 
     public MetricAvailability ProcessPriorityReader { get; init; } = MetricAvailability.NotSupported;
+
+    public MetricAvailability ProcessIoReader { get; init; } = MetricAvailability.NotSupported;
+
+    public MetricAvailability ProcessPageFaultReader { get; init; } = MetricAvailability.NotSupported;
 
     public IReadOnlyList<ProcessPerformanceEvidence> ProcessTopConsumers { get; init; } = [];
 

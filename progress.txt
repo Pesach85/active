@@ -4,6 +4,7 @@
 - [x] Definizione dello Stack Tecnologico
 - Stack rilevato: C#/.NET
 ## Task Correnti
+- [x] Domain evidence for process I/O, page faults, and pagefile
 - [x] Four-sample / three-interval performance persistence window
 - [x] TuneExclusions post-state verification
 - [x] TuneExclusions fail-closed when the initial exclusion read fails

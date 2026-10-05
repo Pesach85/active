@@ -67,6 +67,16 @@ public sealed class ProcessRawObservation
 
     public bool? Responding { get; init; }
 
+    public long? IoReadBytes { get; init; }
+
+    public long? IoWriteBytes { get; init; }
+
+    public long? IoReadOperations { get; init; }
+
+    public long? IoWriteOperations { get; init; }
+
+    public long? PageFaultCount { get; init; }
+
     public MetricAvailability Priority { get; init; } = MetricAvailability.Unavailable;
 
     public ObservedProcessPriority? PriorityValue { get; init; }
@@ -87,6 +97,10 @@ public sealed class PerformanceRawSample
     public MetricAvailability ProcessEnumeration { get; init; } = MetricAvailability.Observed;
 
     public MetricAvailability ProcessPriorityReader { get; init; } = MetricAvailability.NotSupported;
+
+    public MetricAvailability ProcessIoReader { get; init; } = MetricAvailability.NotSupported;
+
+    public MetricAvailability ProcessPageFaultReader { get; init; } = MetricAvailability.NotSupported;
 
     public int IdentityUnreadableSkipped { get; init; }
 }
