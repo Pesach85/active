@@ -14,12 +14,16 @@ public static class PerformanceEvidenceCollector
         if (maxProcesses < 1 || maxProcesses > PerformanceEvidenceLimits.HardMaxProcesses)
             throw new ArgumentOutOfRangeException(nameof(maxProcesses));
 
-        cancellationToken.ThrowIfCancellationRequested();
-        var baseline = source.Capture(maxProcesses, cancellationToken);
-        if (interval > TimeSpan.Zero)
-            await Task.Delay(interval, cancellationToken).ConfigureAwait(false);
-        cancellationToken.ThrowIfCancellationRequested();
-        var current = source.Capture(maxProcesses, cancellationToken);
-        return PerformanceEvidenceBuilder.Build(baseline, current, maxProcesses);
+        var samples = new List<PerformanceRawSample>(PerformanceDiagnosisPolicy.ApprovedMinimumSamples);
+        for (var index = 0; index < PerformanceDiagnosisPolicy.ApprovedMinimumSamples; index++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (index > 0 && interval > TimeSpan.Zero)
+                await Task.Delay(interval, cancellationToken).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+            samples.Add(source.Capture(maxProcesses, cancellationToken));
+        }
+
+        return PerformanceEvidenceBuilder.Build(samples, maxProcesses);
     }
 }
