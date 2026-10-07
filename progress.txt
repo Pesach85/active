@@ -13,3 +13,6 @@
 - [x] KillConnection reports ConnectionReset only when the exact target is absent after the attempt
 - [x] BlockRemoteIp and TerminateProcess prove post-state before success
 - [x] TerminateProcess network kill pins the open process handle before Kill
+- [x] WHEA dual-channel FASE 0 baseline (read-only) → artifacts/whea-dualchannel-20261007/
+- [ ] WHEA dual-channel FASE 1 event forensics (await user resume after F0 stop)
+- [ ] WHEA dual-channel FASE 2–6 (mapping, MemTest ingest, A/B HITL, decision matrix)

@@ -1,3 +1,17 @@
+## 2026-10-07 — WHEA dual-channel FASE 0 baseline (Inspiron 7577)
+
+### Obiettivo
+Baseline read-only post passaggio a 2× SODIMM: inventory DIMM, BCD `{badmemory}`, Secure Boot, WinSAT mem ×3. Nessuna modifica BCD/BIOS.
+
+### Misure chiave
+- 2× SK hynix `HMA82GS6AFR8N-UH` 16 GB @ 2400 (DIMM A BANK 0 + DIMM B BANK 2) — **non** più Samsung/Micron del brief
+- Secure Boot **OFF** (misurato); badmemorylist **722 PFN** `0x2a95ef..0x2a9b17` invariata vs phase-2
+- WinSAT `mem -v` mean **26.74 ± 1.80 GB/s** (formal `-formal` rifiutato su 26100); vs storico formal ~14.54 GB/s → evidenza dual-channel
+- Artifact: `artifacts/whea-dualchannel-20261007/00_baseline.{json,md}`
+
+### Esito
+FASE 0 chiusa; stop HITL. Prossimo: FASE 1 forensics WHEA pre/post. HWiNFO Channels Dual = NON MISURATO (screenshot utente).
+
 ## 2026-09-14 — R.1 Throttle handle-stable + CLI wiring + GUI Home + EXE policy
 
 ### Obiettivo
