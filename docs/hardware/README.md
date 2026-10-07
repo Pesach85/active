@@ -18,4 +18,5 @@ Documentazione correlata:
 | 2026-10-07 | FASE 2 mapping analysis (read-only) | [`../../artifacts/whea-dualchannel-20261007/02_mapping_analysis.md`](../../artifacts/whea-dualchannel-20261007/02_mapping_analysis.md) — PFN single-ch stantia in dual; 2.82 MB false-confidence risk |
 | 2026-10-07 | HITL script gate + soak plan (proposed) | `scripts/proposed/Restore-KernelWheaErrors-HITL.ps1`, `Validate-SoakGate.ps1`, [`04_soak_ab_plan_proposed.md`](../../artifacts/whea-dualchannel-20261007/04_soak_ab_plan_proposed.md) |
 | 2026-10-07 | Soak A early eval | Gate PASS; ID20/HWiNFO ≫300; ESCALATION_PROVVISORIA; isolamento 1h×3 proposto; canale circular cieco su 10min |
+| 2026-10-07 | Soak A CLOSED | ESCALATION CONFERMATA W0–W2 OOM=6; [`04_soak_ab_plan_proposed.md`](../../artifacts/whea-dualchannel-20261007/04_soak_ab_plan_proposed.md); scheda [`05_isolation_run_card.md`](../../artifacts/whea-dualchannel-20261007/05_isolation_run_card.md) |
 | 2026-10-07 | FASE 3 MemTest chiusa | [`03_memtest_coverage.md`](../../artifacts/whea-dualchannel-20261007/03_memtest_coverage.md) — MemTest86 PASS su i3-6100U (celle OK; non IMC Inspiron); pass/errori/data NON MISURATO accettati |
