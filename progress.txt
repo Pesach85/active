@@ -20,4 +20,5 @@
 - [x] HITL Restore-KernelWheaErrors-HITL.ps1 blocking export gate + Validate-SoakGate (not -Execute)
 - [x] WHEA dual-channel FASE 3 MemTest chiusa — PASS off-machine i3-6100U (celle); no further MemTest unless soak A over threshold
 - [x] Soak 24h ON/OFF plan proposed → 04_soak_ab_plan_proposed.md (orari PENDING)
-- [ ] WAIT user: Restore-HITL -Execute → HWiNFO → Validate-SoakGate PASS → update soak A times
+- [x] Restore-HITL -Execute DONE t0=2026-10-07T21:41:12+02 Circular OK; ID20 writing again (storm)
+- [ ] WAIT: HWiNFO CSV logging → Validate-SoakGate PASS → start soak A clock
