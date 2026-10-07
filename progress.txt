@@ -17,4 +17,7 @@
 - [x] WHEA dual-channel FASE 1 event forensics → 01_summary.md / 01_events.csv (stop HITL)
 - [x] WHEA dual-channel FASE 1b proposed channel restore + HWiNFO CSV (NOT executed)
 - [x] WHEA dual-channel FASE 2 mapping analysis → 02_mapping_analysis.md
-- [ ] WHEA dual-channel FASE 3–6 (MemTest ingest, A/B HITL, decision matrix)
+- [x] HITL Restore-KernelWheaErrors-HITL.ps1 blocking export gate + Validate-SoakGate (not -Execute)
+- [x] WHEA dual-channel FASE 3 MemTest ingest → 03_memtest_coverage.md (no reports in repo)
+- [x] Soak 24h ON/OFF plan proposed → 04_soak_ab_plan_proposed.md
+- [ ] WHEA dual-channel FASE 4–6 after user restore + gate PASS + MemTest data

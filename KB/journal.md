@@ -1,3 +1,16 @@
+## 2026-10-07 — WHEA HITL restore script + FASE 3 MemTest + soak plan
+
+### Obiettivo
+Script restore con gate bloccante pre-`cl` (3456 ID20); gate soak Circular+HWiNFO; ingest MemTest; piano A/B proposto.
+
+### Deliverable
+- `scripts/proposed/Restore-KernelWheaErrors-HITL.ps1` (agente: solo simulazione, no `-Execute`)
+- `Validate-SoakGate.ps1`; `04_soak_ab_plan_proposed.md`
+- `03_memtest_coverage.md`: zero report in repo → tutto NON MISURATO; chiedere dati utente o `NESSUN RUN`
+
+### Esito
+Nessun mutate canale/BCD dall’agente. Prossimo: utente esegue `-Execute` + HWiNFO + Validate-SoakGate.
+
 ## 2026-10-07 — WHEA dual-channel FASE 1b + FASE 2
 
 ### Obiettivo
