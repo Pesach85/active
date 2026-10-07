@@ -1,3 +1,16 @@
+## 2026-10-07 — WHEA FASE 3 chiusura MemTest86 off-machine
+
+### Obiettivo
+Chiudere FASE 3 con dichiarazione utente: MemTest86 PASS su i3-6100U.
+
+### Registro
+- Valido per celle moduli Hynix; **non** per IMC/slot Inspiron 7577
+- Pass / errori / data: NON MISURATO accettati
+- No ulteriori MemTest salvo soak A sopra soglia → allora minimo 1 pass + per slot
+
+### Next
+Attesa HITL: utente `-Execute` restore + Validate-SoakGate; a PASS aggiornare orari in `04_soak_ab_plan_proposed.md`.
+
 ## 2026-10-07 — WHEA HITL restore script + FASE 3 MemTest + soak plan
 
 ### Obiettivo
@@ -6,7 +19,7 @@ Script restore con gate bloccante pre-`cl` (3456 ID20); gate soak Circular+HWiNF
 ### Deliverable
 - `scripts/proposed/Restore-KernelWheaErrors-HITL.ps1` (agente: solo simulazione, no `-Execute`)
 - `Validate-SoakGate.ps1`; `04_soak_ab_plan_proposed.md`
-- `03_memtest_coverage.md`: zero report in repo → tutto NON MISURATO; chiedere dati utente o `NESSUN RUN`
+- `03_memtest_coverage.md`: poi chiusa con PASS i3-6100U (voce journal successiva)
 
 ### Esito
 Nessun mutate canale/BCD dall’agente. Prossimo: utente esegue `-Execute` + HWiNFO + Validate-SoakGate.

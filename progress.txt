@@ -18,6 +18,6 @@
 - [x] WHEA dual-channel FASE 1b proposed channel restore + HWiNFO CSV (NOT executed)
 - [x] WHEA dual-channel FASE 2 mapping analysis → 02_mapping_analysis.md
 - [x] HITL Restore-KernelWheaErrors-HITL.ps1 blocking export gate + Validate-SoakGate (not -Execute)
-- [x] WHEA dual-channel FASE 3 MemTest ingest → 03_memtest_coverage.md (no reports in repo)
-- [x] Soak 24h ON/OFF plan proposed → 04_soak_ab_plan_proposed.md
-- [ ] WHEA dual-channel FASE 4–6 after user restore + gate PASS + MemTest data
+- [x] WHEA dual-channel FASE 3 MemTest chiusa — PASS off-machine i3-6100U (celle); no further MemTest unless soak A over threshold
+- [x] Soak 24h ON/OFF plan proposed → 04_soak_ab_plan_proposed.md (orari PENDING)
+- [ ] WAIT user: Restore-HITL -Execute → HWiNFO → Validate-SoakGate PASS → update soak A times
