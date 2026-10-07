@@ -22,5 +22,6 @@
 - [x] Soak 24h ON/OFF plan proposed → 04_soak_ab_plan_proposed.md (orari PENDING)
 - [x] Restore-HITL -Execute DONE t0=2026-10-07T21:41:12+02 Circular OK; ID20 writing again (storm)
 - [x] Validate-SoakGate PASS 2026-10-07T21:52:38+02 — Soak A started; end planned 2026-10-08T21:52:38+02
-- [x] Soak A early-exit rule + first 30min eval (ESCALATION_PROVVISORIA; isolation proposed; soak continues)
-- [ ] Next 30min eval / formal ESCALATION if ≥3 windows >300/10min + load
+- [x] Soak A metric = HWiNFO Tot+L1 deltas; ID20/gate685 not a rate; dossier abs thresholds N/A
+- [x] Soak windows from 21:52:38 computed — ESCALATION NOT confirmed (CSV gap ~10min); soak CONTINUES
+- [ ] Next: 3 complete post-gap 10min windows → possible ESCALATION CONFERMATA + stop A
