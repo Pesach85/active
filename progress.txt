@@ -15,4 +15,6 @@
 - [x] TerminateProcess network kill pins the open process handle before Kill
 - [x] WHEA dual-channel FASE 0 baseline (read-only) → artifacts/whea-dualchannel-20261007/
 - [x] WHEA dual-channel FASE 1 event forensics → 01_summary.md / 01_events.csv (stop HITL)
-- [ ] WHEA dual-channel FASE 2–6 (mapping, MemTest ingest, A/B HITL, decision matrix)
+- [x] WHEA dual-channel FASE 1b proposed channel restore + HWiNFO CSV (NOT executed)
+- [x] WHEA dual-channel FASE 2 mapping analysis → 02_mapping_analysis.md
+- [ ] WHEA dual-channel FASE 3–6 (MemTest ingest, A/B HITL, decision matrix)

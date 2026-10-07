@@ -1,3 +1,18 @@
+## 2026-10-07 — WHEA dual-channel FASE 1b + FASE 2
+
+### Obiettivo
+1b: dichiarare STRUMENTO CIECO e proporre (non eseguire) ripristino canale + HWiNFO CSV.  
+2: documentare disallineamento PFN single-channel vs dual-channel.
+
+### Misure / deliverable
+- `wevtutil sl/cl/epl /?` catturati; gl ancora retention=true maxSize=8MiB (nessuna mutate)
+- `scripts/proposed/`: Export/Restore/Rollback/Validate + HWiNFO procedure
+- Gate misura valida prima di ogni soak
+- `02_mapping_analysis.md`: interleave ⇒ lista stantia; 2.82 MB impatto trascurabile, rischio falsa sicurezza
+
+### Esito
+1b e 2 chiusi; stop HITL. Nessun BCD/wevtutil mutate. Prossimo: FASE 3 MemTest ingest su richiesta.
+
 ## 2026-10-07 — WHEA dual-channel FASE 1 forensics (Inspiron 7577)
 
 ### Obiettivo
