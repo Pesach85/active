@@ -1,3 +1,18 @@
+## 2026-10-07 — WHEA dual-channel FASE 1 forensics (Inspiron 7577)
+
+### Obiettivo
+Forensics Event Log read-only post dual Hynix; tre periodi (a Micron storico / b transitorio / c Hynix dual); H3 ritirata → H3′.
+
+### Misure chiave
+- WHEA-Logger System: 0 eventi trattenuti; Kernel-WHEA/Errors Retain pieno: 3456× ID20 solo 2026-05-12T13:05:59 (0,221 s); Operational = ID5/42 boot-info
+- Periodo (a) da `logs/*`: 838→469→786 (swap)→136 (expand 722 PFN); (b) NON MISURATO; (c) ID20 osservato 0 con uptime ~42 min → **NON CONCLUSIVO**
+- CPER RawData presente, physaddr named fields assenti → dentro/fuori badmemorylist NON DECODIFICATO
+- Secure Boot OFF ora; ultimo ON repo 2026-05-04; **quando cambiato = NON MISURATO**
+- Artifact: `01_summary.md`, `01_events.csv`, `01_events_period_comparison.csv`
+
+### Esito
+FASE 1 chiusa; stop. Nessun BCD write. Prossimo: FASE 2 mapping (su richiesta).
+
 ## 2026-10-07 — WHEA dual-channel FASE 0 baseline (Inspiron 7577)
 
 ### Obiettivo
