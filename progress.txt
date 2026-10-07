@@ -25,4 +25,6 @@
 - [x] Soak A metric = HWiNFO Tot+L1 deltas; ID20/gate685 not a rate; dossier abs thresholds N/A
 - [x] Soak windows re-anchored at log restart 22:10:11; gap=stop manuale utente (not instability)
 - [x] Eval ~22:35: W0+W1 complete storm OOM=6; W2 incomplete — ESCALATION NOT confirmed; soak A CONTINUES
-- [ ] Next eval ~22:40:11 — if W2 complete + storm OOM=6 → ESCALATION CONFERMATA + stop A
+- [x] Eval ~22:41: W2 complete — ESCALATION CONFERMATA W0-W2 OOM=6; Soak A STOPPED_EARLY
+- [x] Isolation card → 05_isolation_run_card.md (HITL; no BCD/BIOS)
+- [ ] WAIT HITL isolation I1 A@slot1 → I2 A@slot2 → I3 B@slot1
