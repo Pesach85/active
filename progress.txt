@@ -28,4 +28,6 @@
 - [x] Eval ~22:41: W2 complete — ESCALATION CONFERMATA W0-W2 OOM=6; Soak A STOPPED_EARLY
 - [x] Isolation card → 05_isolation_run_card.md (HITL; no BCD/BIOS)
 - [x] Isolation card v2: SN map, post-boot precheck, E1–E4, ESD/Dell SM, abort
-- [ ] WAIT HITL isolation I1 A@slot1 → I2 A@slot2 → I3 B@slot1
+- [x] H-D1 FASE 0 inventory → driver_test/00_inventory.{json,md} (read-only)
+- [ ] H-D1 FASE 1 timeline (next)
+- [ ] WAIT HITL isolation I1 A@slot1 → I2 A@slot2 → I3 B@slot1 (track separato)
