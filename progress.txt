@@ -29,5 +29,6 @@
 - [x] Isolation card → 05_isolation_run_card.md (HITL; no BCD/BIOS)
 - [x] Isolation card v2: SN map, post-boot precheck, E1–E4, ESD/Dell SM, abort
 - [x] H-D1 FASE 0 inventory → driver_test/00_inventory.{json,md} (read-only)
-- [ ] H-D1 FASE 1 timeline (next)
+- [x] H-D1 FASE 1 timeline → driver_test/01_timeline.md (T0=2026-05-04; XTU post-T0; C: ~0.6GB RISK)
+- [ ] H-D1 FASE 2 safety net — BLOCKED until C: freed + HITL confirm
 - [ ] WAIT HITL isolation I1 A@slot1 → I2 A@slot2 → I3 B@slot1 (track separato)
