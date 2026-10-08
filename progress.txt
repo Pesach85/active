@@ -30,5 +30,6 @@
 - [x] Isolation card v2: SN map, post-boot precheck, E1–E4, ESD/Dell SM, abort
 - [x] H-D1 FASE 0 inventory → driver_test/00_inventory.{json,md} (read-only)
 - [x] H-D1 FASE 1 timeline → driver_test/01_timeline.md (T0=2026-05-04; XTU post-T0; C: ~0.6GB RISK)
-- [ ] H-D1 FASE 2 safety net — BLOCKED until C: freed + HITL confirm
-- [ ] WAIT HITL isolation I1 A@slot1 → I2 A@slot2 → I3 B@slot1 (track separato)
+- [x] H-D1 FASE 1 follow-up: WU Mar-May + PNF Apr20=REINSTALL_UNLIKELY; PAUSE → 01b_followup_pause.md
+- [ ] H-D1 FASE 2–4 BLOCKED until C: ~10-15GB free AND isolation I1-I3 done; reopen only on E1 (DPTF first)
+- [ ] NEXT OPS: isolamento fisico I1 A@slot1 → I2 A@slot2 → I3 B@slot1 (scheda 05)
