@@ -54,3 +54,8 @@ MANIFEST.txt
 /mobile/android/local.properties
 /dist/android/
 /dist/installer/
+
+# History rewrite 2026-10-19: keep runtime logs and WHEA campaign artifacts off the public tree
+/logs/
+/dist/**/logs/
+/artifacts/whea-*/
